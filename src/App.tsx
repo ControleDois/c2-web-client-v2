@@ -1,0 +1,447 @@
+import { useState, type ReactNode } from 'react'
+import { LoginPage } from './pages/LoginPage'
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
+import { SignupPage } from './pages/SignupPage'
+import { CompanySelectionPage } from './pages/CompanySelectionPage'
+import { DashboardPage } from './pages/DashboardPage'
+import { PeoplePage } from './pages/PeoplePage'
+import { PeopleFormPage } from './pages/PeopleFormPage'
+import { VehiclesPage } from './pages/VehiclesPage'
+import { VehicleFormPage } from './pages/VehicleFormPage'
+import { TowingSalesPage } from './pages/TowingSalesPage'
+import { TowingSaleFormPage } from './pages/TowingSaleFormPage'
+import { BankAccountsPage } from './pages/BankAccountsPage'
+import { BankAccountFormPage } from './pages/BankAccountFormPage'
+import { CategoriesPage } from './pages/CategoriesPage'
+import { CategoryFormPage } from './pages/CategoryFormPage'
+import { CostCentersPage } from './pages/CostCentersPage'
+import { CostCenterFormPage } from './pages/CostCenterFormPage'
+import { BillsPage } from './pages/BillsPage'
+import { BillFormPage } from './pages/BillFormPage'
+import { UsersPage } from './pages/UsersPage'
+import { UserFormPage } from './pages/UserFormPage'
+import { CompaniesPage } from './pages/CompaniesPage'
+import { CompanyFormPage } from './pages/CompanyFormPage'
+import { WhatsappApiPage } from './pages/WhatsappApiPage'
+import { ConfigPage } from './pages/ConfigPage'
+import { ContractTemplatesPage } from './pages/ContractTemplatesPage'
+import { ContractTemplateFormPage } from './pages/ContractTemplateFormPage'
+import { RolesPage } from './pages/RolesPage'
+import { RoleFormPage } from './pages/RoleFormPage'
+import { PermissionsPage } from './pages/PermissionsPage'
+import { PermissionFormPage } from './pages/PermissionFormPage'
+import { CompanyGroupsPage } from './pages/CompanyGroupsPage'
+import { CompanyGroupFormPage } from './pages/CompanyGroupFormPage'
+import { AuditLogsPage } from './pages/AuditLogsPage'
+import { VehicleInspectionsPage } from './pages/VehicleInspectionsPage'
+import { TowingCollectionPage } from './pages/TowingCollectionPage'
+import { TowingBillingReportPage } from './pages/TowingBillingReportPage'
+import { AppShell, type AppPage } from './components/layout/AppShell'
+import { ThemeToggle } from './components/ThemeToggle'
+import { useEntityView } from './hooks/useEntityView'
+import {
+  loadSession,
+  saveSession,
+  clearSession,
+  loadActiveCompany,
+  saveActiveCompany,
+  clearActiveCompany,
+  getUserCompanies,
+  type AuthSession,
+  type AuthCompany,
+} from './lib/auth'
+
+type Screen = 'login' | 'forgot-password' | 'signup'
+
+function App() {
+  const [session, setSession] = useState<AuthSession | null>(() => loadSession())
+  const [activeCompany, setActiveCompany] = useState<AuthCompany | null>(() => loadActiveCompany())
+  const [screen, setScreen] = useState<Screen>('login')
+  const [page, setPage] = useState<AppPage>('dashboard')
+
+  const peopleView = useEntityView()
+  const vehiclesView = useEntityView()
+  const towingSalesView = useEntityView()
+  const bankAccountsView = useEntityView()
+  const categoriesView = useEntityView()
+  const costCentersView = useEntityView()
+  const billsPayableView = useEntityView()
+  const billsReceivableView = useEntityView()
+  const usersView = useEntityView()
+  const companiesView = useEntityView()
+  const contractTemplatesView = useEntityView()
+  const rolesView = useEntityView()
+  const permissionsView = useEntityView()
+  const companyGroupsView = useEntityView()
+
+  const entityViews = {
+    people: peopleView,
+    vehicles: vehiclesView,
+    'towing-sales': towingSalesView,
+    'bank-accounts': bankAccountsView,
+    categories: categoriesView,
+    'cost-centers': costCentersView,
+    'bills-payable': billsPayableView,
+    'bills-receivable': billsReceivableView,
+    users: usersView,
+    companies: companiesView,
+    'contract-templates': contractTemplatesView,
+    roles: rolesView,
+    permissions: permissionsView,
+    'company-groups': companyGroupsView,
+  } as const
+
+  function handleLoginSuccess(newSession: AuthSession) {
+    saveSession(newSession)
+    setSession(newSession)
+
+    const companies = getUserCompanies(newSession)
+    if (companies.length === 1) {
+      saveActiveCompany(companies[0])
+      setActiveCompany(companies[0])
+    }
+  }
+
+  function handleSelectCompany(company: AuthCompany) {
+    saveActiveCompany(company)
+    setActiveCompany(company)
+  }
+
+  function resetAllViews() {
+    Object.values(entityViews).forEach((view) => view.reset())
+  }
+
+  function handleSwitchCompany() {
+    clearActiveCompany()
+    setActiveCompany(null)
+    setPage('dashboard')
+    resetAllViews()
+  }
+
+  function handleLogout() {
+    clearSession()
+    setSession(null)
+    setActiveCompany(null)
+    setScreen('login')
+    setPage('dashboard')
+    resetAllViews()
+  }
+
+  function handleNavigate(nextPage: AppPage) {
+    setPage(nextPage)
+    if (nextPage in entityViews) {
+      entityViews[nextPage as keyof typeof entityViews].reset()
+    }
+  }
+
+  let content: ReactNode
+
+  if (session && activeCompany) {
+    let pageContent: ReactNode
+
+    if (page === 'people') {
+      pageContent =
+        peopleView.view.mode === 'form' ? (
+          <PeopleFormPage
+            session={session}
+            company={activeCompany}
+            personId={peopleView.view.id}
+            onBack={peopleView.reset}
+            onSaved={peopleView.reset}
+          />
+        ) : (
+          <PeoplePage session={session} company={activeCompany} onCreate={peopleView.create} onEdit={(p) => peopleView.edit(p.id)} />
+        )
+    } else if (page === 'vehicles') {
+      pageContent =
+        vehiclesView.view.mode === 'form' ? (
+          <VehicleFormPage
+            session={session}
+            company={activeCompany}
+            vehicleId={vehiclesView.view.id}
+            onBack={vehiclesView.reset}
+            onSaved={vehiclesView.reset}
+          />
+        ) : (
+          <VehiclesPage
+            session={session}
+            company={activeCompany}
+            onCreate={vehiclesView.create}
+            onEdit={(v) => vehiclesView.edit(v.id)}
+          />
+        )
+    } else if (page === 'towing-sales') {
+      pageContent =
+        towingSalesView.view.mode === 'form' ? (
+          <TowingSaleFormPage
+            session={session}
+            company={activeCompany}
+            saleId={towingSalesView.view.id}
+            onBack={towingSalesView.reset}
+            onSaved={towingSalesView.reset}
+          />
+        ) : (
+          <TowingSalesPage
+            session={session}
+            company={activeCompany}
+            onCreate={towingSalesView.create}
+            onEdit={(sale) => towingSalesView.edit(sale.id)}
+          />
+        )
+    } else if (page === 'bank-accounts') {
+      pageContent =
+        bankAccountsView.view.mode === 'form' ? (
+          <BankAccountFormPage
+            session={session}
+            company={activeCompany}
+            accountId={bankAccountsView.view.id}
+            onBack={bankAccountsView.reset}
+            onSaved={bankAccountsView.reset}
+          />
+        ) : (
+          <BankAccountsPage
+            session={session}
+            company={activeCompany}
+            onCreate={bankAccountsView.create}
+            onEdit={(account) => bankAccountsView.edit(account.id)}
+          />
+        )
+    } else if (page === 'categories') {
+      pageContent =
+        categoriesView.view.mode === 'form' ? (
+          <CategoryFormPage
+            session={session}
+            company={activeCompany}
+            categoryId={categoriesView.view.id}
+            onBack={categoriesView.reset}
+            onSaved={categoriesView.reset}
+          />
+        ) : (
+          <CategoriesPage
+            session={session}
+            company={activeCompany}
+            onCreate={categoriesView.create}
+            onEdit={(category) => categoriesView.edit(category.id)}
+          />
+        )
+    } else if (page === 'cost-centers') {
+      pageContent =
+        costCentersView.view.mode === 'form' ? (
+          <CostCenterFormPage
+            session={session}
+            company={activeCompany}
+            costCenterId={costCentersView.view.id}
+            onBack={costCentersView.reset}
+            onSaved={costCentersView.reset}
+          />
+        ) : (
+          <CostCentersPage
+            session={session}
+            company={activeCompany}
+            onCreate={costCentersView.create}
+            onEdit={(item) => costCentersView.edit(item.id)}
+          />
+        )
+    } else if (page === 'bills-payable') {
+      pageContent =
+        billsPayableView.view.mode === 'form' ? (
+          <BillFormPage
+            session={session}
+            company={activeCompany}
+            role={0}
+            billId={billsPayableView.view.id}
+            onBack={billsPayableView.reset}
+            onSaved={billsPayableView.reset}
+          />
+        ) : (
+          <BillsPage
+            session={session}
+            company={activeCompany}
+            role={0}
+            onCreate={billsPayableView.create}
+            onEdit={(bill) => billsPayableView.edit(bill.id)}
+          />
+        )
+    } else if (page === 'bills-receivable') {
+      pageContent =
+        billsReceivableView.view.mode === 'form' ? (
+          <BillFormPage
+            session={session}
+            company={activeCompany}
+            role={1}
+            billId={billsReceivableView.view.id}
+            onBack={billsReceivableView.reset}
+            onSaved={billsReceivableView.reset}
+          />
+        ) : (
+          <BillsPage
+            session={session}
+            company={activeCompany}
+            role={1}
+            onCreate={billsReceivableView.create}
+            onEdit={(bill) => billsReceivableView.edit(bill.id)}
+          />
+        )
+    } else if (page === 'users') {
+      pageContent =
+        usersView.view.mode === 'form' ? (
+          <UserFormPage
+            session={session}
+            company={activeCompany}
+            userId={usersView.view.id}
+            onBack={usersView.reset}
+            onSaved={usersView.reset}
+          />
+        ) : (
+          <UsersPage
+            session={session}
+            company={activeCompany}
+            onBack={() => handleNavigate('dashboard')}
+            onCreate={usersView.create}
+            onEdit={(user) => user.user?.id && usersView.edit(user.user.id)}
+          />
+        )
+    } else if (page === 'companies') {
+      pageContent =
+        companiesView.view.mode === 'form' ? (
+          <CompanyFormPage
+            session={session}
+            companyId={companiesView.view.id}
+            onBack={companiesView.reset}
+            onSaved={companiesView.reset}
+          />
+        ) : (
+          <CompaniesPage
+            session={session}
+            onBack={() => handleNavigate('dashboard')}
+            onCreate={companiesView.create}
+            onEdit={(company) => companiesView.edit(company.id)}
+          />
+        )
+    } else if (page === 'whatsapp-api') {
+      pageContent = <WhatsappApiPage session={session} company={activeCompany} />
+    } else if (page === 'config') {
+      pageContent = <ConfigPage session={session} company={activeCompany} />
+    } else if (page === 'contract-templates') {
+      pageContent =
+        contractTemplatesView.view.mode === 'form' ? (
+          <ContractTemplateFormPage
+            session={session}
+            company={activeCompany}
+            templateId={contractTemplatesView.view.id}
+            onBack={contractTemplatesView.reset}
+            onSaved={contractTemplatesView.reset}
+          />
+        ) : (
+          <ContractTemplatesPage
+            session={session}
+            company={activeCompany}
+            onCreate={contractTemplatesView.create}
+            onEdit={(template) => contractTemplatesView.edit(template.id)}
+          />
+        )
+    } else if (page === 'roles') {
+      pageContent =
+        rolesView.view.mode === 'form' ? (
+          <RoleFormPage session={session} roleId={rolesView.view.id} onBack={rolesView.reset} onSaved={rolesView.reset} />
+        ) : (
+          <RolesPage
+            session={session}
+            company={activeCompany}
+            onCreate={rolesView.create}
+            onEdit={(role) => rolesView.edit(role.id)}
+          />
+        )
+    } else if (page === 'permissions') {
+      pageContent =
+        permissionsView.view.mode === 'form' ? (
+          <PermissionFormPage
+            session={session}
+            permissionId={permissionsView.view.id}
+            onBack={permissionsView.reset}
+            onSaved={permissionsView.reset}
+          />
+        ) : (
+          <PermissionsPage
+            session={session}
+            company={activeCompany}
+            onCreate={permissionsView.create}
+            onEdit={(permission) => permissionsView.edit(permission.id)}
+          />
+        )
+    } else if (page === 'company-groups') {
+      pageContent =
+        companyGroupsView.view.mode === 'form' ? (
+          <CompanyGroupFormPage
+            session={session}
+            company={activeCompany}
+            groupId={companyGroupsView.view.id}
+            onBack={companyGroupsView.reset}
+            onSaved={companyGroupsView.reset}
+          />
+        ) : (
+          <CompanyGroupsPage
+            session={session}
+            company={activeCompany}
+            onCreate={companyGroupsView.create}
+            onEdit={(group) => companyGroupsView.edit(group.id)}
+          />
+        )
+    } else if (page === 'audit-logs') {
+      pageContent = <AuditLogsPage session={session} company={activeCompany} />
+    } else if (page === 'vehicle-inspections') {
+      pageContent = <VehicleInspectionsPage session={session} company={activeCompany} />
+    } else if (page === 'towing-collection') {
+      pageContent = <TowingCollectionPage session={session} company={activeCompany} />
+    } else if (page === 'towing-billing-report') {
+      pageContent = <TowingBillingReportPage session={session} company={activeCompany} />
+    } else {
+      pageContent = <DashboardPage session={session} company={activeCompany} />
+    }
+
+    content = (
+      <AppShell
+        session={session}
+        company={activeCompany}
+        activePage={page}
+        onNavigate={handleNavigate}
+        onSwitchCompany={handleSwitchCompany}
+        onLogout={handleLogout}
+      >
+        {pageContent}
+      </AppShell>
+    )
+  } else if (session) {
+    content = (
+      <CompanySelectionPage
+        session={session}
+        companies={getUserCompanies(session)}
+        onSelect={handleSelectCompany}
+        onLogout={handleLogout}
+      />
+    )
+  } else if (screen === 'forgot-password') {
+    content = <ForgotPasswordPage onBackToLogin={() => setScreen('login')} />
+  } else if (screen === 'signup') {
+    content = <SignupPage onBackToLogin={() => setScreen('login')} />
+  } else {
+    content = (
+      <LoginPage
+        onForgotPassword={() => setScreen('forgot-password')}
+        onSignup={() => setScreen('signup')}
+        onLoginSuccess={handleLoginSuccess}
+      />
+    )
+  }
+
+  const showFloatingThemeToggle = !(session && activeCompany)
+
+  return (
+    <>
+      {content}
+      {showFloatingThemeToggle && <ThemeToggle />}
+    </>
+  )
+}
+
+export default App
