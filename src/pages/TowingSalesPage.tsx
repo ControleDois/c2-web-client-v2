@@ -27,11 +27,13 @@ import {
   CheckCircleIcon,
   XCircleIcon,
   TruckIcon,
+  WhatsappIcon,
 } from '../components/icons'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { PrintPreviewModal, type PrintColumn } from '../components/PrintPreviewModal'
 import { RowActionsMenu, type RowAction } from '../components/RowActionsMenu'
 import { TowingContractPreviewModal } from '../components/TowingContractPreviewModal'
+import { TowingSendContractModal } from '../components/TowingSendContractModal'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
 interface TowingSalesPageProps {
@@ -174,6 +176,7 @@ export function TowingSalesPage({ session, company, onCreate, onEdit }: TowingSa
   const [printOpen, setPrintOpen] = useState(false)
 
   const [contractSale, setContractSale] = useState<TowingSaleRecord | null>(null)
+  const [sendContractSale, setSendContractSale] = useState<TowingSaleRecord | null>(null)
   const [statusConfirm, setStatusConfirm] = useState<{
     sale: TowingSaleRecord
     status: number
@@ -330,10 +333,10 @@ export function TowingSalesPage({ session, company, onCreate, onEdit }: TowingSa
     setStatusUpdating(true)
     try {
       await updateTowingSaleStatus(session.token.token, statusConfirm.sale.id, statusConfirm.status)
-      setFeedback({
-        tone: 'success',
-        message: statusConfirm.status === TOWING_SALE_COMPLETED_STATUS ? 'Venda concluída.' : 'Venda cancelada.',
-      })
+      let message = 'Venda cancelada.'
+      if (statusConfirm.status === TOWING_SALE_COMPLETED_STATUS) message = 'Venda concluída.'
+      else if (statusConfirm.status === TOWING_SALE_SIGNED_STATUS) message = 'Assinatura confirmada.'
+      setFeedback({ tone: 'success', message })
       setStatusConfirm(null)
       reload()
     } catch (err) {
@@ -366,12 +369,36 @@ export function TowingSalesPage({ session, company, onCreate, onEdit }: TowingSa
       })
     }
 
+    if (![TOWING_SALE_SIGNED_STATUS, TOWING_SALE_CANCELED_STATUS].includes(status)) {
+      actions.push({
+        key: 'send-contract',
+        label: 'Contrato e envio',
+        icon: <WhatsappIcon className="h-4 w-4" />,
+        onClick: () => setSendContractSale(sale),
+      })
+    }
+
     if (getContractLink(sale)) {
       actions.push({
         key: 'copy-link',
         label: 'Copiar link assinatura',
         icon: <LinkIcon className="h-4 w-4" />,
         onClick: () => handleCopyContractLink(sale),
+      })
+    }
+
+    if (![TOWING_SALE_SIGNED_STATUS, TOWING_SALE_CANCELED_STATUS, TOWING_SALE_COMPLETED_STATUS].includes(status)) {
+      actions.push({
+        key: 'confirm-signature',
+        label: 'Confirmar assinatura',
+        icon: <CheckCircleIcon className="h-4 w-4" />,
+        onClick: () =>
+          setStatusConfirm({
+            sale,
+            status: TOWING_SALE_SIGNED_STATUS,
+            title: 'Confirmar assinatura',
+            message: `Confirmar contrato assinado pelo cliente na venda #${sale.code}?`,
+          }),
       })
     }
 
@@ -836,7 +863,13 @@ export function TowingSalesPage({ session, company, onCreate, onEdit }: TowingSa
         open={Boolean(statusConfirm)}
         title={statusConfirm?.title ?? ''}
         message={statusConfirm?.message ?? ''}
-        confirmLabel={statusConfirm?.status === TOWING_SALE_COMPLETED_STATUS ? 'Concluir' : 'Cancelar venda'}
+        confirmLabel={
+          statusConfirm?.status === TOWING_SALE_COMPLETED_STATUS
+            ? 'Concluir'
+            : statusConfirm?.status === TOWING_SALE_SIGNED_STATUS
+              ? 'Confirmar assinatura'
+              : 'Cancelar venda'
+        }
         danger={statusConfirm?.status === TOWING_SALE_CANCELED_STATUS}
         loading={statusUpdating}
         onConfirm={handleConfirmStatusChange}
@@ -874,6 +907,18 @@ export function TowingSalesPage({ session, company, onCreate, onEdit }: TowingSa
         session={session}
         sale={contractSale}
         onClose={() => setContractSale(null)}
+      />
+
+      <TowingSendContractModal
+        open={Boolean(sendContractSale)}
+        session={session}
+        company={company}
+        sale={sendContractSale}
+        onClose={() => setSendContractSale(null)}
+        onSent={(message) => {
+          setFeedback({ tone: 'success', message })
+          reload()
+        }}
       />
     </div>
   )

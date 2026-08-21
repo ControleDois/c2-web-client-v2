@@ -44,56 +44,51 @@ export function TowingContractPreviewModal({ open, session, sale, onClose }: Tow
   if (!open || !sale) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div
-        className="flex h-[85vh] w-full max-w-[820px] flex-col rounded-2xl bg-[var(--surface)] shadow-[var(--card-shadow)]"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="flex items-center justify-between border-b border-[var(--border)] px-6 py-4">
-          <div className="flex items-center gap-2.5">
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--blue-100)] text-[var(--blue-700)]">
-              <PrinterIcon className="h-4.5 w-4.5" />
-            </span>
-            <div>
-              <h2 className="text-[15px] font-bold text-[var(--ink)]">Contrato</h2>
-              <p className="text-[12.5px] text-[var(--ink-soft)]">Venda de guincho #{sale.code}</p>
-            </div>
+    <div className="fixed inset-0 z-50 flex flex-col bg-[var(--surface)]">
+      <div className="flex items-center justify-between border-b border-[var(--border)] px-6 py-4">
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--blue-100)] text-[var(--blue-700)]">
+            <PrinterIcon className="h-4.5 w-4.5" />
+          </span>
+          <div>
+            <h2 className="text-[15px] font-bold text-[var(--ink)]">Contrato</h2>
+            <p className="text-[12.5px] text-[var(--ink-soft)]">Venda de guincho #{sale.code}</p>
           </div>
-          <div className="flex items-center gap-2">
-            {url && (
-              <a
-                href={url}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-xl bg-[var(--page)] px-3.5 py-2 text-[12.5px] font-bold text-[var(--blue-700)] hover:bg-[var(--blue-100)]"
-              >
-                Abrir em nova aba
-              </a>
-            )}
-            <button
-              type="button"
-              onClick={onClose}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[var(--muted)] hover:bg-[var(--page)] hover:text-[var(--ink)]"
-              aria-label="Fechar"
+        </div>
+        <div className="flex items-center gap-2">
+          {url && (
+            <a
+              href={url}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-xl bg-[var(--page)] px-3.5 py-2 text-[12.5px] font-bold text-[var(--blue-700)] hover:bg-[var(--blue-100)]"
             >
-              <CloseIcon className="h-4 w-4" />
-            </button>
-          </div>
+              Abrir em nova aba
+            </a>
+          )}
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-[var(--muted)] hover:bg-[var(--page)] hover:text-[var(--ink)]"
+            aria-label="Fechar"
+          >
+            <CloseIcon className="h-5 w-5" />
+          </button>
         </div>
+      </div>
 
-        <div className="flex-1 overflow-hidden bg-[var(--page)]">
-          {loading ? (
-            <div className="flex h-full items-center justify-center text-[13.5px] text-[var(--muted)]">
-              Gerando pré-visualização…
-            </div>
-          ) : error ? (
-            <div className="flex h-full items-center justify-center p-6 text-center text-[13.5px] font-medium text-[var(--red-500)]">
-              {error}
-            </div>
-          ) : url ? (
-            <iframe title="Pré-visualização do contrato" src={url} className="h-full w-full border-0" />
-          ) : null}
-        </div>
+      <div className="flex-1 overflow-hidden bg-[var(--page)]">
+        {loading ? (
+          <div className="flex h-full items-center justify-center text-[13.5px] text-[var(--muted)]">
+            Gerando pré-visualização…
+          </div>
+        ) : error ? (
+          <div className="flex h-full items-center justify-center p-6 text-center text-[13.5px] font-medium text-[var(--red-500)]">
+            {error}
+          </div>
+        ) : url ? (
+          <iframe title="Pré-visualização do contrato" src={url} className="h-full w-full border-0" />
+        ) : null}
       </div>
     </div>
   )

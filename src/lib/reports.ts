@@ -31,6 +31,7 @@ export interface TowingRevenueSale {
   net_revenue: number
   people?: { id: string | null; name: string | null; social_name?: string | null } | null
   vehicle?: { id: string | null; brand: string | null; model: string | null; license_plate: string | null } | null
+  user?: { id: string | null; name: string | null } | null
 }
 
 export interface TowingRevenueReport {
@@ -51,11 +52,11 @@ export type TowingRevenueStatusFilter = 'billable' | 'signed' | 'all' | 'cancele
 export function fetchTowingNetRevenue(
   token: string,
   companyId: string,
-  options: { dateStart?: string; dateEnd?: string; status?: TowingRevenueStatusFilter } = {}
+  options: { dateStart?: string; dateEnd?: string; status?: TowingRevenueStatusFilter; userId?: string } = {}
 ) {
   return apiGet<TowingRevenueReport>(
     '/reports/towing-net-revenue',
-    { companyId, dateStart: options.dateStart, dateEnd: options.dateEnd, status: options.status },
+    { companyId, dateStart: options.dateStart, dateEnd: options.dateEnd, status: options.status, userId: options.userId },
     token
   )
 }
@@ -63,7 +64,13 @@ export function fetchTowingNetRevenue(
 export async function generateTowingNetRevenuePdfUrl(
   token: string,
   companyId: string,
-  options: { dateStart?: string; dateEnd?: string; status?: TowingRevenueStatusFilter; showExpenses?: boolean } = {}
+  options: {
+    dateStart?: string
+    dateEnd?: string
+    status?: TowingRevenueStatusFilter
+    showExpenses?: boolean
+    userId?: string
+  } = {}
 ): Promise<string> {
   const blob = await apiFetchBlob(
     '/reports/towing-net-revenue/pdf',
@@ -73,6 +80,7 @@ export async function generateTowingNetRevenuePdfUrl(
       dateEnd: options.dateEnd,
       status: options.status,
       showExpenses: options.showExpenses ? 'true' : undefined,
+      userId: options.userId,
     },
     token
   )

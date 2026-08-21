@@ -214,3 +214,24 @@ export function updateTowingSaleStatus(token: string, id: string, status: number
 export function printTowingSaleContract(token: string, id: string) {
   return apiPost<{ url: string; html: string }>(`/towing-sale/print-contract/${id}`, {}, token)
 }
+
+export function sendTowingSaleContract(
+  token: string,
+  id: string,
+  payload: { contractTemplateId: string; whatsappId?: string }
+) {
+  return apiPost<{
+    fileUrl: string
+    contractLink: string
+    whatsappQueued: boolean
+    whatsappError: string | null
+  }>(`/towing-sale/send-contract/${id}`, payload, token)
+}
+
+export function sendTowingSaleContractLink(token: string, id: string, whatsappId: string) {
+  return apiPost<{ message: string; whatsappQueued: boolean }>(
+    `/towing-sale/send-contract-link/${id}`,
+    { whatsappId },
+    token
+  )
+}

@@ -1,14 +1,16 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   fetchTowingNetRevenue,
   generateTowingNetRevenuePdfUrl,
   type TowingRevenueReport,
   type TowingRevenueStatusFilter,
 } from '../lib/reports'
+import { fetchPeople, type PersonRecord } from '../lib/people'
 import { ApiError } from '../lib/api'
 import { formatCurrency, formatDate, formatPercent } from '../lib/format'
 import { MultiSeriesBarChart } from '../components/charts/MultiSeriesBarChart'
 import { DocumentViewerModal } from '../components/DocumentViewerModal'
+import { SearchSelectField } from '../components/form/SearchSelectField'
 import { PrinterIcon, TrendUpIcon, TruckIcon, CoinIcon, RouteIcon, ChevronDownIcon } from '../components/icons'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
@@ -72,6 +74,7 @@ export function TowingBillingReportPage({ session, company }: TowingBillingRepor
   const [dateEnd, setDateEnd] = useState(lastDayOfMonthISO)
   const [status, setStatus] = useState<TowingRevenueStatusFilter>('billable')
   const [showExpenses, setShowExpenses] = useState(false)
+  const [responsible, setResponsible] = useState<{ id: string; label: string } | null>(null)
   const [report, setReport] = useState<TowingRevenueReport | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -85,7 +88,7 @@ export function TowingBillingReportPage({ session, company }: TowingBillingRepor
     setLoading(true)
     setError(null)
 
-    fetchTowingNetRevenue(session.token.token, company.id, { dateStart, dateEnd, status })
+    fetchTowingNetRevenue(session.token.token, company.id, { dateStart, dateEnd, status, userId: responsible?.id })
       .then((res) => {
         if (cancelled) return
         setReport(res)
@@ -101,7 +104,13 @@ export function TowingBillingReportPage({ session, company }: TowingBillingRepor
     return () => {
       cancelled = true
     }
-  }, [dateStart, dateEnd, status, company.id, session.token.token])
+  }, [dateStart, dateEnd, status, responsible?.id, company.id, session.token.token])
+
+  const searchResponsibles = useCallback(
+    (query: string) =>
+      fetchPeople(session.token.token, company.id, { search: query, limit: 8, role: 0 }).then((res) => res.data || []),
+    [session.token.token, company.id]
+  )
 
   const sales = report?.sales ?? []
   const summary = report?.summary
@@ -144,6 +153,7 @@ export function TowingBillingReportPage({ session, company }: TowingBillingRepor
         dateEnd,
         status,
         showExpenses,
+        userId: responsible?.id,
       })
       setPdfViewerUrl(url)
     } catch (err) {
@@ -213,6 +223,19 @@ export function TowingBillingReportPage({ session, company }: TowingBillingRepor
             ))}
           </select>
           <ChevronDownIcon className="pointer-events-none absolute right-2.5 h-3.5 w-3.5 text-[var(--muted)]" />
+        </div>
+
+        <div className="w-full sm:w-56">
+          <SearchSelectField<PersonRecord>
+            label=""
+            placeholder="Filtrar por responsável"
+            variant="surface"
+            selectedLabel={responsible?.label ?? null}
+            onSearch={searchResponsibles}
+            getOptionLabel={(item) => item.name}
+            onSelect={(item) => setResponsible({ id: item.id, label: item.name })}
+            onClear={() => setResponsible(null)}
+          />
         </div>
 
         <label className="flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2.5 text-[13px] font-semibold text-[var(--ink-soft)]">
@@ -449,6 +472,24 @@ export function TowingBillingReportPage({ session, company }: TowingBillingRepor
                   )}
                 </tbody>
               ))}
+              {sales.length > 0 && (
+                <tfoot>
+                  <tr className="border-t-2 border-[var(--ink)] font-bold print:border-t-2 print:border-black">
+                    <td colSpan={5} className="py-3 pr-3 text-right text-[13px] text-[var(--ink)] print:px-1.5 print:py-1 print:text-[9px] print:text-black">
+                      Total do período
+                    </td>
+                    <td className="px-2 py-3 text-right text-[13px] text-[var(--ink)] print:border-r print:border-black/10 print:px-1.5 print:py-1 print:text-[9px] print:text-black">
+                      {formatCurrency(summary?.gross_revenue ?? 0)}
+                    </td>
+                    <td className="px-2 py-3 text-right text-[13px] text-[var(--red-500)] print:border-r print:border-black/10 print:px-1.5 print:py-1 print:text-[9px] print:text-black">
+                      {formatCurrency(summary?.total_expenses ?? 0)}
+                    </td>
+                    <td className="py-3 pr-3 pl-2 text-right text-[14px] text-[var(--green-600)] print:px-1.5 print:py-1 print:text-[10px] print:text-black">
+                      {formatCurrency(summary?.net_revenue ?? 0)}
+                    </td>
+                  </tr>
+                </tfoot>
+              )}
             </table>
           </div>
           </>

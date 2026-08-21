@@ -12,6 +12,7 @@ interface SearchSelectFieldProps<T> {
   onSelect: (item: T) => void
   onClear: () => void
   action?: ReactNode
+  variant?: 'page' | 'surface'
 }
 
 export function SearchSelectField<T>({
@@ -25,6 +26,7 @@ export function SearchSelectField<T>({
   onSelect,
   onClear,
   action,
+  variant = 'page',
 }: SearchSelectFieldProps<T>) {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
@@ -65,10 +67,12 @@ export function SearchSelectField<T>({
 
   return (
     <div ref={containerRef} className="relative flex flex-col gap-1.5">
-      <div className="flex items-center justify-between">
-        <span className="text-[12px] font-semibold text-[var(--ink-soft)]">{label}</span>
-        {action}
-      </div>
+      {(label || action) && (
+        <div className="flex items-center justify-between">
+          <span className="text-[12px] font-semibold text-[var(--ink-soft)]">{label}</span>
+          {action}
+        </div>
+      )}
 
       {selectedLabel ? (
         <div className="flex items-center gap-2 rounded-xl bg-[var(--blue-100)] px-3.5 py-2.5">
@@ -87,7 +91,11 @@ export function SearchSelectField<T>({
           </button>
         </div>
       ) : (
-        <div className="flex items-center gap-2 rounded-xl bg-[var(--page)] px-3.5 py-2.5 ring-1 ring-transparent transition focus-within:ring-[var(--blue-300)]">
+        <div
+          className={`flex items-center gap-2 rounded-xl px-3.5 py-2.5 ring-1 ring-transparent transition focus-within:ring-[var(--blue-300)] ${
+            variant === 'surface' ? 'border border-[var(--border)] bg-[var(--surface)]' : 'bg-[var(--page)]'
+          }`}
+        >
           <SearchIcon className="h-4 w-4 flex-none text-[var(--muted)]" />
           <input
             type="text"
