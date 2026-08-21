@@ -17,13 +17,20 @@ import {
   ClipboardCheckIcon,
   TrendUpIcon,
   CloseIcon,
+  BoxIcon,
+  KeyIcon,
+  CoinIcon as SaleIcon,
 } from '../icons'
 import { getCompanyName, type AuthCompany, type AuthSession } from '../../lib/auth'
+import { isLocacaoVeiculos } from '../../lib/systemTypes'
 
 export type AppPage =
   | 'dashboard'
   | 'people'
   | 'vehicles'
+  | 'products'
+  | 'vehicle-rentals'
+  | 'vehicle-sales'
   | 'towing-sales'
   | 'bank-accounts'
   | 'categories'
@@ -41,6 +48,7 @@ export type AppPage =
   | 'audit-logs'
   | 'vehicle-inspections'
   | 'towing-collection'
+  | 'vehicle-rental-operations'
   | 'towing-billing-report'
 
 interface AppShellProps {
@@ -53,41 +61,55 @@ interface AppShellProps {
   children: ReactNode
 }
 
-const NAV_GROUPS: { title: string; items: { page: AppPage; label: string; icon: typeof GridIcon }[] }[] = [
-  {
-    title: 'Principal',
-    items: [
-      { page: 'dashboard', label: 'Dashboard', icon: GridIcon },
-      { page: 'people', label: 'Pessoas', icon: UserIcon },
-      { page: 'vehicles', label: 'Veículos', icon: TruckIcon },
-      { page: 'towing-sales', label: 'Vendas', icon: CoinIcon },
-    ],
-  },
-  {
-    title: 'Financeiro',
-    items: [
-      { page: 'bank-accounts', label: 'Contas', icon: WalletIcon },
-      { page: 'categories', label: 'Categorias', icon: TagIcon },
-      { page: 'cost-centers', label: 'Centro de Custo', icon: TargetIcon },
-      { page: 'bills-payable', label: 'Contas a Pagar', icon: ArrowDownCircleIcon },
-      { page: 'bills-receivable', label: 'Contas a Receber', icon: ArrowUpCircleIcon },
-    ],
-  },
-  {
-    title: 'Operação',
-    items: [
-      { page: 'vehicle-inspections', label: 'Aprovação de Vistorias', icon: ClipboardCheckIcon },
-      { page: 'towing-collection', label: 'Busca de Veículos', icon: RouteIcon },
-    ],
-  },
-  {
-    title: 'Relatórios',
-    items: [{ page: 'towing-billing-report', label: 'Faturamento', icon: TrendUpIcon }],
-  },
-]
+type NavGroup = { title: string; items: { page: AppPage; label: string; icon: typeof GridIcon }[] }
+
+function buildNavGroups(systemType?: number): NavGroup[] {
+  const principalItems = isLocacaoVeiculos(systemType)
+    ? [
+        { page: 'people' as const, label: 'Pessoas', icon: UserIcon },
+        { page: 'vehicles' as const, label: 'Veículos', icon: TruckIcon },
+        { page: 'products' as const, label: 'Produtos e Serviços', icon: BoxIcon },
+        { page: 'vehicle-rentals' as const, label: 'Aluguel', icon: KeyIcon },
+        { page: 'vehicle-sales' as const, label: 'Venda', icon: SaleIcon },
+      ]
+    : [
+        { page: 'dashboard' as const, label: 'Dashboard', icon: GridIcon },
+        { page: 'people' as const, label: 'Pessoas', icon: UserIcon },
+        { page: 'vehicles' as const, label: 'Veículos', icon: TruckIcon },
+        { page: 'towing-sales' as const, label: 'Vendas', icon: CoinIcon },
+      ]
+
+  return [
+    { title: 'Principal', items: principalItems },
+    {
+      title: 'Financeiro',
+      items: [
+        { page: 'bank-accounts', label: 'Contas', icon: WalletIcon },
+        { page: 'categories', label: 'Categorias', icon: TagIcon },
+        { page: 'cost-centers', label: 'Centro de Custo', icon: TargetIcon },
+        { page: 'bills-payable', label: 'Contas a Pagar', icon: ArrowDownCircleIcon },
+        { page: 'bills-receivable', label: 'Contas a Receber', icon: ArrowUpCircleIcon },
+      ],
+    },
+    {
+      title: 'Operação',
+      items: [
+        { page: 'vehicle-inspections', label: 'Aprovação de Vistorias', icon: ClipboardCheckIcon },
+        isLocacaoVeiculos(systemType)
+          ? { page: 'vehicle-rental-operations', label: 'Entrega e Devoluções', icon: RouteIcon }
+          : { page: 'towing-collection', label: 'Busca de Veículos', icon: RouteIcon },
+      ],
+    },
+    {
+      title: 'Relatórios',
+      items: [{ page: 'towing-billing-report', label: 'Faturamento', icon: TrendUpIcon }],
+    },
+  ]
+}
 
 export function AppShell({ session, company, activePage, onNavigate, onSwitchCompany, onLogout, children }: AppShellProps) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
+  const navGroups = buildNavGroups(company.system_type)
 
   function handleNavigate(page: AppPage) {
     onNavigate(page)
@@ -127,7 +149,7 @@ export function AppShell({ session, company, activePage, onNavigate, onSwitchCom
           </button>
         </div>
 
-        {NAV_GROUPS.map((group) => (
+        {navGroups.map((group) => (
           <div key={group.title} className="mt-3 first:mt-0">
             <div className="px-2 pb-2 text-[10.5px] font-bold tracking-[0.09em] text-[var(--ink-soft)] opacity-70 uppercase">
               {group.title}

@@ -482,3 +482,21 @@ export function CameraIcon(props: SVGProps<SVGSVGElement>) {
     </svg>
   )
 }
+
+export function BoxIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" {...props}>
+      <path d="M2.5 6.2 10 2.5l7.5 3.7-7.5 3.7-7.5-3.7Z" strokeLinejoin="round" />
+      <path d="M2.5 6.2v7.6L10 17.5m0-7.6v7.6m0-7.6 7.5-3.7m-7.5 11.3 7.5-3.7V6.2" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+export function KeyIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" {...props}>
+      <circle cx="6.2" cy="13.8" r="3.2" />
+      <path d="m8.4 11.6 7.1-7.1M12.5 7.5l2 2M15 5l1.5 1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}

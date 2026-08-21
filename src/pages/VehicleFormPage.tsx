@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import {
   createVehicle,
   fetchVehicle,
+  fetchVehicleFipe,
   updateVehicle,
   VEHICLE_ROLE_LABELS,
   VEHICLE_STATUS_LABELS,
@@ -24,8 +25,21 @@ import {
   TrashIcon,
   PaperclipIcon,
   EyeIcon,
+  SearchIcon,
 } from '../components/icons'
 import type { AuthSession, AuthCompany } from '../lib/auth'
+
+function parseAmount(value: string): number {
+  const normalized = value.includes(',') ? value.replace(/\./g, '').replace(',', '.') : value
+  return Number(normalized)
+}
+
+function normalizeText(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toUpperCase()
+}
 
 interface VehicleFormPageProps {
   session: AuthSession
@@ -57,6 +71,9 @@ export function VehicleFormPage({ session, company, vehicleId, onBack, onSaved }
   const [model, setModel] = useState('')
   const [licensePlate, setLicensePlate] = useState('')
   const [color, setColor] = useState('')
+  const [vinNumber, setVinNumber] = useState('')
+  const [fipeCode, setFipeCode] = useState('')
+  const [fipeValue, setFipeValue] = useState('')
   const [fabricationYear, setFabricationYear] = useState('')
   const [modelYear, setModelYear] = useState('')
   const [fuel, setFuel] = useState('')
@@ -64,6 +81,9 @@ export function VehicleFormPage({ session, company, vehicleId, onBack, onSaved }
   const [mileage, setMileage] = useState('')
   const [status, setStatus] = useState(0)
   const [note, setNote] = useState('')
+
+  const [searchingPlate, setSearchingPlate] = useState(false)
+  const [plateSearchError, setPlateSearchError] = useState<string | null>(null)
 
   const [documents, setDocuments] = useState<DocEntry[]>([])
   const [viewerIndex, setViewerIndex] = useState<number | null>(null)
@@ -91,6 +111,9 @@ export function VehicleFormPage({ session, company, vehicleId, onBack, onSaved }
         setModel(vehicle.model ?? '')
         setLicensePlate(vehicle.license_plate ?? '')
         setColor(vehicle.color ?? '')
+        setVinNumber(vehicle.vin_number ?? '')
+        setFipeCode(vehicle.fipe_code ?? '')
+        setFipeValue(vehicle.fipe_value ? String(vehicle.fipe_value) : '')
         setFabricationYear(vehicle.fabrication_year ?? '')
         setModelYear(vehicle.model_year ?? '')
         setFuel(vehicle.fuel ?? '')
@@ -133,6 +156,43 @@ export function VehicleFormPage({ session, company, vehicleId, onBack, onSaved }
     setDocuments((docs) => docs.filter((_, i) => i !== index))
   }
 
+  async function handleSearchPlate() {
+    const plate = licensePlate.trim().toUpperCase()
+    if (plate.length < 7) {
+      setPlateSearchError('A placa deve ter 7 caracteres.')
+      return
+    }
+    setSearchingPlate(true)
+    setPlateSearchError(null)
+    try {
+      const result = await fetchVehicleFipe(session.token.token, plate)
+      const item = result.fipe?.[0]
+      if (Number(result.codigo) !== 1 || !item) {
+        setPlateSearchError(result.msg || 'Veículo não encontrado para essa placa.')
+        return
+      }
+      setBrand(item.marca ?? brand)
+      setModel(item.modelo ?? model)
+      if (item.cor) {
+        const matchedColor = VEHICLE_COLORS.find((option) => normalizeText(option) === normalizeText(item.cor!))
+        setColor(matchedColor ?? item.cor)
+      }
+      if (item.combustivel) {
+        const matched = FUEL_TYPES.find((option) => normalizeText(option) === normalizeText(item.combustivel!))
+        setFuel(matched ?? item.combustivel)
+      }
+      setVinNumber(item.chassi ?? vinNumber)
+      setFabricationYear(item.ano ?? fabricationYear)
+      setModelYear(item.ano_modelo ?? modelYear)
+      setFipeCode(item.codigo_fipe ?? fipeCode)
+      setFipeValue(item.valor != null ? String(item.valor) : fipeValue)
+    } catch (err) {
+      setPlateSearchError(err instanceof ApiError ? err.message : 'Erro ao consultar a placa.')
+    } finally {
+      setSearchingPlate(false)
+    }
+  }
+
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
     setError(null)
@@ -159,6 +219,9 @@ export function VehicleFormPage({ session, company, vehicleId, onBack, onSaved }
       model: model || undefined,
       license_plate: licensePlate.trim().toUpperCase(),
       color: color || undefined,
+      vin_number: vinNumber || undefined,
+      fipe_code: fipeCode || undefined,
+      fipe_value: fipeValue ? parseAmount(fipeValue) : undefined,
       fabrication_year: fabricationYear || undefined,
       model_year: modelYear || undefined,
       fuel: fuel || undefined,
@@ -223,13 +286,29 @@ export function VehicleFormPage({ session, company, vehicleId, onBack, onSaved }
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6">
             <h2 className="mb-4 text-[14px] font-bold text-[var(--ink)]">Dados do veículo</h2>
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              <TextField
-                label="Placa"
-                icon={<BadgeIcon className="h-4 w-4" />}
-                placeholder="ABC1D23"
-                value={licensePlate}
-                onChange={(event) => setLicensePlate(event.target.value.toUpperCase())}
-              />
+              <div>
+                <TextField
+                  label="Placa"
+                  icon={<BadgeIcon className="h-4 w-4" />}
+                  placeholder="ABC1D23"
+                  value={licensePlate}
+                  onChange={(event) => setLicensePlate(event.target.value.toUpperCase())}
+                  action={
+                    <button
+                      type="button"
+                      onClick={handleSearchPlate}
+                      disabled={searchingPlate}
+                      className="flex items-center gap-1 text-[11px] font-bold text-[var(--blue-700)] hover:underline disabled:opacity-50"
+                    >
+                      <SearchIcon className="h-3 w-3" />
+                      {searchingPlate ? 'Consultando…' : 'Consultar placa'}
+                    </button>
+                  }
+                />
+                {plateSearchError && (
+                  <p className="mt-1 text-[11px] font-medium text-[var(--red-500)]">{plateSearchError}</p>
+                )}
+              </div>
               <TextField
                 label="Código interno"
                 icon={<BadgeIcon className="h-4 w-4" />}
@@ -297,6 +376,28 @@ export function VehicleFormPage({ session, company, vehicleId, onBack, onSaved }
                 inputMode="numeric"
                 value={mileage}
                 onChange={(event) => setMileage(event.target.value.replace(/\D/g, ''))}
+              />
+              <TextField
+                label="Chassi (VIN)"
+                icon={<BadgeIcon className="h-4 w-4" />}
+                placeholder="Opcional"
+                value={vinNumber}
+                onChange={(event) => setVinNumber(event.target.value.toUpperCase())}
+              />
+              <TextField
+                label="Código FIPE"
+                icon={<BadgeIcon className="h-4 w-4" />}
+                placeholder="Opcional"
+                value={fipeCode}
+                onChange={(event) => setFipeCode(event.target.value)}
+              />
+              <TextField
+                label="Valor FIPE"
+                icon={<BadgeIcon className="h-4 w-4" />}
+                placeholder="Opcional"
+                inputMode="decimal"
+                value={fipeValue}
+                onChange={(event) => setFipeValue(event.target.value.replace(/[^\d.,]/g, ''))}
               />
               <SelectField label="Combustível" value={fuel} onChange={(event) => setFuel(event.target.value)}>
                 <option value="">—</option>

@@ -8,6 +8,12 @@ import { PeoplePage } from './pages/PeoplePage'
 import { PeopleFormPage } from './pages/PeopleFormPage'
 import { VehiclesPage } from './pages/VehiclesPage'
 import { VehicleFormPage } from './pages/VehicleFormPage'
+import { ProductsPage } from './pages/ProductsPage'
+import { ProductFormPage } from './pages/ProductFormPage'
+import { VehicleRentalsPage } from './pages/VehicleRentalsPage'
+import { VehicleRentalFormPage } from './pages/VehicleRentalFormPage'
+import { VehicleSalesPage } from './pages/VehicleSalesPage'
+import { VehicleSaleFormPage } from './pages/VehicleSaleFormPage'
 import { TowingSalesPage } from './pages/TowingSalesPage'
 import { TowingSaleFormPage } from './pages/TowingSaleFormPage'
 import { BankAccountsPage } from './pages/BankAccountsPage'
@@ -35,6 +41,7 @@ import { CompanyGroupFormPage } from './pages/CompanyGroupFormPage'
 import { AuditLogsPage } from './pages/AuditLogsPage'
 import { VehicleInspectionsPage } from './pages/VehicleInspectionsPage'
 import { TowingCollectionPage } from './pages/TowingCollectionPage'
+import { VehicleRentalOperationsPage } from './pages/VehicleRentalOperationsPage'
 import { TowingBillingReportPage } from './pages/TowingBillingReportPage'
 import { AppShell, type AppPage } from './components/layout/AppShell'
 import { ThemeToggle } from './components/ThemeToggle'
@@ -61,6 +68,9 @@ function App() {
 
   const peopleView = useEntityView()
   const vehiclesView = useEntityView()
+  const productsView = useEntityView()
+  const vehicleRentalsView = useEntityView()
+  const vehicleSalesView = useEntityView()
   const towingSalesView = useEntityView()
   const bankAccountsView = useEntityView()
   const categoriesView = useEntityView()
@@ -77,6 +87,9 @@ function App() {
   const entityViews = {
     people: peopleView,
     vehicles: vehiclesView,
+    products: productsView,
+    'vehicle-rentals': vehicleRentalsView,
+    'vehicle-sales': vehicleSalesView,
     'towing-sales': towingSalesView,
     'bank-accounts': bankAccountsView,
     categories: categoriesView,
@@ -168,6 +181,60 @@ function App() {
             company={activeCompany}
             onCreate={vehiclesView.create}
             onEdit={(v) => vehiclesView.edit(v.id)}
+          />
+        )
+    } else if (page === 'products') {
+      pageContent =
+        productsView.view.mode === 'form' ? (
+          <ProductFormPage
+            session={session}
+            company={activeCompany}
+            productId={productsView.view.id}
+            onBack={productsView.reset}
+            onSaved={productsView.reset}
+          />
+        ) : (
+          <ProductsPage
+            session={session}
+            company={activeCompany}
+            onCreate={productsView.create}
+            onEdit={(p) => productsView.edit(p.id)}
+          />
+        )
+    } else if (page === 'vehicle-rentals') {
+      pageContent =
+        vehicleRentalsView.view.mode === 'form' ? (
+          <VehicleRentalFormPage
+            session={session}
+            company={activeCompany}
+            saleId={vehicleRentalsView.view.id}
+            onBack={vehicleRentalsView.reset}
+            onSaved={vehicleRentalsView.reset}
+          />
+        ) : (
+          <VehicleRentalsPage
+            session={session}
+            company={activeCompany}
+            onCreate={vehicleRentalsView.create}
+            onEdit={(sale) => vehicleRentalsView.edit(sale.id)}
+          />
+        )
+    } else if (page === 'vehicle-sales') {
+      pageContent =
+        vehicleSalesView.view.mode === 'form' ? (
+          <VehicleSaleFormPage
+            session={session}
+            company={activeCompany}
+            saleId={vehicleSalesView.view.id}
+            onBack={vehicleSalesView.reset}
+            onSaved={vehicleSalesView.reset}
+          />
+        ) : (
+          <VehicleSalesPage
+            session={session}
+            company={activeCompany}
+            onCreate={vehicleSalesView.create}
+            onEdit={(sale) => vehicleSalesView.edit(sale.id)}
           />
         )
     } else if (page === 'towing-sales') {
@@ -393,6 +460,8 @@ function App() {
       pageContent = <VehicleInspectionsPage session={session} company={activeCompany} />
     } else if (page === 'towing-collection') {
       pageContent = <TowingCollectionPage session={session} company={activeCompany} />
+    } else if (page === 'vehicle-rental-operations') {
+      pageContent = <VehicleRentalOperationsPage session={session} company={activeCompany} />
     } else if (page === 'towing-billing-report') {
       pageContent = <TowingBillingReportPage session={session} company={activeCompany} />
     } else {

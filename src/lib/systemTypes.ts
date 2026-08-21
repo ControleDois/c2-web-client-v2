@@ -17,11 +17,16 @@ export const SYSTEM_TYPE_LABELS: Record<number, string> = {
 
 export const SYSTEM_TYPE_PROTECAO_VEICULAR = 1
 export const SYSTEM_TYPE_EMPRESTIMO = 3
+export const SYSTEM_TYPE_LOCACAO_VEICULOS = 6
 export const SYSTEM_TYPES_LOJA_ONLINE = [10, 12]
 export const SYSTEM_TYPES_VISTORIAS = [6, 7, 9]
 
 export function isProtecaoVeicular(systemType?: number): boolean {
   return systemType === SYSTEM_TYPE_PROTECAO_VEICULAR
+}
+
+export function isLocacaoVeiculos(systemType?: number): boolean {
+  return systemType === SYSTEM_TYPE_LOCACAO_VEICULOS
 }
 
 export function isEmprestimo(systemType?: number): boolean {

@@ -117,6 +117,7 @@ export function fetchBills(
     dateStart?: string
     dateEnd?: string
     towingSaleId?: string
+    saleId?: string
   }
 ) {
   return apiGet<Paginated<BillRecord>>(
@@ -131,6 +132,7 @@ export function fetchBills(
       dateStart: options.dateStart,
       dateEnd: options.dateEnd,
       towingSaleId: options.towingSaleId,
+      saleId: options.saleId,
       orderBy: 'date_due',
       sortedBy: 'asc',
     },

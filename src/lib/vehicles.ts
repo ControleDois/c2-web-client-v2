@@ -25,6 +25,9 @@ export interface VehicleRecord {
   model?: string | null
   license_plate: string
   color?: string | null
+  vin_number?: string | null
+  fipe_code?: string | null
+  fipe_value?: number | null
   fabrication_year?: string | null
   model_year?: string | null
   fuel?: string | null
@@ -45,6 +48,9 @@ export interface VehiclePayload {
   model?: string
   license_plate: string
   color?: string
+  vin_number?: string
+  fipe_code?: string
+  fipe_value?: number
   fabrication_year?: string
   model_year?: string
   fuel?: string
@@ -53,6 +59,22 @@ export interface VehiclePayload {
   status?: number[]
   note?: string
   documents?: VehicleDocumentInput[]
+}
+
+export interface VehicleFipeResult {
+  codigo?: number | string
+  msg?: string
+  fipe?: Array<{
+    modelo?: string
+    codigo_fipe?: string
+    valor?: number
+    combustivel?: string
+    marca?: string
+    cor?: string
+    chassi?: string
+    ano?: string
+    ano_modelo?: string
+  }>
 }
 
 interface Paginated<T> {
@@ -111,6 +133,10 @@ export function fetchVehicle(token: string, id: string) {
   return apiGet<VehicleRecord>(`/vehicle/${id}`, {}, token)
 }
 
+export function fetchVehicleFipe(token: string, licensePlate: string) {
+  return apiGet<VehicleFipeResult>('/search-fipe', { licensePlate }, token)
+}
+
 function buildVehicleForm(payload: VehiclePayload): FormData {
   const form = new FormData()
 
@@ -122,6 +148,9 @@ function buildVehicleForm(payload: VehiclePayload): FormData {
     ['model', payload.model],
     ['license_plate', payload.license_plate],
     ['color', payload.color],
+    ['vin_number', payload.vin_number],
+    ['fipe_code', payload.fipe_code],
+    ['fipe_value', payload.fipe_value],
     ['fabrication_year', payload.fabrication_year],
     ['model_year', payload.model_year],
     ['fuel', payload.fuel],
