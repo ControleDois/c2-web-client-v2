@@ -132,7 +132,7 @@ export function BankAccountFormPage({ session, company, accountId, onBack, onSav
   }
 
   return (
-    <div className="flex flex-col gap-6 p-8">
+    <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8">
       <div>
         <button
           type="button"
@@ -187,7 +187,7 @@ export function BankAccountFormPage({ session, company, accountId, onBack, onSav
                   type="date"
                   value={dateBalance}
                   onChange={(event) => setDateBalance(event.target.value)}
-                  className="w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
+                  className="min-w-0 w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
                 />
               </label>
             </div>

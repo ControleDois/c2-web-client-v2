@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { fetchCostCenters, deleteCostCenter, deleteCostCentersSelected, type CostCenterRecord } from '../lib/costCenters'
 import { ApiError } from '../lib/api'
 import { getCached, setCached } from '../lib/cache'
@@ -35,14 +35,10 @@ export function CostCentersPage({ session, company, onCreate, onEdit }: CostCent
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [printOpen, setPrintOpen] = useState(false)
 
-  const [refreshKey, setRefreshKey] = useState(0)
-  const skipCacheOnce = useRef(false)
-
   useEffect(() => {
     let cancelled = false
     const cacheKey = `cost-centers:${company.id}:${page}:${search}`
-    const cached = skipCacheOnce.current ? undefined : getCached<{ items: CostCenterRecord[]; meta: typeof meta }>(cacheKey)
-    skipCacheOnce.current = false
+    const cached = getCached<{ items: CostCenterRecord[]; meta: typeof meta }>(cacheKey)
 
     if (cached) {
       setItems(cached.items)
@@ -81,21 +77,32 @@ export function CostCentersPage({ session, company, onCreate, onEdit }: CostCent
       clearTimeout(timeout)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, page, company.id, session.token.token, refreshKey])
+  }, [search, page, company.id, session.token.token])
 
-  function reload() {
-    skipCacheOnce.current = true
-    setRefreshKey((key) => key + 1)
+  function silentReload() {
+    const cacheKey = `cost-centers:${company.id}:${page}:${search}`
+    fetchCostCenters(session.token.token, company.id, { search, page, limit: 10 })
+      .then((res) => {
+        const nextItems = res.data || []
+        const nextMeta = { total: res.meta?.total ?? res.data?.length ?? 0, lastPage: res.meta?.last_page ?? 1 }
+        setItems(nextItems)
+        setMeta(nextMeta)
+        setCached(cacheKey, { items: nextItems, meta: nextMeta })
+      })
+      .catch(() => {})
   }
 
   async function handleConfirmDelete() {
     if (!deleteTarget) return
+    const deletedId = deleteTarget.id
     setDeleting(true)
     setDeleteError(null)
     try {
-      await deleteCostCenter(session.token.token, deleteTarget.id)
+      await deleteCostCenter(session.token.token, deletedId)
       setDeleteTarget(null)
-      reload()
+      setItems((prev) => prev.filter((item) => item.id !== deletedId))
+      setMeta((prev) => ({ ...prev, total: Math.max(0, prev.total - 1) }))
+      silentReload()
     } catch (err) {
       setDeleteError(err instanceof ApiError ? err.message : 'Não foi possível excluir o centro de custo.')
     } finally {
@@ -104,13 +111,16 @@ export function CostCentersPage({ session, company, onCreate, onEdit }: CostCent
   }
 
   async function handleConfirmDeleteSelected() {
+    const deletedIds = new Set(selected)
     setDeleting(true)
     setDeleteError(null)
     try {
       await deleteCostCentersSelected(session.token.token, Array.from(selected))
       setDeletingSelected(false)
+      setItems((prev) => prev.filter((item) => !deletedIds.has(item.id)))
+      setMeta((prev) => ({ ...prev, total: Math.max(0, prev.total - deletedIds.size) }))
       setSelected(new Set())
-      reload()
+      silentReload()
     } catch (err) {
       setDeleteError(err instanceof ApiError ? err.message : 'Não foi possível excluir os centros de custo selecionados.')
     } finally {
@@ -125,7 +135,7 @@ export function CostCentersPage({ session, company, onCreate, onEdit }: CostCent
   }))
 
   return (
-    <div className="flex flex-col gap-6 p-8">
+    <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="text-[12px] font-semibold tracking-wide text-[var(--blue-700)] uppercase">Financeiro</p>
@@ -206,68 +216,112 @@ export function CostCentersPage({ session, company, onCreate, onEdit }: CostCent
             Nenhum centro de custo encontrado{search ? ` para "${search}"` : ''}.
           </p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-[13px]">
-              <thead>
-                <tr className="border-b border-[var(--border)] text-left text-[11px] font-semibold tracking-wide text-[var(--muted)] uppercase">
-                  <th className="w-10 pb-2.5 pl-3">
+          <>
+            <div className="flex flex-col gap-2.5 sm:hidden">
+              {items.map((item) => (
+                <div
+                  key={item.id}
+                  className={`rounded-xl border border-[var(--border)] p-3 ${
+                    selected.has(item.id) ? 'bg-[var(--blue-100)]' : 'bg-[var(--surface)]'
+                  }`}
+                >
+                  <div className="flex items-start gap-2.5">
                     <input
                       type="checkbox"
-                      checked={items.length > 0 && items.every((i) => selected.has(i.id))}
-                      onChange={() => toggleAll(items.map((i) => i.id))}
-                      className="h-4 w-4 accent-[var(--blue-500)]"
-                      aria-label="Selecionar todos"
+                      checked={selected.has(item.id)}
+                      onChange={() => toggle(item.id)}
+                      className="mt-0.5 h-4 w-4 flex-none accent-[var(--blue-500)]"
+                      aria-label={`Selecionar ${item.name}`}
                     />
-                  </th>
-                  <th className="pb-2.5">Código</th>
-                  <th className="pb-2.5">Nome</th>
-                  <th className="pb-2.5 pr-3 text-right">Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((item, index) => (
-                  <tr
-                    key={item.id}
-                    className={`border-b border-[var(--border)] transition-colors last:border-none hover:bg-[var(--blue-100)] ${
-                      index % 2 === 1 ? 'bg-[var(--page)]' : ''
-                    } ${selected.has(item.id) ? 'bg-[var(--blue-100)]' : ''}`}
-                  >
-                    <td className="py-2.5 pl-3">
-                      <input
-                        type="checkbox"
-                        checked={selected.has(item.id)}
-                        onChange={() => toggle(item.id)}
-                        className="h-4 w-4 accent-[var(--blue-500)]"
-                        aria-label={`Selecionar ${item.name}`}
-                      />
-                    </td>
-                    <td className="py-2.5 font-mono text-[var(--ink-soft)]">#{item.code}</td>
-                    <td className="py-2.5 font-medium text-[var(--ink)]">{item.name}</td>
-                    <td className="py-2.5 pr-3 text-right">
-                      <div className="flex items-center justify-end gap-1">
+                    <div className="min-w-0 flex-1">
+                      <p className="min-w-0 truncate text-[13.5px] font-bold text-[var(--ink)]">{item.name}</p>
+                      <p className="mt-0.5 text-[12px] text-[var(--muted)]">#{item.code}</p>
+                      <div className="mt-2.5 flex items-center gap-2">
                         <button
                           type="button"
                           onClick={() => onEdit(item)}
-                          className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-[var(--muted)] hover:bg-[var(--surface)] hover:text-[var(--ink)]"
-                          aria-label="Editar"
+                          className="flex items-center gap-1.5 rounded-lg bg-[var(--page)] px-3 py-1.5 text-[12px] font-semibold text-[var(--ink-soft)]"
                         >
                           <PencilIcon className="h-3.5 w-3.5" />
+                          Editar
                         </button>
                         <button
                           type="button"
                           onClick={() => setDeleteTarget(item)}
-                          className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-[var(--muted)] hover:bg-[var(--red-100)] hover:text-[var(--red-500)]"
-                          aria-label="Excluir"
+                          className="flex items-center gap-1.5 rounded-lg bg-[var(--red-100)] px-3 py-1.5 text-[12px] font-semibold text-[var(--red-500)]"
                         >
                           <TrashIcon className="h-3.5 w-3.5" />
+                          Excluir
                         </button>
                       </div>
-                    </td>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="hidden overflow-x-auto sm:block">
+              <table className="w-full border-collapse text-[13px]">
+                <thead>
+                  <tr className="border-b border-[var(--border)] text-left text-[11px] font-semibold tracking-wide text-[var(--muted)] uppercase">
+                    <th className="w-10 pb-2.5 pl-3">
+                      <input
+                        type="checkbox"
+                        checked={items.length > 0 && items.every((i) => selected.has(i.id))}
+                        onChange={() => toggleAll(items.map((i) => i.id))}
+                        className="h-4 w-4 accent-[var(--blue-500)]"
+                        aria-label="Selecionar todos"
+                      />
+                    </th>
+                    <th className="pb-2.5">Código</th>
+                    <th className="pb-2.5">Nome</th>
+                    <th className="pb-2.5 pr-3 text-right">Ações</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {items.map((item, index) => (
+                    <tr
+                      key={item.id}
+                      className={`border-b border-[var(--border)] transition-colors last:border-none hover:bg-[var(--blue-100)] ${
+                        index % 2 === 1 ? 'bg-[var(--page)]' : ''
+                      } ${selected.has(item.id) ? 'bg-[var(--blue-100)]' : ''}`}
+                    >
+                      <td className="py-2.5 pl-3">
+                        <input
+                          type="checkbox"
+                          checked={selected.has(item.id)}
+                          onChange={() => toggle(item.id)}
+                          className="h-4 w-4 accent-[var(--blue-500)]"
+                          aria-label={`Selecionar ${item.name}`}
+                        />
+                      </td>
+                      <td className="py-2.5 font-mono text-[var(--ink-soft)]">#{item.code}</td>
+                      <td className="py-2.5 font-medium text-[var(--ink)]">{item.name}</td>
+                      <td className="py-2.5 pr-3 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            type="button"
+                            onClick={() => onEdit(item)}
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-[var(--muted)] hover:bg-[var(--surface)] hover:text-[var(--ink)]"
+                            aria-label="Editar"
+                          >
+                            <PencilIcon className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDeleteTarget(item)}
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-[var(--muted)] hover:bg-[var(--red-100)] hover:text-[var(--red-500)]"
+                            aria-label="Excluir"
+                          >
+                            <TrashIcon className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
 
         {!loading && meta.lastPage > 1 && (

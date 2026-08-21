@@ -212,7 +212,7 @@ export function BillFormPage({ session, company, role, billId, onBack, onSaved }
   const settledValueLabel = role === 1 ? 'Valor recebido' : 'Valor pago'
 
   return (
-    <div className="flex flex-col gap-6 p-8">
+    <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8">
       <div>
         <button
           type="button"
@@ -321,7 +321,7 @@ export function BillFormPage({ session, company, role, billId, onBack, onSaved }
                   type="date"
                   value={dateCompetence}
                   onChange={(event) => setDateCompetence(event.target.value)}
-                  className="w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
+                  className="min-w-0 w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
                 />
               </label>
               <label className="flex flex-col gap-1.5">
@@ -330,7 +330,7 @@ export function BillFormPage({ session, company, role, billId, onBack, onSaved }
                   type="date"
                   value={dateDue}
                   onChange={(event) => setDateDue(event.target.value)}
-                  className="w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
+                  className="min-w-0 w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
                 />
               </label>
               <TextField
@@ -445,7 +445,7 @@ export function BillFormPage({ session, company, role, billId, onBack, onSaved }
                         type="date"
                         value={dateReceived}
                         onChange={(event) => setDateReceived(event.target.value)}
-                        className="w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
+                        className="min-w-0 w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
                       />
                     </label>
                     <TextField

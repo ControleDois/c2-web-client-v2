@@ -274,7 +274,7 @@ export function PeopleFormPage({ session, company, personId, onBack, onSaved }: 
   }
 
   return (
-    <div className="flex flex-col gap-6 p-8">
+    <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8">
       <div>
         <button
           type="button"
@@ -425,7 +425,7 @@ export function PeopleFormPage({ session, company, personId, onBack, onSaved }: 
                     type="date"
                     value={birth}
                     onChange={(event) => setBirth(event.target.value)}
-                    className="w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
+                    className="min-w-0 w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
                   />
                 </label>
               </div>
@@ -549,9 +549,9 @@ export function PeopleFormPage({ session, company, personId, onBack, onSaved }: 
                         onChange={(event) => updateDocument(index, { description: event.target.value })}
                         className="rounded-lg bg-[var(--surface)] px-3 py-2 text-[13.5px] text-[var(--ink)] ring-1 ring-transparent focus:outline-none focus:ring-[var(--blue-300)]"
                       />
-                      <label className="flex cursor-pointer items-center gap-2 rounded-lg bg-[var(--surface)] px-3 py-2 text-[12.5px] font-semibold text-[var(--blue-700)]">
+                      <label className="flex min-w-0 cursor-pointer items-center gap-2 rounded-lg bg-[var(--surface)] px-3 py-2 text-[12.5px] font-semibold text-[var(--blue-700)]">
                         <PaperclipIcon className="h-3.5 w-3.5 flex-none" />
-                        <span className="truncate">
+                        <span className="min-w-0 truncate">
                           {doc.file?.name ?? doc.existingFileName ?? 'Escolher arquivo'}
                         </span>
                         <input

@@ -120,6 +120,10 @@ export interface CreateInspectionPayload {
   user_id?: string
   towing_sale_id?: string
   photos: CreateInspectionPhoto[]
+  customer_signature?: File
+  customer_signer_name?: string
+  driver_signature?: File
+  driver_signer_name?: string
 }
 
 export function createVehicleInspection(token: string, payload: CreateInspectionPayload) {
@@ -141,6 +145,15 @@ export function createVehicleInspection(token: string, payload: CreateInspection
   payload.photos.forEach((photo, index) => {
     form.append(`photo_${index}`, photo.file)
   })
+
+  if (payload.customer_signature) {
+    form.append('customer_signature', payload.customer_signature)
+    if (payload.customer_signer_name) form.append('customer_signer_name', payload.customer_signer_name)
+  }
+  if (payload.driver_signature) {
+    form.append('driver_signature', payload.driver_signature)
+    if (payload.driver_signer_name) form.append('driver_signer_name', payload.driver_signer_name)
+  }
 
   return apiPostForm<{ message: string; data: VehicleInspectionRecord }>('/vehicle-inspection', form, token)
 }

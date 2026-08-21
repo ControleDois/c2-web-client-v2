@@ -118,6 +118,10 @@ export function fetchPerson(token: string, id: string) {
   return apiGet<PersonRecord>(`/people/${id}`, {}, token)
 }
 
+export function fetchMyPerson(token: string, companyId: string) {
+  return apiGet<PersonRecord>('/people/me', { companyId }, token)
+}
+
 function buildPersonForm(payload: PersonPayload): FormData {
   const form = new FormData()
 

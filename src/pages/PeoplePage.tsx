@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { fetchPeople, deletePerson, deletePeopleSelected, ROLE_LABELS, STATUS_LABELS, type PersonRecord } from '../lib/people'
 import { formatDocument } from '../lib/formatDocument'
 import { formatPhone } from '../lib/formatPhone'
@@ -63,14 +63,10 @@ export function PeoplePage({ session, company, onCreate, onEdit }: PeoplePagePro
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [printOpen, setPrintOpen] = useState(false)
 
-  const [refreshKey, setRefreshKey] = useState(0)
-  const skipCacheOnce = useRef(false)
-
   useEffect(() => {
     let cancelled = false
     const cacheKey = `people:${company.id}:${role ?? 'all'}:${page}:${search}`
-    const cached = skipCacheOnce.current ? undefined : getCached<{ people: PersonRecord[]; meta: typeof meta }>(cacheKey)
-    skipCacheOnce.current = false
+    const cached = getCached<{ people: PersonRecord[]; meta: typeof meta }>(cacheKey)
 
     if (cached) {
       setPeople(cached.people)
@@ -108,11 +104,19 @@ export function PeoplePage({ session, company, onCreate, onEdit }: PeoplePagePro
       cancelled = true
       clearTimeout(timeout)
     }
-  }, [search, role, page, company.id, session.token.token, refreshKey])
+  }, [search, role, page, company.id, session.token.token])
 
-  function reload() {
-    skipCacheOnce.current = true
-    setRefreshKey((key) => key + 1)
+  function silentReload() {
+    const cacheKey = `people:${company.id}:${role ?? 'all'}:${page}:${search}`
+    fetchPeople(session.token.token, company.id, { search, role, page, limit: 10 })
+      .then((res) => {
+        const nextPeople = res.data || []
+        const nextMeta = { total: res.meta?.total ?? res.data?.length ?? 0, lastPage: res.meta?.last_page ?? 1 }
+        setPeople(nextPeople)
+        setMeta(nextMeta)
+        setCached(cacheKey, { people: nextPeople, meta: nextMeta })
+      })
+      .catch(() => {})
   }
 
   function toggleSelected(id: string) {
@@ -130,12 +134,15 @@ export function PeoplePage({ session, company, onCreate, onEdit }: PeoplePagePro
 
   async function handleConfirmDelete() {
     if (!deleteTarget) return
+    const deletedId = deleteTarget.id
     setDeleting(true)
     setDeleteError(null)
     try {
-      await deletePerson(session.token.token, deleteTarget.id)
+      await deletePerson(session.token.token, deletedId)
       setDeleteTarget(null)
-      reload()
+      setPeople((prev) => prev.filter((person) => person.id !== deletedId))
+      setMeta((prev) => ({ ...prev, total: Math.max(0, prev.total - 1) }))
+      silentReload()
     } catch (err) {
       setDeleteError(err instanceof ApiError ? err.message : 'Não foi possível excluir o cadastro.')
     } finally {
@@ -144,13 +151,16 @@ export function PeoplePage({ session, company, onCreate, onEdit }: PeoplePagePro
   }
 
   async function handleConfirmDeleteSelected() {
+    const deletedIds = new Set(selected)
     setDeleting(true)
     setDeleteError(null)
     try {
       await deletePeopleSelected(session.token.token, Array.from(selected))
       setDeletingSelected(false)
+      setPeople((prev) => prev.filter((person) => !deletedIds.has(person.id)))
+      setMeta((prev) => ({ ...prev, total: Math.max(0, prev.total - deletedIds.size) }))
       setSelected(new Set())
-      reload()
+      silentReload()
     } catch (err) {
       setDeleteError(err instanceof ApiError ? err.message : 'Não foi possível excluir os cadastros selecionados.')
     } finally {
@@ -169,7 +179,7 @@ export function PeoplePage({ session, company, onCreate, onEdit }: PeoplePagePro
   }))
 
   return (
-    <div className="flex flex-col gap-6 p-8">
+    <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="text-[12px] font-semibold tracking-wide text-[var(--blue-700)] uppercase">Cadastros</p>
@@ -270,86 +280,146 @@ export function PeoplePage({ session, company, onCreate, onEdit }: PeoplePagePro
             Nenhum cadastro encontrado{search ? ` para "${search}"` : ''}.
           </p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-[13px]">
-              <thead>
-                <tr className="border-b border-[var(--border)] text-left text-[11px] font-semibold tracking-wide text-[var(--muted)] uppercase">
-                  <th className="w-10 pb-2.5 pl-3">
+          <>
+            <div className="flex flex-col gap-2.5 sm:hidden">
+              {people.map((person) => (
+                <div
+                  key={person.id}
+                  className={`rounded-xl border border-[var(--border)] p-3 ${
+                    selected.has(person.id) ? 'bg-[var(--blue-100)]' : 'bg-[var(--surface)]'
+                  }`}
+                >
+                  <div className="flex items-start gap-2.5">
                     <input
                       type="checkbox"
-                      checked={selected.size === people.length}
-                      onChange={toggleSelectAll}
-                      className="h-4 w-4 accent-[var(--blue-500)]"
-                      aria-label="Selecionar todos"
+                      checked={selected.has(person.id)}
+                      onChange={() => toggleSelected(person.id)}
+                      className="mt-0.5 h-4 w-4 flex-none accent-[var(--blue-500)]"
+                      aria-label={`Selecionar ${person.name}`}
                     />
-                  </th>
-                  <th className="pb-2.5">Código</th>
-                  <th className="pb-2.5">Nome</th>
-                  <th className="pb-2.5">Documento</th>
-                  <th className="pb-2.5">Telefone</th>
-                  <th className="pb-2.5">Papel</th>
-                  <th className="pb-2.5">Status</th>
-                  <th className="pb-2.5 pr-3 text-right">Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {people.map((person, index) => (
-                  <tr
-                    key={person.id}
-                    className={`border-b border-[var(--border)] transition-colors last:border-none hover:bg-[var(--blue-100)] ${
-                      index % 2 === 1 ? 'bg-[var(--page)]' : ''
-                    } ${selected.has(person.id) ? 'bg-[var(--blue-100)]' : ''}`}
-                  >
-                    <td className="py-2.5 pl-3">
-                      <input
-                        type="checkbox"
-                        checked={selected.has(person.id)}
-                        onChange={() => toggleSelected(person.id)}
-                        className="h-4 w-4 accent-[var(--blue-500)]"
-                        aria-label={`Selecionar ${person.name}`}
-                      />
-                    </td>
-                    <td className="py-2.5 font-mono text-[var(--ink-soft)]">
-                      {person.internal_code != null ? `#${person.internal_code}` : '—'}
-                    </td>
-                    <td className="py-2.5 font-medium text-[var(--ink)]">{person.name}</td>
-                    <td className="py-2.5 font-mono text-[var(--ink-soft)]">
-                      {person.document ? formatDocument(person.document) : '—'}
-                    </td>
-                    <td className="py-2.5 text-[var(--ink-soft)]">{person.phone ? formatPhone(person.phone) : '—'}</td>
-                    <td className="py-2.5 text-[var(--ink-soft)]">
-                      {(person.roles ?? []).map((r) => ROLE_LABELS[r]).filter(Boolean).join(', ') || '—'}
-                    </td>
-                    <td className="py-2.5">
-                      <span className={`rounded-full px-2 py-0.5 text-[10.5px] font-bold uppercase ${statusTone(person.status)}`}>
-                        {STATUS_LABELS[person.status?.[0] ?? 0] ?? '—'}
-                      </span>
-                    </td>
-                    <td className="py-2.5 pr-3 text-right">
-                      <div className="flex items-center justify-end gap-1">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="min-w-0 truncate text-[13.5px] font-bold text-[var(--ink)]">{person.name}</p>
+                        <span
+                          className={`flex-none rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${statusTone(person.status)}`}
+                        >
+                          {STATUS_LABELS[person.status?.[0] ?? 0] ?? '—'}
+                        </span>
+                      </div>
+                      <p className="mt-0.5 text-[12px] text-[var(--muted)]">
+                        {person.internal_code != null ? `#${person.internal_code}` : '—'}
+                        {person.document ? ` · ${formatDocument(person.document)}` : ''}
+                      </p>
+                      <p className="text-[12px] text-[var(--ink-soft)]">
+                        {person.phone ? formatPhone(person.phone) : '—'}
+                        {' · '}
+                        {(person.roles ?? []).map((r) => ROLE_LABELS[r]).filter(Boolean).join(', ') || '—'}
+                      </p>
+                      <div className="mt-2.5 flex items-center gap-2">
                         <button
                           type="button"
                           onClick={() => onEdit(person)}
-                          className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-[var(--muted)] hover:bg-[var(--surface)] hover:text-[var(--ink)]"
-                          aria-label="Editar"
+                          className="flex items-center gap-1.5 rounded-lg bg-[var(--page)] px-3 py-1.5 text-[12px] font-semibold text-[var(--ink-soft)]"
                         >
                           <PencilIcon className="h-3.5 w-3.5" />
+                          Editar
                         </button>
                         <button
                           type="button"
                           onClick={() => setDeleteTarget(person)}
-                          className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-[var(--muted)] hover:bg-[var(--red-100)] hover:text-[var(--red-500)]"
-                          aria-label="Excluir"
+                          className="flex items-center gap-1.5 rounded-lg bg-[var(--red-100)] px-3 py-1.5 text-[12px] font-semibold text-[var(--red-500)]"
                         >
                           <TrashIcon className="h-3.5 w-3.5" />
+                          Excluir
                         </button>
                       </div>
-                    </td>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="hidden overflow-x-auto sm:block">
+              <table className="w-full border-collapse text-[13px]">
+                <thead>
+                  <tr className="border-b border-[var(--border)] text-left text-[11px] font-semibold tracking-wide text-[var(--muted)] uppercase">
+                    <th className="w-10 pb-2.5 pl-3">
+                      <input
+                        type="checkbox"
+                        checked={selected.size === people.length}
+                        onChange={toggleSelectAll}
+                        className="h-4 w-4 accent-[var(--blue-500)]"
+                        aria-label="Selecionar todos"
+                      />
+                    </th>
+                    <th className="pb-2.5">Código</th>
+                    <th className="pb-2.5">Nome</th>
+                    <th className="pb-2.5">Documento</th>
+                    <th className="pb-2.5">Telefone</th>
+                    <th className="pb-2.5">Papel</th>
+                    <th className="pb-2.5">Status</th>
+                    <th className="pb-2.5 pr-3 text-right">Ações</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {people.map((person, index) => (
+                    <tr
+                      key={person.id}
+                      className={`border-b border-[var(--border)] transition-colors last:border-none hover:bg-[var(--blue-100)] ${
+                        index % 2 === 1 ? 'bg-[var(--page)]' : ''
+                      } ${selected.has(person.id) ? 'bg-[var(--blue-100)]' : ''}`}
+                    >
+                      <td className="py-2.5 pl-3">
+                        <input
+                          type="checkbox"
+                          checked={selected.has(person.id)}
+                          onChange={() => toggleSelected(person.id)}
+                          className="h-4 w-4 accent-[var(--blue-500)]"
+                          aria-label={`Selecionar ${person.name}`}
+                        />
+                      </td>
+                      <td className="py-2.5 font-mono text-[var(--ink-soft)]">
+                        {person.internal_code != null ? `#${person.internal_code}` : '—'}
+                      </td>
+                      <td className="py-2.5 font-medium text-[var(--ink)]">{person.name}</td>
+                      <td className="py-2.5 font-mono text-[var(--ink-soft)]">
+                        {person.document ? formatDocument(person.document) : '—'}
+                      </td>
+                      <td className="py-2.5 text-[var(--ink-soft)]">{person.phone ? formatPhone(person.phone) : '—'}</td>
+                      <td className="py-2.5 text-[var(--ink-soft)]">
+                        {(person.roles ?? []).map((r) => ROLE_LABELS[r]).filter(Boolean).join(', ') || '—'}
+                      </td>
+                      <td className="py-2.5">
+                        <span className={`rounded-full px-2 py-0.5 text-[10.5px] font-bold uppercase ${statusTone(person.status)}`}>
+                          {STATUS_LABELS[person.status?.[0] ?? 0] ?? '—'}
+                        </span>
+                      </td>
+                      <td className="py-2.5 pr-3 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            type="button"
+                            onClick={() => onEdit(person)}
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-[var(--muted)] hover:bg-[var(--surface)] hover:text-[var(--ink)]"
+                            aria-label="Editar"
+                          >
+                            <PencilIcon className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDeleteTarget(person)}
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-[var(--muted)] hover:bg-[var(--red-100)] hover:text-[var(--red-500)]"
+                            aria-label="Excluir"
+                          >
+                            <TrashIcon className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
 
         {!loading && meta.lastPage > 1 && (

@@ -7,6 +7,7 @@ export interface DocumentViewerItem {
   description?: string | null
   url: string
   fileName?: string | null
+  type?: 'pdf' | 'image'
 }
 
 interface DocumentViewerModalProps {
@@ -46,8 +47,8 @@ export function DocumentViewerModal({ documents, index, onClose, onIndexChange }
     }
   }
 
-  const isPdf = isPdfUrl(doc.url)
-  const isImage = isImageUrl(doc.url)
+  const isPdf = doc.type === 'pdf' || (!doc.type && isPdfUrl(doc.url))
+  const isImage = doc.type === 'image' || (!doc.type && isImageUrl(doc.url))
 
   return (
     <div className="fixed inset-0 z-[60] flex flex-col bg-black/95">

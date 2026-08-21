@@ -20,6 +20,7 @@ import {
   ShieldIcon,
   LockIcon,
   ClockIcon,
+  MenuIcon,
 } from '../icons'
 
 interface HeaderProps {
@@ -27,12 +28,13 @@ interface HeaderProps {
   onNavigate: (
     page: 'users' | 'companies' | 'whatsapp-api' | 'contract-templates' | 'roles' | 'permissions' | 'company-groups' | 'audit-logs'
   ) => void
+  onOpenMobileNav: () => void
   onLogout: () => void
 }
 
 const POLL_MS = 60000
 
-export function Header({ session, onNavigate, onLogout }: HeaderProps) {
+export function Header({ session, onNavigate, onOpenMobileNav, onLogout }: HeaderProps) {
   const [unreadCount, setUnreadCount] = useState(0)
   const [notifOpen, setNotifOpen] = useState(false)
   const [notifications, setNotifications] = useState<NotificationRecord[]>([])
@@ -96,7 +98,17 @@ export function Header({ session, onNavigate, onLogout }: HeaderProps) {
   const photoUrl = session.user.people?.file_url
 
   return (
-    <header className="app-shell-header flex h-14 flex-none items-center justify-end gap-1.5 border-b border-[var(--border)] bg-[var(--surface)] px-5">
+    <header className="app-shell-header flex h-14 flex-none items-center justify-between gap-1.5 border-b border-[var(--border)] bg-[var(--surface)] px-3 sm:px-5">
+      <button
+        type="button"
+        onClick={onOpenMobileNav}
+        aria-label="Abrir menu"
+        className="flex h-9 w-9 flex-none items-center justify-center rounded-full text-[var(--ink-soft)] transition hover:bg-[var(--page)] hover:text-[var(--ink)] lg:hidden"
+      >
+        <MenuIcon className="h-[18px] w-[18px]" />
+      </button>
+
+      <div className="flex flex-1 items-center justify-end gap-1.5">
       <ThemeToggle variant="inline" />
 
       <div ref={notifRef} className="relative">
@@ -290,6 +302,7 @@ export function Header({ session, onNavigate, onLogout }: HeaderProps) {
             </button>
           </div>
         )}
+      </div>
       </div>
     </header>
   )

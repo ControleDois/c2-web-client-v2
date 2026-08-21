@@ -60,11 +60,11 @@ export function fetchTowingNetRevenue(
   )
 }
 
-export async function openTowingNetRevenuePdf(
+export async function generateTowingNetRevenuePdfUrl(
   token: string,
   companyId: string,
   options: { dateStart?: string; dateEnd?: string; status?: TowingRevenueStatusFilter; showExpenses?: boolean } = {}
-): Promise<void> {
+): Promise<string> {
   const blob = await apiFetchBlob(
     '/reports/towing-net-revenue/pdf',
     {
@@ -76,6 +76,5 @@ export async function openTowingNetRevenuePdf(
     },
     token
   )
-  const url = URL.createObjectURL(blob)
-  window.open(url, '_blank')
+  return URL.createObjectURL(blob)
 }

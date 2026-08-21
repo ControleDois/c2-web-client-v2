@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Logo } from '../Logo'
 import { Header } from './Header'
 import {
@@ -16,6 +16,7 @@ import {
   UserIcon,
   ClipboardCheckIcon,
   TrendUpIcon,
+  CloseIcon,
 } from '../icons'
 import { getCompanyName, type AuthCompany, type AuthSession } from '../../lib/auth'
 
@@ -86,12 +87,44 @@ const NAV_GROUPS: { title: string; items: { page: AppPage; label: string; icon: 
 ]
 
 export function AppShell({ session, company, activePage, onNavigate, onSwitchCompany, onLogout, children }: AppShellProps) {
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
+
+  function handleNavigate(page: AppPage) {
+    onNavigate(page)
+    setMobileNavOpen(false)
+  }
+
+  function handleSwitchCompany() {
+    onSwitchCompany()
+    setMobileNavOpen(false)
+  }
+
   return (
     <div className="app-shell-root flex h-svh overflow-hidden bg-[var(--page)]">
-      <aside className="app-shell-sidebar flex h-full w-[248px] flex-none flex-col gap-1 overflow-y-auto border-r border-[var(--border)] bg-[var(--blue-100)] p-4">
+      {mobileNavOpen && (
+        <div
+          onClick={() => setMobileNavOpen(false)}
+          className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+          aria-hidden="true"
+        />
+      )}
+
+      <aside
+        className={`app-shell-sidebar fixed inset-y-0 left-0 z-50 flex h-full w-[248px] flex-none flex-col gap-1 overflow-y-auto border-r border-[var(--border)] bg-[var(--blue-100)] p-4 transition-transform duration-200 ease-out lg:static lg:translate-x-0 ${
+          mobileNavOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
         <div className="flex items-center gap-2.5 px-2 pb-5 pt-1">
           <Logo className="h-8 w-8" />
-          <span className="text-[14px] font-bold tracking-tight text-[var(--ink)]">Controle Dois</span>
+          <span className="flex-1 text-[14px] font-bold tracking-tight text-[var(--ink)]">Controle Dois</span>
+          <button
+            type="button"
+            onClick={() => setMobileNavOpen(false)}
+            aria-label="Fechar menu"
+            className="flex h-8 w-8 flex-none items-center justify-center rounded-lg text-[var(--ink-soft)] hover:bg-[var(--surface)] lg:hidden"
+          >
+            <CloseIcon className="h-4.5 w-4.5" />
+          </button>
         </div>
 
         {NAV_GROUPS.map((group) => (
@@ -104,7 +137,7 @@ export function AppShell({ session, company, activePage, onNavigate, onSwitchCom
                 <button
                   key={page}
                   type="button"
-                  onClick={() => onNavigate(page)}
+                  onClick={() => handleNavigate(page)}
                   className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-[13.5px] font-bold transition ${
                     activePage === page
                       ? 'bg-[var(--blue-500)] text-white shadow-sm'
@@ -122,7 +155,7 @@ export function AppShell({ session, company, activePage, onNavigate, onSwitchCom
         <div className="mt-auto flex flex-col gap-2 pt-4">
           <button
             type="button"
-            onClick={onSwitchCompany}
+            onClick={handleSwitchCompany}
             className="flex items-center gap-2.5 rounded-xl bg-[var(--surface)] p-2.5 text-left transition hover:bg-white"
           >
             <span className="flex h-8 w-8 flex-none items-center justify-center overflow-hidden rounded-lg bg-[var(--blue-100)] text-[var(--blue-700)]">
@@ -143,7 +176,7 @@ export function AppShell({ session, company, activePage, onNavigate, onSwitchCom
 
           <button
             type="button"
-            onClick={() => onNavigate('config')}
+            onClick={() => handleNavigate('config')}
             className={`flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-[12.5px] font-semibold transition ${
               activePage === 'config' ? 'bg-[var(--blue-500)] text-white shadow-sm' : 'text-[var(--ink-soft)] hover:bg-[var(--surface)]'
             }`}
@@ -155,7 +188,7 @@ export function AppShell({ session, company, activePage, onNavigate, onSwitchCom
       </aside>
 
       <div className="app-shell-content flex h-full min-w-0 flex-1 flex-col overflow-hidden">
-        <Header session={session} onNavigate={onNavigate} onLogout={onLogout} />
+        <Header session={session} onNavigate={onNavigate} onOpenMobileNav={() => setMobileNavOpen(true)} onLogout={onLogout} />
         <main className="app-shell-main min-h-0 flex-1 overflow-y-auto">{children}</main>
       </div>
     </div>

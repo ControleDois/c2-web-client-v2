@@ -23,6 +23,7 @@ import { SelectField } from '../components/form/SelectField'
 import { SearchSelectField } from '../components/form/SearchSelectField'
 import { UserIcon, TagIcon, WalletIcon, TrashIcon, PlusIcon, ChevronLeftIcon } from '../components/icons'
 import { SectionCard } from '../components/SectionCard'
+import { useMyCompanyPerson } from '../hooks/useMyCompanyPerson'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
 interface StagedExpense {
@@ -198,9 +199,8 @@ export function TowingSaleFormPage({ session, company, saleId, onBack, onSaved }
 
   const [customer, setCustomer] = useState<{ id: string; label: string; sub?: string } | null>(null)
   const [vehicle, setVehicle] = useState<{ id: string; label: string; sub?: string } | null>(null)
-  const [responsible, setResponsible] = useState<{ id: string; label: string } | null>(
-    session.user.people ? { id: session.user.people.id, label: session.user.people.name } : null
-  )
+  const [responsible, setResponsible] = useState<{ id: string; label: string } | null>(null)
+  const myCompanyPerson = useMyCompanyPerson(session, company)
 
   const [type, setType] = useState('retirada')
   const [transportValue, setTransportValue] = useState('')
@@ -230,6 +230,11 @@ export function TowingSaleFormPage({ session, company, saleId, onBack, onSaved }
   const [expensePerson, setExpensePerson] = useState<{ id: string; label: string; sub?: string } | null>(null)
   const [expenseNote, setExpenseNote] = useState('')
   const [expenseError, setExpenseError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (saleId || !myCompanyPerson) return
+    setResponsible((current) => current ?? { id: myCompanyPerson.id, label: myCompanyPerson.name })
+  }, [saleId, myCompanyPerson])
 
   useEffect(() => {
     if (!saleId) return
@@ -401,14 +406,14 @@ export function TowingSaleFormPage({ session, company, saleId, onBack, onSaved }
       type,
       transport_value: transportValue ? Number(transportValue) : 0,
       deadline_days: deadlineDays ? Number(deadlineDays) : 1,
-      origin_zip_code: origin.zip_code || undefined,
+      origin_zip_code: origin.zip_code.replace(/\D/g, '') || undefined,
       origin_address: origin.address || undefined,
       origin_number: origin.number || undefined,
       origin_district: origin.district || undefined,
       origin_city: origin.city || undefined,
       origin_state: origin.state || undefined,
       origin_complement: origin.complement || undefined,
-      destination_zip_code: destination.zip_code || undefined,
+      destination_zip_code: destination.zip_code.replace(/\D/g, '') || undefined,
       destination_address: destination.address || undefined,
       destination_number: destination.number || undefined,
       destination_district: destination.district || undefined,
@@ -488,7 +493,7 @@ export function TowingSaleFormPage({ session, company, saleId, onBack, onSaved }
   }
 
   return (
-    <div className="flex flex-col gap-6 p-8">
+    <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8">
       <div>
         <button
           type="button"
@@ -665,7 +670,7 @@ export function TowingSaleFormPage({ session, company, saleId, onBack, onSaved }
                   type="date"
                   value={expenseDateCompetence}
                   onChange={(event) => setExpenseDateCompetence(event.target.value)}
-                  className="w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
+                  className="min-w-0 w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
                 />
               </label>
               <label className="flex flex-col gap-1.5">
@@ -674,7 +679,7 @@ export function TowingSaleFormPage({ session, company, saleId, onBack, onSaved }
                   type="date"
                   value={expenseDateDue}
                   onChange={(event) => setExpenseDateDue(event.target.value)}
-                  className="w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
+                  className="min-w-0 w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
                 />
               </label>
               <SelectField

@@ -131,6 +131,14 @@ export function WhatsappApiPage({ session, company }: WhatsappApiPageProps) {
     setReloadKey((key) => key + 1)
   }
 
+  function silentReload() {
+    fetchCompanyWhatsapps(session.token.token, company.id)
+      .then((res) => {
+        setItems(res.data || [])
+      })
+      .catch(() => {})
+  }
+
   function openCreateForm() {
     setForm(EMPTY_FORM)
     setFormError(null)
@@ -189,12 +197,14 @@ export function WhatsappApiPage({ session, company }: WhatsappApiPageProps) {
 
   async function handleConfirmDelete() {
     if (!deleteTarget) return
+    const deletedId = deleteTarget.id
     setDeleting(true)
     setDeleteError(null)
     try {
-      await deleteCompanyWhatsapp(session.token.token, deleteTarget.id)
+      await deleteCompanyWhatsapp(session.token.token, deletedId)
       setDeleteTarget(null)
-      reload()
+      setItems((prev) => prev.filter((item) => item.id !== deletedId))
+      silentReload()
     } catch (err) {
       setDeleteError(err instanceof ApiError ? err.message : 'Não foi possível remover o número.')
     } finally {
@@ -277,7 +287,7 @@ export function WhatsappApiPage({ session, company }: WhatsappApiPageProps) {
   }
 
   return (
-    <div className="flex flex-col gap-6 p-8">
+    <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="text-[12px] font-semibold tracking-wide text-[var(--blue-700)] uppercase">Conta</p>
@@ -309,7 +319,86 @@ export function WhatsappApiPage({ session, company }: WhatsappApiPageProps) {
         ) : items.length === 0 ? (
           <p className="py-10 text-center text-[13.5px] text-[var(--muted)]">Nenhum número de WhatsApp cadastrado.</p>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            <div className="flex flex-col gap-2.5 sm:hidden">
+              {items.map((item) => {
+                const isConnected = item.status === WHATSAPP_STATUS_CONNECTED
+                const actions: RowAction[] = [
+                  { key: 'edit', label: 'Editar', icon: <PencilIcon className="h-4 w-4" />, onClick: () => openEditForm(item) },
+                ]
+                if (!item.official_whatsapp) {
+                  actions.push({
+                    key: 'connect',
+                    label: 'Conectar',
+                    icon: <QrCodeIcon className="h-4 w-4" />,
+                    onClick: () => openConnect(item),
+                  })
+                  actions.push({
+                    key: 'status',
+                    label: 'Verificar status',
+                    icon: <CheckCircleIcon className="h-4 w-4" />,
+                    onClick: () => handleCheckStatus(item),
+                  })
+                  if (isConnected) {
+                    actions.push({
+                      key: 'disconnect',
+                      label: 'Desconectar',
+                      icon: <XCircleIcon className="h-4 w-4" />,
+                      tone: 'warning',
+                      onClick: () => handleDisconnect(item),
+                    })
+                  }
+                }
+                actions.push({
+                  key: 'delete',
+                  label: 'Remover',
+                  icon: <TrashIcon className="h-4 w-4" />,
+                  tone: 'danger',
+                  dividerBefore: true,
+                  onClick: () => setDeleteTarget(item),
+                })
+
+                return (
+                  <div key={item.id} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="min-w-0 truncate text-[13.5px] font-bold text-[var(--ink)]">{item.name}</p>
+                        <p className="mt-0.5 text-[12px] text-[var(--ink-soft)]">{formatPhone(item.phone)}</p>
+                      </div>
+                      <RowActionsMenu actions={actions} />
+                    </div>
+                    <div className="mt-2 flex items-center gap-2">
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-[10.5px] font-bold ${
+                          item.official_whatsapp
+                            ? 'bg-[var(--blue-100)] text-[var(--blue-700)]'
+                            : 'bg-[var(--indigo-100)] text-[var(--indigo-500)]'
+                        }`}
+                      >
+                        {item.official_whatsapp ? 'Oficial' : 'QR Code'}
+                      </span>
+                      {!item.official_whatsapp && (
+                        statusLoadingId === item.id || autoCheckingIds.has(item.id) ? (
+                          <span className="text-[11px] text-[var(--muted)]">Verificando…</span>
+                        ) : (
+                          <span
+                            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10.5px] font-bold ${
+                              isConnected
+                                ? 'bg-[var(--green-100)] text-[var(--green-600)]'
+                                : 'bg-[var(--red-100)] text-[var(--red-500)]'
+                            }`}
+                          >
+                            {isConnected ? <CheckCircleIcon className="h-3 w-3" /> : <XCircleIcon className="h-3 w-3" />}
+                            {isConnected ? 'Conectado' : 'Desconectado'}
+                          </span>
+                        )
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            <div className="hidden overflow-x-auto sm:block">
             <table className="w-full border-collapse text-[13px]">
               <thead>
                 <tr className="border-b border-[var(--border)] text-left text-[11px] font-semibold tracking-wide text-[var(--muted)] uppercase">
@@ -404,7 +493,8 @@ export function WhatsappApiPage({ session, company }: WhatsappApiPageProps) {
                 })}
               </tbody>
             </table>
-          </div>
+            </div>
+          </>
         )}
       </div>
 

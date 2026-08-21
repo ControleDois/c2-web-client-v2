@@ -91,14 +91,30 @@ export function ContractTemplatesPage({ session, company, onCreate, onEdit }: Co
     setRefreshKey((key) => key + 1)
   }
 
+  function silentReload() {
+    const cacheKey = `contract-templates:${company.id}:${targetType ?? 'all'}:${page}:${search}`
+    fetchContractTemplates(session.token.token, company.id, { search, targetType, page, limit: 10 })
+      .then((res) => {
+        const nextItems = res.data || []
+        const nextMeta = { total: res.meta?.total ?? res.data?.length ?? 0, lastPage: res.meta?.last_page ?? 1 }
+        setItems(nextItems)
+        setMeta(nextMeta)
+        setCached(cacheKey, { items: nextItems, meta: nextMeta })
+      })
+      .catch(() => {})
+  }
+
   async function handleConfirmDelete() {
     if (!deleteTarget) return
+    const deletedId = deleteTarget.id
     setDeleting(true)
     setDeleteError(null)
     try {
-      await deleteContractTemplate(session.token.token, deleteTarget.id)
+      await deleteContractTemplate(session.token.token, deletedId)
       setDeleteTarget(null)
-      reload()
+      setItems((prev) => prev.filter((item) => item.id !== deletedId))
+      setMeta((prev) => ({ ...prev, total: Math.max(0, prev.total - 1) }))
+      silentReload()
     } catch (err) {
       setDeleteError(err instanceof ApiError ? err.message : 'Não foi possível excluir o modelo.')
     } finally {
@@ -130,7 +146,7 @@ export function ContractTemplatesPage({ session, company, onCreate, onEdit }: Co
   }
 
   return (
-    <div className="flex flex-col gap-6 p-8">
+    <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="text-[12px] font-semibold tracking-wide text-[var(--blue-700)] uppercase">Conta</p>
@@ -199,74 +215,120 @@ export function ContractTemplatesPage({ session, company, onCreate, onEdit }: Co
             Nenhum modelo de contrato encontrado{search ? ` para "${search}"` : ''}.
           </p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-[13px]">
-              <thead>
-                <tr className="border-b border-[var(--border)] text-left text-[11px] font-semibold tracking-wide text-[var(--muted)] uppercase">
-                  <th className="pb-2.5 pl-3">Código</th>
-                  <th className="pb-2.5">Título</th>
-                  <th className="pb-2.5">Tipo</th>
-                  <th className="pb-2.5">Status</th>
-                  <th className="pb-2.5 pr-3 text-right">Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((item, index) => {
-                  const actions: RowAction[] = [
-                    { key: 'edit', label: 'Editar', icon: <PencilIcon className="h-4 w-4" />, onClick: () => onEdit(item) },
-                    {
-                      key: 'duplicate',
-                      label: duplicatingId === item.id ? 'Duplicando…' : 'Duplicar',
-                      icon: <CopyIcon className="h-4 w-4" />,
-                      onClick: () => handleDuplicate(item),
-                    },
-                    {
-                      key: 'delete',
-                      label: 'Excluir',
-                      icon: <TrashIcon className="h-4 w-4" />,
-                      tone: 'danger',
-                      dividerBefore: true,
-                      onClick: () => setDeleteTarget(item),
-                    },
-                  ]
+          <>
+            <div className="flex flex-col gap-2.5 sm:hidden">
+              {items.map((item) => {
+                const actions: RowAction[] = [
+                  { key: 'edit', label: 'Editar', icon: <PencilIcon className="h-4 w-4" />, onClick: () => onEdit(item) },
+                  {
+                    key: 'duplicate',
+                    label: duplicatingId === item.id ? 'Duplicando…' : 'Duplicar',
+                    icon: <CopyIcon className="h-4 w-4" />,
+                    onClick: () => handleDuplicate(item),
+                  },
+                  {
+                    key: 'delete',
+                    label: 'Excluir',
+                    icon: <TrashIcon className="h-4 w-4" />,
+                    tone: 'danger',
+                    dividerBefore: true,
+                    onClick: () => setDeleteTarget(item),
+                  },
+                ]
 
-                  return (
-                    <tr
-                      key={item.id}
-                      className={`border-b border-[var(--border)] transition-colors last:border-none hover:bg-[var(--blue-100)] ${
-                        index % 2 === 1 ? 'bg-[var(--page)]' : ''
+                return (
+                  <div key={item.id} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="min-w-0 truncate text-[13.5px] font-bold text-[var(--ink)]">{item.title}</p>
+                        <p className="mt-0.5 text-[12px] text-[var(--muted)]">
+                          {item.internal_code ? `#${item.internal_code}` : '—'} · {TARGET_TYPE_LABELS[item.target_type] ?? item.target_type}
+                        </p>
+                      </div>
+                      <RowActionsMenu actions={actions} />
+                    </div>
+                    <span
+                      className={`mt-2 inline-block rounded-full px-2.5 py-1 text-[10.5px] font-bold ${
+                        item.is_active
+                          ? 'bg-[var(--green-100)] text-[var(--green-600)]'
+                          : 'bg-[var(--red-100)] text-[var(--red-500)]'
                       }`}
                     >
-                      <td className="py-2.5 pl-3 font-mono text-[var(--ink-soft)]">
-                        {item.internal_code ? `#${item.internal_code}` : '—'}
-                      </td>
-                      <td className="py-2.5">
-                        <p className="font-medium text-[var(--ink)]">{item.title}</p>
-                        {item.description && (
-                          <p className="truncate text-[12px] text-[var(--muted)]">{item.description}</p>
-                        )}
-                      </td>
-                      <td className="py-2.5 text-[var(--ink-soft)]">{TARGET_TYPE_LABELS[item.target_type] ?? item.target_type}</td>
-                      <td className="py-2.5">
-                        <span
-                          className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${
-                            item.is_active
-                              ? 'bg-[var(--green-100)] text-[var(--green-600)]'
-                              : 'bg-[var(--red-100)] text-[var(--red-500)]'
-                          }`}
-                        >
-                          {item.is_active ? 'Ativo' : 'Inativo'}
-                        </span>
-                      </td>
-                      <td className="py-2.5 pr-3 text-right">
-                        <RowActionsMenu actions={actions} />
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+                      {item.is_active ? 'Ativo' : 'Inativo'}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+            <div className="hidden overflow-x-auto sm:block">
+              <table className="w-full border-collapse text-[13px]">
+                <thead>
+                  <tr className="border-b border-[var(--border)] text-left text-[11px] font-semibold tracking-wide text-[var(--muted)] uppercase">
+                    <th className="pb-2.5 pl-3">Código</th>
+                    <th className="pb-2.5">Título</th>
+                    <th className="pb-2.5">Tipo</th>
+                    <th className="pb-2.5">Status</th>
+                    <th className="pb-2.5 pr-3 text-right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((item, index) => {
+                    const actions: RowAction[] = [
+                      { key: 'edit', label: 'Editar', icon: <PencilIcon className="h-4 w-4" />, onClick: () => onEdit(item) },
+                      {
+                        key: 'duplicate',
+                        label: duplicatingId === item.id ? 'Duplicando…' : 'Duplicar',
+                        icon: <CopyIcon className="h-4 w-4" />,
+                        onClick: () => handleDuplicate(item),
+                      },
+                      {
+                        key: 'delete',
+                        label: 'Excluir',
+                        icon: <TrashIcon className="h-4 w-4" />,
+                        tone: 'danger',
+                        dividerBefore: true,
+                        onClick: () => setDeleteTarget(item),
+                      },
+                    ]
+
+                    return (
+                      <tr
+                        key={item.id}
+                        className={`border-b border-[var(--border)] transition-colors last:border-none hover:bg-[var(--blue-100)] ${
+                          index % 2 === 1 ? 'bg-[var(--page)]' : ''
+                        }`}
+                      >
+                        <td className="py-2.5 pl-3 font-mono text-[var(--ink-soft)]">
+                          {item.internal_code ? `#${item.internal_code}` : '—'}
+                        </td>
+                        <td className="py-2.5">
+                          <p className="font-medium text-[var(--ink)]">{item.title}</p>
+                          {item.description && (
+                            <p className="truncate text-[12px] text-[var(--muted)]">{item.description}</p>
+                          )}
+                        </td>
+                        <td className="py-2.5 text-[var(--ink-soft)]">{TARGET_TYPE_LABELS[item.target_type] ?? item.target_type}</td>
+                        <td className="py-2.5">
+                          <span
+                            className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${
+                              item.is_active
+                                ? 'bg-[var(--green-100)] text-[var(--green-600)]'
+                                : 'bg-[var(--red-100)] text-[var(--red-500)]'
+                            }`}
+                          >
+                            {item.is_active ? 'Ativo' : 'Inativo'}
+                          </span>
+                        </td>
+                        <td className="py-2.5 pr-3 text-right">
+                          <RowActionsMenu actions={actions} />
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
 
         {!loading && meta.lastPage > 1 && (

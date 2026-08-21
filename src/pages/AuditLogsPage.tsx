@@ -77,7 +77,7 @@ export function AuditLogsPage({ session, company }: AuditLogsPageProps) {
   }, [search, action, dateStart, dateEnd, page, company.id, session.token.token, refreshKey])
 
   return (
-    <div className="flex flex-col gap-6 p-8">
+    <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="text-[12px] font-semibold tracking-wide text-[var(--blue-700)] uppercase">Acessos</p>
@@ -160,7 +160,118 @@ export function AuditLogsPage({ session, company }: AuditLogsPageProps) {
         ) : items.length === 0 ? (
           <p className="py-10 text-center text-[13.5px] text-[var(--muted)]">Nenhum log encontrado para o período selecionado.</p>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            <div className="flex flex-col gap-2.5 sm:hidden">
+              {items.map((item) => {
+                const expanded = expandedId === item.id
+                return (
+                  <div key={item.id} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="min-w-0 truncate text-[13.5px] font-bold text-[var(--ink)]">
+                          {item.people_name ?? item.people?.name ?? '—'}
+                        </p>
+                        <p className="mt-0.5 text-[12px] text-[var(--muted)]">{formatDateTime(item.created_at)}</p>
+                      </div>
+                      <span className={`flex-none rounded-full px-2.5 py-1 text-[10.5px] font-bold ${actionTone(item.action)}`}>
+                        {auditActionLabel(item.action)}
+                      </span>
+                    </div>
+                    <p className="mt-1.5 text-[12.5px] text-[var(--ink)]">{item.description ?? '—'}</p>
+                    {item.entity_type && (
+                      <p className="text-[12px] text-[var(--muted)]">
+                        {item.entity_type}
+                        {item.entity_id ? ` #${item.entity_id.slice(0, 8)}` : ''}
+                      </p>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setExpandedId(expanded ? null : item.id)}
+                      className="mt-2 inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[12px] font-bold text-[var(--blue-700)] hover:bg-[var(--blue-100)]"
+                    >
+                      <ChevronDownIcon className={`h-3.5 w-3.5 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+                      {expanded ? 'Ocultar detalhes' : 'Ver detalhes'}
+                    </button>
+                    {expanded && (
+                      <div className="mt-2 rounded-lg bg-[var(--page)] p-3">
+                        <div className="grid gap-3">
+                          <div>
+                            <p className="mb-1 text-[11px] font-bold tracking-wide text-[var(--muted)] uppercase">Rota</p>
+                            <p className="font-mono text-[12px] text-[var(--muted)]">{item.method} {item.path}</p>
+                          </div>
+                          <div>
+                            <p className="mb-1 text-[11px] font-bold tracking-wide text-[var(--muted)] uppercase">Origem</p>
+                            <p className="text-[12.5px] text-[var(--ink)]">IP: {item.ip ?? '—'}</p>
+                            <p className="truncate text-[12px] text-[var(--muted)]" title={item.user_agent ?? ''}>
+                              {item.user_agent ?? '—'}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="mb-1 text-[11px] font-bold tracking-wide text-[var(--muted)] uppercase">Status</p>
+                            <p className="text-[12.5px] text-[var(--ink)]">HTTP {item.status_code ?? '—'}</p>
+                            <p className="text-[12px] text-[var(--muted)]">Módulo: {item.module ?? '—'}</p>
+                          </div>
+                        </div>
+
+                        {item.metadata?.changes && item.metadata.changes.length > 0 && (
+                          <div className="mt-4">
+                            <p className="mb-2 text-[11px] font-bold tracking-wide text-[var(--muted)] uppercase">
+                              Alterações realizadas
+                            </p>
+                            <div className="overflow-x-auto rounded-xl border border-[var(--border)]">
+                              <table className="w-full min-w-[420px] border-collapse text-[12px]">
+                                <thead>
+                                  <tr className="bg-[var(--surface)] text-left text-[10.5px] font-semibold tracking-wide text-[var(--muted)] uppercase">
+                                    <th className="px-3 py-2">Campo</th>
+                                    <th className="px-3 py-2">Antes</th>
+                                    <th className="px-3 py-2">Depois</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {item.metadata.changes.map((change, changeIndex) => (
+                                    <tr key={changeIndex} className="border-t border-[var(--border)] bg-[var(--surface)]">
+                                      <td className="px-3 py-2 font-semibold text-[var(--ink)]">{change.label ?? change.field}</td>
+                                      <td className="px-3 py-2 text-[var(--muted)]">{String(change.oldValue ?? '—')}</td>
+                                      <td className="px-3 py-2 text-[var(--ink)]">{String(change.newValue ?? '—')}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        )}
+
+                        {(item.new_values || item.old_values) && (
+                          <div className="mt-4 flex flex-col gap-3">
+                            {item.new_values && (
+                              <div>
+                                <p className="mb-1 flex items-center gap-1.5 text-[11px] font-bold tracking-wide text-[var(--muted)] uppercase">
+                                  <RouteIcon className="h-3 w-3" /> Dados enviados
+                                </p>
+                                <pre className="max-h-48 overflow-auto rounded-xl bg-[var(--surface)] p-3 text-[11px] text-[var(--ink-soft)]">
+                                  {JSON.stringify(item.new_values, null, 2)}
+                                </pre>
+                              </div>
+                            )}
+                            {item.old_values && (
+                              <div>
+                                <p className="mb-1 text-[11px] font-bold tracking-wide text-[var(--muted)] uppercase">
+                                  Dados anteriores
+                                </p>
+                                <pre className="max-h-48 overflow-auto rounded-xl bg-[var(--surface)] p-3 text-[11px] text-[var(--ink-soft)]">
+                                  {JSON.stringify(item.old_values, null, 2)}
+                                </pre>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+            <div className="hidden overflow-x-auto sm:block">
             <table className="w-full border-collapse text-[13px]">
               <thead>
                 <tr className="border-b border-[var(--border)] text-left text-[11px] font-semibold tracking-wide text-[var(--muted)] uppercase">
@@ -300,7 +411,8 @@ export function AuditLogsPage({ session, company }: AuditLogsPageProps) {
                 })}
               </tbody>
             </table>
-          </div>
+            </div>
+          </>
         )}
 
         {!loading && meta.lastPage > 1 && (

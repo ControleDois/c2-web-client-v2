@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   fetchVehicles,
   deleteVehicle,
@@ -65,14 +65,10 @@ export function VehiclesPage({ session, company, onCreate, onEdit }: VehiclesPag
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [printOpen, setPrintOpen] = useState(false)
 
-  const [refreshKey, setRefreshKey] = useState(0)
-  const skipCacheOnce = useRef(false)
-
   useEffect(() => {
     let cancelled = false
     const cacheKey = `vehicles:${company.id}:${role ?? 'all'}:${page}:${search}`
-    const cached = skipCacheOnce.current ? undefined : getCached<{ vehicles: VehicleRecord[]; meta: typeof meta }>(cacheKey)
-    skipCacheOnce.current = false
+    const cached = getCached<{ vehicles: VehicleRecord[]; meta: typeof meta }>(cacheKey)
 
     if (cached) {
       setVehicles(cached.vehicles)
@@ -111,21 +107,32 @@ export function VehiclesPage({ session, company, onCreate, onEdit }: VehiclesPag
       clearTimeout(timeout)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, role, page, company.id, session.token.token, refreshKey])
+  }, [search, role, page, company.id, session.token.token])
 
-  function reload() {
-    skipCacheOnce.current = true
-    setRefreshKey((key) => key + 1)
+  function silentReload() {
+    const cacheKey = `vehicles:${company.id}:${role ?? 'all'}:${page}:${search}`
+    fetchVehicles(session.token.token, company.id, { search, role, page, limit: 10 })
+      .then((res) => {
+        const nextVehicles = res.data || []
+        const nextMeta = { total: res.meta?.total ?? res.data?.length ?? 0, lastPage: res.meta?.last_page ?? 1 }
+        setVehicles(nextVehicles)
+        setMeta(nextMeta)
+        setCached(cacheKey, { vehicles: nextVehicles, meta: nextMeta })
+      })
+      .catch(() => {})
   }
 
   async function handleConfirmDelete() {
     if (!deleteTarget) return
+    const deletedId = deleteTarget.id
     setDeleting(true)
     setDeleteError(null)
     try {
-      await deleteVehicle(session.token.token, deleteTarget.id)
+      await deleteVehicle(session.token.token, deletedId)
       setDeleteTarget(null)
-      reload()
+      setVehicles((prev) => prev.filter((vehicle) => vehicle.id !== deletedId))
+      setMeta((prev) => ({ ...prev, total: Math.max(0, prev.total - 1) }))
+      silentReload()
     } catch (err) {
       setDeleteError(err instanceof ApiError ? err.message : 'Não foi possível excluir o veículo.')
     } finally {
@@ -134,13 +141,16 @@ export function VehiclesPage({ session, company, onCreate, onEdit }: VehiclesPag
   }
 
   async function handleConfirmDeleteSelected() {
+    const deletedIds = new Set(selected)
     setDeleting(true)
     setDeleteError(null)
     try {
       await deleteVehiclesSelected(session.token.token, Array.from(selected))
       setDeletingSelected(false)
+      setVehicles((prev) => prev.filter((vehicle) => !deletedIds.has(vehicle.id)))
+      setMeta((prev) => ({ ...prev, total: Math.max(0, prev.total - deletedIds.size) }))
       setSelected(new Set())
-      reload()
+      silentReload()
     } catch (err) {
       setDeleteError(err instanceof ApiError ? err.message : 'Não foi possível excluir os veículos selecionados.')
     } finally {
@@ -160,7 +170,7 @@ export function VehiclesPage({ session, company, onCreate, onEdit }: VehiclesPag
   }))
 
   return (
-    <div className="flex flex-col gap-6 p-8">
+    <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="text-[12px] font-semibold tracking-wide text-[var(--blue-700)] uppercase">Cadastros</p>
@@ -261,86 +271,147 @@ export function VehiclesPage({ session, company, onCreate, onEdit }: VehiclesPag
             Nenhum veículo encontrado{search ? ` para "${search}"` : ''}.
           </p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-[13px]">
-              <thead>
-                <tr className="border-b border-[var(--border)] text-left text-[11px] font-semibold tracking-wide text-[var(--muted)] uppercase">
-                  <th className="w-10 pb-2.5 pl-3">
+          <>
+            <div className="flex flex-col gap-2.5 sm:hidden">
+              {vehicles.map((vehicle) => (
+                <div
+                  key={vehicle.id}
+                  className={`rounded-xl border border-[var(--border)] p-3 ${
+                    selected.has(vehicle.id) ? 'bg-[var(--blue-100)]' : 'bg-[var(--surface)]'
+                  }`}
+                >
+                  <div className="flex items-start gap-2.5">
                     <input
                       type="checkbox"
-                      checked={vehicles.length > 0 && selected.size === vehicles.length}
-                      onChange={() => toggleAll(vehicles.map((v) => v.id))}
-                      className="h-4 w-4 accent-[var(--blue-500)]"
-                      aria-label="Selecionar todos"
+                      checked={selected.has(vehicle.id)}
+                      onChange={() => toggle(vehicle.id)}
+                      className="mt-0.5 h-4 w-4 flex-none accent-[var(--blue-500)]"
+                      aria-label={`Selecionar ${vehicle.license_plate}`}
                     />
-                  </th>
-                  <th className="pb-2.5">Código</th>
-                  <th className="pb-2.5">Placa</th>
-                  <th className="pb-2.5">Veículo</th>
-                  <th className="pb-2.5">Ano</th>
-                  <th className="pb-2.5">Cor</th>
-                  <th className="pb-2.5">Combustível</th>
-                  <th className="pb-2.5">Tipo</th>
-                  <th className="pb-2.5">Status</th>
-                  <th className="pb-2.5 pr-3 text-right">Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {vehicles.map((vehicle, index) => (
-                  <tr
-                    key={vehicle.id}
-                    className={`border-b border-[var(--border)] transition-colors last:border-none hover:bg-[var(--blue-100)] ${
-                      index % 2 === 1 ? 'bg-[var(--page)]' : ''
-                    } ${selected.has(vehicle.id) ? 'bg-[var(--blue-100)]' : ''}`}
-                  >
-                    <td className="py-2.5 pl-3">
-                      <input
-                        type="checkbox"
-                        checked={selected.has(vehicle.id)}
-                        onChange={() => toggle(vehicle.id)}
-                        className="h-4 w-4 accent-[var(--blue-500)]"
-                        aria-label={`Selecionar ${vehicle.license_plate}`}
-                      />
-                    </td>
-                    <td className="py-2.5 font-mono text-[var(--ink-soft)]">
-                      {vehicle.internal_code != null ? `#${vehicle.internal_code}` : '—'}
-                    </td>
-                    <td className="py-2.5 font-mono font-medium text-[var(--ink)]">{vehicle.license_plate}</td>
-                    <td className="py-2.5 text-[var(--ink-soft)]">{vehicleLabel(vehicle)}</td>
-                    <td className="py-2.5 text-[var(--ink-soft)]">{vehicle.model_year || '—'}</td>
-                    <td className="py-2.5 text-[var(--ink-soft)]">{vehicle.color || '—'}</td>
-                    <td className="py-2.5 text-[var(--ink-soft)]">{vehicle.fuel || '—'}</td>
-                    <td className="py-2.5 text-[var(--ink-soft)]">{VEHICLE_ROLE_LABELS[vehicle.role ?? 1]}</td>
-                    <td className="py-2.5">
-                      <span className={`rounded-full px-2 py-0.5 text-[10.5px] font-bold uppercase ${statusTone(vehicle.status)}`}>
-                        {VEHICLE_STATUS_LABELS[vehicle.status?.[0] ?? 0] ?? '—'}
-                      </span>
-                    </td>
-                    <td className="py-2.5 pr-3 text-right">
-                      <div className="flex items-center justify-end gap-1">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="min-w-0 truncate font-mono text-[13.5px] font-bold text-[var(--ink)]">
+                          {vehicle.license_plate}
+                        </p>
+                        <span
+                          className={`flex-none rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${statusTone(vehicle.status)}`}
+                        >
+                          {VEHICLE_STATUS_LABELS[vehicle.status?.[0] ?? 0] ?? '—'}
+                        </span>
+                      </div>
+                      <p className="mt-0.5 text-[12px] text-[var(--ink-soft)]">{vehicleLabel(vehicle)}</p>
+                      <p className="text-[12px] text-[var(--muted)]">
+                        {vehicle.internal_code != null ? `#${vehicle.internal_code}` : '—'}
+                        {vehicle.model_year ? ` · ${vehicle.model_year}` : ''}
+                        {vehicle.color ? ` · ${vehicle.color}` : ''}
+                        {' · '}
+                        {VEHICLE_ROLE_LABELS[vehicle.role ?? 1]}
+                      </p>
+                      <div className="mt-2.5 flex items-center gap-2">
                         <button
                           type="button"
                           onClick={() => onEdit(vehicle)}
-                          className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-[var(--muted)] hover:bg-[var(--surface)] hover:text-[var(--ink)]"
-                          aria-label="Editar"
+                          className="flex items-center gap-1.5 rounded-lg bg-[var(--page)] px-3 py-1.5 text-[12px] font-semibold text-[var(--ink-soft)]"
                         >
                           <PencilIcon className="h-3.5 w-3.5" />
+                          Editar
                         </button>
                         <button
                           type="button"
                           onClick={() => setDeleteTarget(vehicle)}
-                          className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-[var(--muted)] hover:bg-[var(--red-100)] hover:text-[var(--red-500)]"
-                          aria-label="Excluir"
+                          className="flex items-center gap-1.5 rounded-lg bg-[var(--red-100)] px-3 py-1.5 text-[12px] font-semibold text-[var(--red-500)]"
                         >
                           <TrashIcon className="h-3.5 w-3.5" />
+                          Excluir
                         </button>
                       </div>
-                    </td>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="hidden overflow-x-auto sm:block">
+              <table className="w-full border-collapse text-[13px]">
+                <thead>
+                  <tr className="border-b border-[var(--border)] text-left text-[11px] font-semibold tracking-wide text-[var(--muted)] uppercase">
+                    <th className="w-10 pb-2.5 pl-3">
+                      <input
+                        type="checkbox"
+                        checked={vehicles.length > 0 && selected.size === vehicles.length}
+                        onChange={() => toggleAll(vehicles.map((v) => v.id))}
+                        className="h-4 w-4 accent-[var(--blue-500)]"
+                        aria-label="Selecionar todos"
+                      />
+                    </th>
+                    <th className="pb-2.5">Código</th>
+                    <th className="pb-2.5">Placa</th>
+                    <th className="pb-2.5">Veículo</th>
+                    <th className="pb-2.5">Ano</th>
+                    <th className="pb-2.5">Cor</th>
+                    <th className="pb-2.5">Combustível</th>
+                    <th className="pb-2.5">Tipo</th>
+                    <th className="pb-2.5">Status</th>
+                    <th className="pb-2.5 pr-3 text-right">Ações</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {vehicles.map((vehicle, index) => (
+                    <tr
+                      key={vehicle.id}
+                      className={`border-b border-[var(--border)] transition-colors last:border-none hover:bg-[var(--blue-100)] ${
+                        index % 2 === 1 ? 'bg-[var(--page)]' : ''
+                      } ${selected.has(vehicle.id) ? 'bg-[var(--blue-100)]' : ''}`}
+                    >
+                      <td className="py-2.5 pl-3">
+                        <input
+                          type="checkbox"
+                          checked={selected.has(vehicle.id)}
+                          onChange={() => toggle(vehicle.id)}
+                          className="h-4 w-4 accent-[var(--blue-500)]"
+                          aria-label={`Selecionar ${vehicle.license_plate}`}
+                        />
+                      </td>
+                      <td className="py-2.5 font-mono text-[var(--ink-soft)]">
+                        {vehicle.internal_code != null ? `#${vehicle.internal_code}` : '—'}
+                      </td>
+                      <td className="py-2.5 font-mono font-medium text-[var(--ink)]">{vehicle.license_plate}</td>
+                      <td className="py-2.5 text-[var(--ink-soft)]">{vehicleLabel(vehicle)}</td>
+                      <td className="py-2.5 text-[var(--ink-soft)]">{vehicle.model_year || '—'}</td>
+                      <td className="py-2.5 text-[var(--ink-soft)]">{vehicle.color || '—'}</td>
+                      <td className="py-2.5 text-[var(--ink-soft)]">{vehicle.fuel || '—'}</td>
+                      <td className="py-2.5 text-[var(--ink-soft)]">{VEHICLE_ROLE_LABELS[vehicle.role ?? 1]}</td>
+                      <td className="py-2.5">
+                        <span className={`rounded-full px-2 py-0.5 text-[10.5px] font-bold uppercase ${statusTone(vehicle.status)}`}>
+                          {VEHICLE_STATUS_LABELS[vehicle.status?.[0] ?? 0] ?? '—'}
+                        </span>
+                      </td>
+                      <td className="py-2.5 pr-3 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            type="button"
+                            onClick={() => onEdit(vehicle)}
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-[var(--muted)] hover:bg-[var(--surface)] hover:text-[var(--ink)]"
+                            aria-label="Editar"
+                          >
+                            <PencilIcon className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDeleteTarget(vehicle)}
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-[var(--muted)] hover:bg-[var(--red-100)] hover:text-[var(--red-500)]"
+                            aria-label="Excluir"
+                          >
+                            <TrashIcon className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
 
         {!loading && meta.lastPage > 1 && (

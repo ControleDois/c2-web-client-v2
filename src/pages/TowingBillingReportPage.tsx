@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
 import {
   fetchTowingNetRevenue,
-  openTowingNetRevenuePdf,
+  generateTowingNetRevenuePdfUrl,
   type TowingRevenueReport,
   type TowingRevenueStatusFilter,
 } from '../lib/reports'
 import { ApiError } from '../lib/api'
 import { formatCurrency, formatDate, formatPercent } from '../lib/format'
 import { MultiSeriesBarChart } from '../components/charts/MultiSeriesBarChart'
+import { DocumentViewerModal } from '../components/DocumentViewerModal'
 import { PrinterIcon, TrendUpIcon, TruckIcon, CoinIcon, RouteIcon, ChevronDownIcon } from '../components/icons'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
@@ -76,6 +77,7 @@ export function TowingBillingReportPage({ session, company }: TowingBillingRepor
   const [error, setError] = useState<string | null>(null)
   const [generatingPdf, setGeneratingPdf] = useState(false)
   const [pdfError, setPdfError] = useState<string | null>(null)
+  const [pdfViewerUrl, setPdfViewerUrl] = useState<string | null>(null)
 
   useEffect(() => {
     if (!dateStart || !dateEnd || dateStart > dateEnd) return
@@ -137,7 +139,13 @@ export function TowingBillingReportPage({ session, company }: TowingBillingRepor
     setGeneratingPdf(true)
     setPdfError(null)
     try {
-      await openTowingNetRevenuePdf(session.token.token, company.id, { dateStart, dateEnd, status, showExpenses })
+      const url = await generateTowingNetRevenuePdfUrl(session.token.token, company.id, {
+        dateStart,
+        dateEnd,
+        status,
+        showExpenses,
+      })
+      setPdfViewerUrl(url)
     } catch (err) {
       setPdfError(err instanceof ApiError ? err.message : 'Não foi possível gerar o PDF do relatório.')
     } finally {
@@ -146,7 +154,7 @@ export function TowingBillingReportPage({ session, company }: TowingBillingRepor
   }
 
   return (
-    <div className="flex flex-col gap-6 p-8 print:gap-2.5 print:p-0">
+    <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8 print:gap-2.5 print:p-0">
       <div className="flex flex-wrap items-center justify-between gap-4 print:hidden">
         <div>
           <p className="text-[12px] font-semibold tracking-wide text-[var(--blue-700)] uppercase">Relatórios</p>
@@ -290,10 +298,64 @@ export function TowingBillingReportPage({ session, company }: TowingBillingRepor
         ) : sales.length === 0 ? (
           <p className="py-10 text-center text-[13.5px] text-[var(--muted)]">Nenhuma venda encontrada no período.</p>
         ) : (
-          <div className="print-overflow-visible mt-3 overflow-x-auto print:mt-1.5">
+          <>
+          <div className="mt-3 flex flex-col gap-2.5 sm:hidden print:hidden">
+            {sales.map((sale) => (
+              <div key={sale.id} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="min-w-0 truncate text-[13.5px] font-bold text-[var(--ink)]">{saleCustomerName(sale)}</p>
+                    <p className="mt-0.5 text-[12px] text-[var(--muted)]">
+                      #{sale.code} · {formatDate(sale.created_at)}
+                    </p>
+                    <p className="text-[12px] text-[var(--ink-soft)]">{saleVehicleLabel(sale)}</p>
+                  </div>
+                  <span className="flex-none rounded-full bg-[var(--blue-100)] px-2 py-0.5 text-[10px] font-bold text-[var(--blue-700)]">
+                    {TOWING_SALE_STATUS_LABELS[sale.status] ?? sale.status}
+                  </span>
+                </div>
+                <p className="mt-1.5 text-[12px] text-[var(--ink-soft)]">{saleRoute(sale)}</p>
+                <div className="mt-2.5 grid grid-cols-3 gap-2 border-t border-[var(--border)] pt-2.5">
+                  <div>
+                    <p className="text-[10px] font-semibold tracking-wide text-[var(--muted)] uppercase">Bruto</p>
+                    <p className="text-[12.5px] font-semibold text-[var(--ink)]">{formatCurrency(sale.transport_value)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-semibold tracking-wide text-[var(--muted)] uppercase">Gastos</p>
+                    <p className="text-[12.5px] font-semibold text-[var(--red-500)]">{formatCurrency(sale.total_expenses)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-semibold tracking-wide text-[var(--muted)] uppercase">Líquido</p>
+                    <p className="text-[12.5px] font-bold text-[var(--green-600)]">{formatCurrency(sale.net_revenue)}</p>
+                  </div>
+                </div>
+                {showExpenses && sale.expenses.length > 0 && (
+                  <div className="mt-2.5 border-t border-[var(--border)] pt-2.5">
+                    <p className="mb-1.5 text-[10.5px] font-bold tracking-wide text-[var(--muted)] uppercase">
+                      Gastos vinculados ({sale.expenses.length})
+                    </p>
+                    <div className="flex flex-col gap-1.5">
+                      {sale.expenses.map((expense) => (
+                        <div key={expense.id} className="flex items-center justify-between gap-2 text-[12px]">
+                          <div className="min-w-0">
+                            <p className="truncate text-[var(--ink)]">{expense.name || 'Sem descrição'}</p>
+                            <p className="truncate text-[11px] text-[var(--muted)]">
+                              {expense.category_name || '—'} · {expense.people_name || '—'} · {formatDate(expense.date_due || expense.date_competence)}
+                            </p>
+                          </div>
+                          <span className="flex-none font-semibold text-[var(--red-500)]">{formatCurrency(expense.amount)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="print-overflow-visible mt-3 hidden overflow-x-auto sm:block print:mt-1.5 print:block">
             <table className="w-full border-collapse text-[13px] print:border print:border-black/25 print:text-[9px]">
               <thead>
-                <tr className="border-b border-[var(--border)] text-left text-[11px] font-semibold tracking-wide text-[var(--muted)] uppercase print:border-b-2 print:border-black print:text-[8px] print:text-black">
+                <tr className="border-b border-[var(--border)] text-left text-[11px] font-semibold tracking-wide text-[var(--muted)] uppercase print:border-b print:border-black/15 print:text-[8px] print:text-black">
                   <th className="py-2.5 pl-3 pr-2 print:border-r print:border-black/15 print:px-1.5 print:py-1">Código</th>
                   <th className="px-2 py-2.5 print:border-r print:border-black/15 print:px-1.5 print:py-1">Data</th>
                   <th className="px-2 py-2.5 print:border-r print:border-black/15 print:px-1.5 print:py-1">Cliente / Veículo</th>
@@ -341,9 +403,11 @@ export function TowingBillingReportPage({ session, company }: TowingBillingRepor
                     <tr
                       className={`border-b border-[var(--border)] last:border-none ${index % 2 === 1 ? 'bg-[var(--page)]' : ''} print:border-b print:border-black/15 print:bg-white`}
                     >
-                      <td className="pb-3 pl-3 print:hidden" />
-                      <td colSpan={7} className="pb-3 pr-3 print:p-1">
-                        <div className="rounded-xl border border-[var(--border)] bg-[var(--page)] p-3 print:rounded-none print:border print:border-black/15 print:bg-white print:p-1.5">
+                      <td
+                        colSpan={8}
+                        className="border-x border-b border-[var(--border)] px-3 pt-2 pb-3 print:border-x print:border-b print:border-black/15 print:px-1.5 print:pt-1 print:pb-1.5"
+                      >
+                        <div>
                           <p className="mb-1.5 text-[10.5px] font-bold tracking-wide text-[var(--muted)] uppercase print:mb-1 print:text-[7.5px] print:text-black">
                             Gastos vinculados ({sale.expenses.length})
                           </p>
@@ -387,8 +451,28 @@ export function TowingBillingReportPage({ session, company }: TowingBillingRepor
               ))}
             </table>
           </div>
+          </>
         )}
       </div>
+
+      {pdfViewerUrl && (
+        <DocumentViewerModal
+          documents={[
+            {
+              title: 'Relatório de Faturamento',
+              url: pdfViewerUrl,
+              fileName: 'relatorio-faturamento.pdf',
+              type: 'pdf',
+            },
+          ]}
+          index={0}
+          onIndexChange={() => {}}
+          onClose={() => {
+            URL.revokeObjectURL(pdfViewerUrl)
+            setPdfViewerUrl(null)
+          }}
+        />
+      )}
     </div>
   )
 }

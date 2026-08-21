@@ -64,7 +64,7 @@ export function UsersPage({ session, company, onBack, onCreate, onEdit }: UsersP
   }, [search, page, company.id, session.token.token])
 
   return (
-    <div className="flex flex-col gap-6 p-8">
+    <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8">
       <div>
         <button
           type="button"
@@ -122,56 +122,90 @@ export function UsersPage({ session, company, onBack, onCreate, onEdit }: UsersP
             Nenhum usuário encontrado{search ? ` para "${search}"` : ''}.
           </p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-[13px]">
-              <thead>
-                <tr className="border-b border-[var(--border)] text-left text-[11px] font-semibold tracking-wide text-[var(--muted)] uppercase">
-                  <th className="w-12 pb-2.5 pl-3" />
-                  <th className="pb-2.5">Código</th>
-                  <th className="pb-2.5">Nome</th>
-                  <th className="pb-2.5">E-mail</th>
-                  <th className="pb-2.5">Perfil de acesso</th>
-                  <th className="pb-2.5 pr-3 text-right">Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((item, index) => (
-                  <tr
-                    key={item.id}
-                    className={`border-b border-[var(--border)] transition-colors last:border-none hover:bg-[var(--blue-100)] ${
-                      index % 2 === 1 ? 'bg-[var(--page)]' : ''
-                    }`}
-                  >
-                    <td className="py-2.5 pl-3">
-                      <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-[var(--blue-100)] text-[var(--blue-700)]">
-                        {item.file_url ? (
-                          <img src={item.file_url} alt="" className="h-full w-full object-cover" />
-                        ) : (
-                          <UserIcon className="h-4 w-4" />
-                        )}
-                      </span>
-                    </td>
-                    <td className="py-2.5 font-mono text-[var(--ink-soft)]">
-                      {item.internal_code != null ? `#${item.internal_code}` : '—'}
-                    </td>
-                    <td className="py-2.5 font-medium text-[var(--ink)]">{item.name}</td>
-                    <td className="py-2.5 text-[var(--ink-soft)]">{item.user?.email ?? '—'}</td>
-                    <td className="py-2.5 text-[var(--ink-soft)]">{item.role?.name ?? '—'}</td>
-                    <td className="py-2.5 pr-3 text-right">
-                      <button
-                        type="button"
-                        onClick={() => onEdit(item)}
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-[var(--muted)] hover:bg-[var(--page)] hover:text-[var(--ink)]"
-                        aria-label="Editar"
-                      >
-                        <PencilIcon className="h-3.5 w-3.5" />
-                      </button>
-                    </td>
+          <>
+            <div className="flex flex-col gap-2.5 sm:hidden">
+              {items.map((item) => (
+                <div key={item.id} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3">
+                  <div className="flex items-start gap-2.5">
+                    <span className="flex h-9 w-9 flex-none items-center justify-center overflow-hidden rounded-full bg-[var(--blue-100)] text-[var(--blue-700)]">
+                      {item.file_url ? (
+                        <img src={item.file_url} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <UserIcon className="h-4 w-4" />
+                      )}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="min-w-0 truncate text-[13.5px] font-bold text-[var(--ink)]">{item.name}</p>
+                      <p className="mt-0.5 text-[12px] text-[var(--muted)]">
+                        {item.internal_code != null ? `#${item.internal_code}` : '—'} · {item.user?.email ?? '—'}
+                      </p>
+                      <p className="text-[12px] text-[var(--ink-soft)]">{item.role?.name ?? '—'}</p>
+                      <div className="mt-2.5 flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => onEdit(item)}
+                          className="flex items-center gap-1.5 rounded-lg bg-[var(--page)] px-3 py-1.5 text-[12px] font-semibold text-[var(--ink-soft)]"
+                        >
+                          <PencilIcon className="h-3.5 w-3.5" />
+                          Editar
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="hidden overflow-x-auto sm:block">
+              <table className="w-full border-collapse text-[13px]">
+                <thead>
+                  <tr className="border-b border-[var(--border)] text-left text-[11px] font-semibold tracking-wide text-[var(--muted)] uppercase">
+                    <th className="w-12 pb-2.5 pl-3" />
+                    <th className="pb-2.5">Código</th>
+                    <th className="pb-2.5">Nome</th>
+                    <th className="pb-2.5">E-mail</th>
+                    <th className="pb-2.5">Perfil de acesso</th>
+                    <th className="pb-2.5 pr-3 text-right">Ações</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {items.map((item, index) => (
+                    <tr
+                      key={item.id}
+                      className={`border-b border-[var(--border)] transition-colors last:border-none hover:bg-[var(--blue-100)] ${
+                        index % 2 === 1 ? 'bg-[var(--page)]' : ''
+                      }`}
+                    >
+                      <td className="py-2.5 pl-3">
+                        <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-[var(--blue-100)] text-[var(--blue-700)]">
+                          {item.file_url ? (
+                            <img src={item.file_url} alt="" className="h-full w-full object-cover" />
+                          ) : (
+                            <UserIcon className="h-4 w-4" />
+                          )}
+                        </span>
+                      </td>
+                      <td className="py-2.5 font-mono text-[var(--ink-soft)]">
+                        {item.internal_code != null ? `#${item.internal_code}` : '—'}
+                      </td>
+                      <td className="py-2.5 font-medium text-[var(--ink)]">{item.name}</td>
+                      <td className="py-2.5 text-[var(--ink-soft)]">{item.user?.email ?? '—'}</td>
+                      <td className="py-2.5 text-[var(--ink-soft)]">{item.role?.name ?? '—'}</td>
+                      <td className="py-2.5 pr-3 text-right">
+                        <button
+                          type="button"
+                          onClick={() => onEdit(item)}
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-[var(--muted)] hover:bg-[var(--page)] hover:text-[var(--ink)]"
+                          aria-label="Editar"
+                        >
+                          <PencilIcon className="h-3.5 w-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
 
         {!loading && meta.lastPage > 1 && (

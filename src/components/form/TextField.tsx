@@ -18,7 +18,7 @@ export function TextField({ label, icon, action, trailing, ...inputProps }: Text
         <span className="h-4 w-4 flex-none text-[var(--muted)]">{icon}</span>
         <input
           {...inputProps}
-          className="w-full bg-[var(--page)] text-[14px] text-[var(--ink)] placeholder:text-[var(--muted)] focus:outline-none"
+          className="min-w-0 w-full bg-[var(--page)] text-[14px] text-[var(--ink)] placeholder:text-[var(--muted)] focus:outline-none"
         />
         {trailing}
       </div>

@@ -238,6 +238,18 @@ export function TowingSalesPage({ session, company, onCreate, onEdit }: TowingSa
     setRefreshKey((key) => key + 1)
   }
 
+  function silentReload() {
+    const { start, end } = getPeriodRange(period)
+    const cacheKey = `towing-sales:${company.id}:${period}`
+    fetchTowingSales(session.token.token, company.id, { dateStart: start, dateEnd: end })
+      .then((res) => {
+        const nextSales = res.data || []
+        setSales(nextSales)
+        setCached(cacheKey, nextSales)
+      })
+      .catch(() => {})
+  }
+
   const bucketStats = useMemo(() => {
     const stats: Record<string, { count: number; total: number }> = {}
     for (const bucket of STATUS_BUCKETS) {
@@ -272,12 +284,14 @@ export function TowingSalesPage({ session, company, onCreate, onEdit }: TowingSa
 
   async function handleConfirmDelete() {
     if (!deleteTarget) return
+    const deletedId = deleteTarget.id
     setDeleting(true)
     setDeleteError(null)
     try {
-      await deleteTowingSale(session.token.token, deleteTarget.id)
+      await deleteTowingSale(session.token.token, deletedId)
       setDeleteTarget(null)
-      reload()
+      setSales((prev) => prev.filter((sale) => sale.id !== deletedId))
+      silentReload()
     } catch (err) {
       setDeleteError(err instanceof ApiError ? err.message : 'Não foi possível excluir a venda.')
     } finally {
@@ -286,13 +300,15 @@ export function TowingSalesPage({ session, company, onCreate, onEdit }: TowingSa
   }
 
   async function handleConfirmDeleteSelected() {
+    const deletedIds = new Set(selected)
     setDeleting(true)
     setDeleteError(null)
     try {
       await deleteTowingSalesSelected(session.token.token, Array.from(selected))
       setDeletingSelected(false)
+      setSales((prev) => prev.filter((sale) => !deletedIds.has(sale.id)))
       setSelected(new Set())
-      reload()
+      silentReload()
     } catch (err) {
       setDeleteError(err instanceof ApiError ? err.message : 'Não foi possível excluir as vendas selecionadas.')
     } finally {
@@ -413,13 +429,13 @@ export function TowingSalesPage({ session, company, onCreate, onEdit }: TowingSa
   }))
 
   return (
-    <div className="flex flex-col gap-6 p-8">
+    <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="text-[12px] font-semibold tracking-wide text-[var(--blue-700)] uppercase">Guincho</p>
           <h1 className="mt-0.5 text-[22px] font-bold tracking-tight text-[var(--ink)]">Vendas de guincho</h1>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <div className="flex gap-1 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1">
             {PERIOD_OPTIONS.map((option) => (
               <button
@@ -556,7 +572,94 @@ export function TowingSalesPage({ session, company, onCreate, onEdit }: TowingSa
             Nenhuma venda encontrada{search ? ` para "${search}"` : ''}.
           </p>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            <div className="flex flex-col gap-2.5 sm:hidden">
+              {visible.map((sale) => {
+                const status = Number(sale.status || 0)
+                const collectionStatus = Number(sale.collection_status ?? 0)
+                return (
+                  <div
+                    key={sale.id}
+                    className={`rounded-xl border border-[var(--border)] p-3 ${
+                      selected.has(sale.id) ? 'bg-[var(--blue-100)]' : 'bg-[var(--surface)]'
+                    }`}
+                  >
+                    <div className="flex items-start gap-2.5">
+                      <input
+                        type="checkbox"
+                        checked={selected.has(sale.id)}
+                        onChange={() => toggle(sale.id)}
+                        className="mt-0.5 h-4 w-4 flex-none accent-[var(--blue-500)]"
+                        aria-label={`Selecionar venda ${sale.code}`}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="truncate text-[13.5px] font-bold text-[var(--ink)]">
+                              #{sale.code} · {sale.people?.name || '—'}
+                            </p>
+                            <p className="truncate text-[12px] text-[var(--muted)]">
+                              {sale.people?.phone
+                                ? formatPhone(sale.people.phone)
+                                : sale.people?.document
+                                  ? formatDocument(sale.people.document)
+                                  : '—'}
+                            </p>
+                          </div>
+                          <span className="flex-none text-[13.5px] font-bold text-[var(--ink)]">
+                            {formatCurrency(getSaleValue(sale))}
+                          </span>
+                        </div>
+
+                        <p className="mt-1.5 flex items-center gap-1.5 truncate text-[12px] text-[var(--ink-soft)]">
+                          <TruckIcon className="h-3.5 w-3.5 flex-none text-[var(--muted)]" />
+                          <span className="min-w-0 truncate">{vehicleSummary(sale)}</span>
+                        </p>
+
+                        <div className="mt-1.5 flex items-start gap-1.5 text-[12px] text-[var(--ink-soft)]">
+                          <span className="mt-1 h-1.5 w-1.5 flex-none rounded-full bg-[var(--green-600)]" />
+                          <p className="min-w-0 truncate">
+                            {formatAddress(sale.origin_address, sale.origin_number, sale.origin_city, sale.origin_state) ||
+                              '—'}
+                          </p>
+                        </div>
+                        <div className="mt-1 flex items-start gap-1.5 text-[12px] text-[var(--ink-soft)]">
+                          <span className="mt-1 h-1.5 w-1.5 flex-none rounded-full bg-[var(--red-500)]" />
+                          <p className="min-w-0 truncate">
+                            {formatAddress(
+                              sale.destination_address,
+                              sale.destination_number,
+                              sale.destination_city,
+                              sale.destination_state
+                            ) || '—'}
+                          </p>
+                        </div>
+
+                        <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span
+                              className={`rounded-full px-2 py-1 text-[10.5px] font-bold leading-tight ${saleStatusBadgeClass(status)}`}
+                            >
+                              {SALE_STATUS_LABELS[status] ?? '—'}
+                            </span>
+                            {status === TOWING_SALE_SIGNED_STATUS && (
+                              <span
+                                className={`rounded-full px-2 py-1 text-[10.5px] font-bold leading-tight ${collectionStatusBadgeClass(collectionStatus)}`}
+                              >
+                                {COLLECTION_STATUS_LABELS[collectionStatus] ?? '—'}
+                              </span>
+                            )}
+                          </div>
+                          <RowActionsMenu actions={buildRowActions(sale)} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            <div className="hidden overflow-x-auto sm:block">
             <table className="w-full table-fixed border-collapse text-[13px]">
               <thead>
                 <tr className="border-b border-[var(--border)] text-left text-[11px] font-semibold tracking-wide text-[var(--muted)] uppercase">
@@ -671,7 +774,8 @@ export function TowingSalesPage({ session, company, onCreate, onEdit }: TowingSa
                 })}
               </tbody>
             </table>
-          </div>
+            </div>
+          </>
         )}
 
         {!loading && lastPage > 1 && (

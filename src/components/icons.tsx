@@ -27,6 +27,14 @@ export function CloseIcon(props: SVGProps<SVGSVGElement>) {
   )
 }
 
+export function MenuIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" {...props}>
+      <path d="M3 5.5h14M3 10h14M3 14.5h14" />
+    </svg>
+  )
+}
+
 export function AlertCircleIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" {...props}>

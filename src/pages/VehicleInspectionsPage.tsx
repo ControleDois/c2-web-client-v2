@@ -416,6 +416,20 @@ export function VehicleInspectionsPage({ session, company }: VehicleInspectionsP
     setRefreshKey((key) => key + 1)
   }
 
+  function silentReload() {
+    fetchVehicleInspections(session.token.token, company.id, {
+      search,
+      status: status === '' ? undefined : Number(status),
+      page,
+      limit: 10,
+    })
+      .then((res) => {
+        setItems(res.data || [])
+        setMeta((prev) => ({ ...prev, total: res.meta?.total ?? res.data?.length ?? prev.total, lastPage: res.meta?.last_page ?? prev.lastPage }))
+      })
+      .catch(() => {})
+  }
+
   async function handleUpdateStatus(nextStatus: number) {
     if (!detailItem) return
     setStatusUpdating(true)
@@ -445,13 +459,16 @@ export function VehicleInspectionsPage({ session, company }: VehicleInspectionsP
 
   async function handleConfirmDelete() {
     if (!deleteTarget) return
+    const deletedId = deleteTarget.id
     setDeleting(true)
     setActionError(null)
     try {
-      await deleteVehicleInspection(session.token.token, deleteTarget.id)
+      await deleteVehicleInspection(session.token.token, deletedId)
       setDeleteTarget(null)
-      if (detailItem?.id === deleteTarget.id) setDetailItem(null)
-      reload()
+      if (detailItem?.id === deletedId) setDetailItem(null)
+      setItems((prev) => prev.filter((item) => item.id !== deletedId))
+      setMeta((prev) => ({ ...prev, total: Math.max(0, prev.total - 1) }))
+      silentReload()
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : 'Não foi possível excluir a vistoria.')
     } finally {
@@ -462,7 +479,7 @@ export function VehicleInspectionsPage({ session, company }: VehicleInspectionsP
   const photos = detailItem?.photos ?? []
 
   return (
-    <div className="flex flex-col gap-6 p-8">
+    <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8">
       <div>
         <p className="text-[12px] font-semibold tracking-wide text-[var(--blue-700)] uppercase">Operação</p>
         <h1 className="mt-0.5 text-[22px] font-bold tracking-tight text-[var(--ink)]">Aprovação de Vistorias</h1>
@@ -521,70 +538,123 @@ export function VehicleInspectionsPage({ session, company }: VehicleInspectionsP
             Nenhuma vistoria encontrada{search ? ` para "${search}"` : ''}.
           </p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-[13px]">
-              <thead>
-                <tr className="border-b border-[var(--border)] text-left text-[11px] font-semibold tracking-wide text-[var(--muted)] uppercase">
-                  <th className="pb-2.5 pl-3">Código</th>
-                  <th className="pb-2.5">Veículo</th>
-                  <th className="pb-2.5">Cliente</th>
-                  <th className="pb-2.5">Data</th>
-                  <th className="pb-2.5">Status</th>
-                  <th className="pb-2.5 pr-3 text-right">Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((item, index) => {
-                  const actions: RowAction[] = [
-                    { key: 'view', label: 'Ver detalhes', icon: <EyeIcon className="h-4 w-4" />, onClick: () => setDetailItem(item) },
-                    {
-                      key: 'pdf',
-                      label: downloadingId === item.id ? 'Baixando…' : 'Baixar PDF',
-                      icon: <DownloadIcon className="h-4 w-4" />,
-                      onClick: () => handleDownloadPdf(item),
-                    },
-                    {
-                      key: 'whatsapp',
-                      label: 'Enviar por WhatsApp',
-                      icon: <WhatsappIcon className="h-4 w-4" />,
-                      onClick: () => setSendWhatsappTarget(item),
-                    },
-                    {
-                      key: 'delete',
-                      label: 'Excluir',
-                      icon: <TrashIcon className="h-4 w-4" />,
-                      tone: 'danger',
-                      dividerBefore: true,
-                      onClick: () => setDeleteTarget(item),
-                    },
-                  ]
+          <>
+            <div className="flex flex-col gap-2.5 sm:hidden">
+              {items.map((item) => {
+                const actions: RowAction[] = [
+                  { key: 'view', label: 'Ver detalhes', icon: <EyeIcon className="h-4 w-4" />, onClick: () => setDetailItem(item) },
+                  {
+                    key: 'pdf',
+                    label: downloadingId === item.id ? 'Baixando…' : 'Baixar PDF',
+                    icon: <DownloadIcon className="h-4 w-4" />,
+                    onClick: () => handleDownloadPdf(item),
+                  },
+                  {
+                    key: 'whatsapp',
+                    label: 'Enviar por WhatsApp',
+                    icon: <WhatsappIcon className="h-4 w-4" />,
+                    onClick: () => setSendWhatsappTarget(item),
+                  },
+                  {
+                    key: 'delete',
+                    label: 'Excluir',
+                    icon: <TrashIcon className="h-4 w-4" />,
+                    tone: 'danger',
+                    dividerBefore: true,
+                    onClick: () => setDeleteTarget(item),
+                  },
+                ]
 
-                  return (
-                    <tr
-                      key={item.id}
-                      onClick={() => setDetailItem(item)}
-                      className={`cursor-pointer border-b border-[var(--border)] transition-colors last:border-none hover:bg-[var(--blue-100)] ${
-                        index % 2 === 1 ? 'bg-[var(--page)]' : ''
-                      }`}
-                    >
-                      <td className="py-2.5 pl-3 font-mono text-[var(--ink-soft)]">{item.code ? `#${item.code}` : '—'}</td>
-                      <td className="py-2.5 font-medium text-[var(--ink)]">{vehicleLabel(item)}</td>
-                      <td className="py-2.5 text-[var(--ink-soft)]">{customerName(item)}</td>
-                      <td className="py-2.5 whitespace-nowrap text-[var(--ink-soft)]">{formatDateTime(item.created_at)}</td>
-                      <td className="py-2.5">
-                        <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${statusBadgeClass(item.status)}`}>
+                return (
+                  <div
+                    key={item.id}
+                    onClick={() => setDetailItem(item)}
+                    className="cursor-pointer rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="min-w-0 truncate text-[13.5px] font-bold text-[var(--ink)]">{vehicleLabel(item)}</p>
+                        <p className="mt-0.5 text-[12px] text-[var(--muted)]">
+                          {item.code ? `#${item.code}` : '—'} · {customerName(item)}
+                        </p>
+                        <p className="text-[12px] text-[var(--ink-soft)]">{formatDateTime(item.created_at)}</p>
+                      </div>
+                      <div className="flex flex-none items-center gap-2" onClick={(event) => event.stopPropagation()}>
+                        <span className={`rounded-full px-2.5 py-1 text-[10.5px] font-bold ${statusBadgeClass(item.status)}`}>
                           {INSPECTION_STATUS_LABELS[item.status] ?? item.status}
                         </span>
-                      </td>
-                      <td className="py-2.5 pr-3 text-right" onClick={(event) => event.stopPropagation()}>
                         <RowActionsMenu actions={actions} />
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            <div className="hidden overflow-x-auto sm:block">
+              <table className="w-full border-collapse text-[13px]">
+                <thead>
+                  <tr className="border-b border-[var(--border)] text-left text-[11px] font-semibold tracking-wide text-[var(--muted)] uppercase">
+                    <th className="pb-2.5 pl-3">Código</th>
+                    <th className="pb-2.5">Veículo</th>
+                    <th className="pb-2.5">Cliente</th>
+                    <th className="pb-2.5">Data</th>
+                    <th className="pb-2.5">Status</th>
+                    <th className="pb-2.5 pr-3 text-right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((item, index) => {
+                    const actions: RowAction[] = [
+                      { key: 'view', label: 'Ver detalhes', icon: <EyeIcon className="h-4 w-4" />, onClick: () => setDetailItem(item) },
+                      {
+                        key: 'pdf',
+                        label: downloadingId === item.id ? 'Baixando…' : 'Baixar PDF',
+                        icon: <DownloadIcon className="h-4 w-4" />,
+                        onClick: () => handleDownloadPdf(item),
+                      },
+                      {
+                        key: 'whatsapp',
+                        label: 'Enviar por WhatsApp',
+                        icon: <WhatsappIcon className="h-4 w-4" />,
+                        onClick: () => setSendWhatsappTarget(item),
+                      },
+                      {
+                        key: 'delete',
+                        label: 'Excluir',
+                        icon: <TrashIcon className="h-4 w-4" />,
+                        tone: 'danger',
+                        dividerBefore: true,
+                        onClick: () => setDeleteTarget(item),
+                      },
+                    ]
+
+                    return (
+                      <tr
+                        key={item.id}
+                        onClick={() => setDetailItem(item)}
+                        className={`cursor-pointer border-b border-[var(--border)] transition-colors last:border-none hover:bg-[var(--blue-100)] ${
+                          index % 2 === 1 ? 'bg-[var(--page)]' : ''
+                        }`}
+                      >
+                        <td className="py-2.5 pl-3 font-mono text-[var(--ink-soft)]">{item.code ? `#${item.code}` : '—'}</td>
+                        <td className="py-2.5 font-medium text-[var(--ink)]">{vehicleLabel(item)}</td>
+                        <td className="py-2.5 text-[var(--ink-soft)]">{customerName(item)}</td>
+                        <td className="py-2.5 whitespace-nowrap text-[var(--ink-soft)]">{formatDateTime(item.created_at)}</td>
+                        <td className="py-2.5">
+                          <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${statusBadgeClass(item.status)}`}>
+                            {INSPECTION_STATUS_LABELS[item.status] ?? item.status}
+                          </span>
+                        </td>
+                        <td className="py-2.5 pr-3 text-right" onClick={(event) => event.stopPropagation()}>
+                          <RowActionsMenu actions={actions} />
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
 
         {!loading && meta.lastPage > 1 && (
