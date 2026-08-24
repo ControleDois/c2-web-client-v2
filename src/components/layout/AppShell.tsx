@@ -68,6 +68,7 @@ type NavGroup = { title: string; items: { page: AppPage; label: string; icon: ty
 function buildNavGroups(systemType?: number): NavGroup[] {
   const principalItems = isLocacaoVeiculos(systemType)
     ? [
+        { page: 'dashboard' as const, label: 'Dashboard', icon: GridIcon },
         { page: 'people' as const, label: 'Pessoas', icon: UserIcon },
         { page: 'vehicles' as const, label: 'Veículos', icon: TruckIcon },
         { page: 'products' as const, label: 'Produtos e Serviços', icon: BoxIcon },

@@ -4,6 +4,7 @@ import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
 import { SignupPage } from './pages/SignupPage'
 import { CompanySelectionPage } from './pages/CompanySelectionPage'
 import { DashboardPage } from './pages/DashboardPage'
+import { RentalDashboardPage } from './pages/RentalDashboardPage'
 import { PeoplePage } from './pages/PeoplePage'
 import { PeopleFormPage } from './pages/PeopleFormPage'
 import { VehiclesPage } from './pages/VehiclesPage'
@@ -59,6 +60,7 @@ import {
   type AuthSession,
   type AuthCompany,
 } from './lib/auth'
+import { isLocacaoVeiculos } from './lib/systemTypes'
 
 type Screen = 'login' | 'forgot-password' | 'signup'
 
@@ -486,6 +488,8 @@ function App() {
       pageContent = <VehicleRentalOperationsPage session={session} company={activeCompany} />
     } else if (page === 'towing-billing-report') {
       pageContent = <TowingBillingReportPage session={session} company={activeCompany} />
+    } else if (isLocacaoVeiculos(activeCompany.system_type)) {
+      pageContent = <RentalDashboardPage session={session} company={activeCompany} />
     } else {
       pageContent = <DashboardPage session={session} company={activeCompany} />
     }
