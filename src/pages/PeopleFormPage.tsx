@@ -249,7 +249,7 @@ export function PeopleFormPage({ session, company, personId, onBack, onSaved }: 
       people_type: documentDigits.length > 11 ? 1 : 0,
       roles: [role],
       status: [status],
-      phone: phone || undefined,
+      phone: phone ? phone.replace(/\D/g, '') : undefined,
       email: email || undefined,
       internal_code: internalCode ? Number(internalCode) : undefined,
       birth: birth || undefined,

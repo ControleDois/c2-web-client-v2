@@ -15,7 +15,16 @@ import { SearchIcon, PlusIcon, PencilIcon, TrashIcon, PrinterIcon, TruckIcon } f
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { RowActionsMenu, type RowAction } from '../components/RowActionsMenu'
 import { SaleContractPreviewModal } from '../components/SaleContractPreviewModal'
+import { ListEntityDateFilters, type EntityPick } from '../components/ListEntityDateFilters'
 import type { AuthSession, AuthCompany } from '../lib/auth'
+
+function periodOverlaps(startDate: string | null | undefined, endDate: string | null | undefined, from: string, to: string): boolean {
+  const start = startDate ? startDate.slice(0, 10) : undefined
+  const end = endDate ? endDate.slice(0, 10) : undefined
+  if (from && end && end < from) return false
+  if (to && start && start > to) return false
+  return true
+}
 
 interface VehicleRentalsPageProps {
   session: AuthSession
@@ -105,6 +114,10 @@ function rentalTotalValue(contract: VehicleRentalContractRecord): number | null 
 export function VehicleRentalsPage({ session, company, onCreate, onEdit }: VehicleRentalsPageProps) {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('total')
+  const [vehicleFilter, setVehicleFilter] = useState<EntityPick | null>(null)
+  const [personFilter, setPersonFilter] = useState<EntityPick | null>(null)
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
   const [page, setPage] = useState(1)
   const [sales, setSales] = useState<SaleRecord[]>([])
   const [loading, setLoading] = useState(true)
@@ -154,7 +167,7 @@ export function VehicleRentalsPage({ session, company, onCreate, onEdit }: Vehic
 
   useEffect(() => {
     setPage(1)
-  }, [search, statusFilter])
+  }, [search, statusFilter, vehicleFilter, personFilter, dateFrom, dateTo])
 
   function reload() {
     fetchSales(session.token.token, company.id, { limit: 500 })
@@ -187,6 +200,9 @@ export function VehicleRentalsPage({ session, company, onCreate, onEdit }: Vehic
     return sales.filter((sale) => {
       const contract = sale.vehicleRentalContract
       if (statusFilter !== 'total' && Number(contract?.status ?? 0) !== Number(statusFilter)) return false
+      if (vehicleFilter && sale.vehicle?.id !== vehicleFilter.id) return false
+      if (personFilter && contract?.renter?.id !== personFilter.id) return false
+      if ((dateFrom || dateTo) && !periodOverlaps(contract?.startDate, contract?.endDate, dateFrom, dateTo)) return false
       if (!term) return true
       return (
         String(sale.internal_code ?? sale.code).includes(term) ||
@@ -194,7 +210,7 @@ export function VehicleRentalsPage({ session, company, onCreate, onEdit }: Vehic
         (sale.vehicle?.license_plate ?? '').toLowerCase().includes(term)
       )
     })
-  }, [sales, search, statusFilter])
+  }, [sales, search, statusFilter, vehicleFilter, personFilter, dateFrom, dateTo])
 
   const lastPage = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const visible = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
@@ -332,6 +348,20 @@ export function VehicleRentalsPage({ session, company, onCreate, onEdit }: Vehic
           className="w-full bg-transparent text-[13.5px] text-[var(--ink)] placeholder:text-[var(--muted)] focus:outline-none"
         />
       </div>
+
+      <ListEntityDateFilters
+        session={session}
+        company={company}
+        vehicle={vehicleFilter}
+        onVehicleChange={setVehicleFilter}
+        person={personFilter}
+        onPersonChange={setPersonFilter}
+        personLabel="Locatário"
+        dateFrom={dateFrom}
+        onDateFromChange={setDateFrom}
+        dateTo={dateTo}
+        onDateToChange={setDateTo}
+      />
 
       {selected.size > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-[var(--blue-100)] px-4 py-3">

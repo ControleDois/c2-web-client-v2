@@ -14,7 +14,16 @@ import { SearchIcon, PlusIcon, PencilIcon, TrashIcon, PrinterIcon, TruckIcon } f
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { RowActionsMenu, type RowAction } from '../components/RowActionsMenu'
 import { SaleContractPreviewModal } from '../components/SaleContractPreviewModal'
+import { ListEntityDateFilters, type EntityPick } from '../components/ListEntityDateFilters'
 import type { AuthSession, AuthCompany } from '../lib/auth'
+
+function dateInRange(dateValue: string | null | undefined, from: string, to: string): boolean {
+  if (!dateValue) return false
+  const date = dateValue.slice(0, 10)
+  if (from && date < from) return false
+  if (to && date > to) return false
+  return true
+}
 
 interface VehicleSalesPageProps {
   session: AuthSession
@@ -57,6 +66,10 @@ function paymentLabel(contract: VehicleSaleContractRecord): string {
 export function VehicleSalesPage({ session, company, onCreate, onEdit }: VehicleSalesPageProps) {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('total')
+  const [vehicleFilter, setVehicleFilter] = useState<EntityPick | null>(null)
+  const [personFilter, setPersonFilter] = useState<EntityPick | null>(null)
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
   const [page, setPage] = useState(1)
   const [sales, setSales] = useState<SaleRecord[]>([])
   const [loading, setLoading] = useState(true)
@@ -106,7 +119,7 @@ export function VehicleSalesPage({ session, company, onCreate, onEdit }: Vehicle
 
   useEffect(() => {
     setPage(1)
-  }, [search, statusFilter])
+  }, [search, statusFilter, vehicleFilter, personFilter, dateFrom, dateTo])
 
   function reload() {
     fetchSales(session.token.token, company.id, { limit: 500 })
@@ -139,6 +152,9 @@ export function VehicleSalesPage({ session, company, onCreate, onEdit }: Vehicle
     return sales.filter((sale) => {
       const contract = sale.vehicleSaleContract
       if (statusFilter !== 'total' && Number(contract?.status ?? 0) !== Number(statusFilter)) return false
+      if (vehicleFilter && sale.vehicle?.id !== vehicleFilter.id) return false
+      if (personFilter && contract?.buyer?.id !== personFilter.id) return false
+      if ((dateFrom || dateTo) && !dateInRange(contract?.firstDueDate ?? sale.created_at, dateFrom, dateTo)) return false
       if (!term) return true
       return (
         String(sale.internal_code ?? sale.code).includes(term) ||
@@ -146,7 +162,7 @@ export function VehicleSalesPage({ session, company, onCreate, onEdit }: Vehicle
         (sale.vehicle?.license_plate ?? '').toLowerCase().includes(term)
       )
     })
-  }, [sales, search, statusFilter])
+  }, [sales, search, statusFilter, vehicleFilter, personFilter, dateFrom, dateTo])
 
   const lastPage = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const visible = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
@@ -284,6 +300,20 @@ export function VehicleSalesPage({ session, company, onCreate, onEdit }: Vehicle
           className="w-full bg-transparent text-[13.5px] text-[var(--ink)] placeholder:text-[var(--muted)] focus:outline-none"
         />
       </div>
+
+      <ListEntityDateFilters
+        session={session}
+        company={company}
+        vehicle={vehicleFilter}
+        onVehicleChange={setVehicleFilter}
+        person={personFilter}
+        onPersonChange={setPersonFilter}
+        personLabel="Comprador"
+        dateFrom={dateFrom}
+        onDateFromChange={setDateFrom}
+        dateTo={dateTo}
+        onDateToChange={setDateTo}
+      />
 
       {selected.size > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-[var(--blue-100)] px-4 py-3">

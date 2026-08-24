@@ -14,6 +14,8 @@ import { VehicleRentalsPage } from './pages/VehicleRentalsPage'
 import { VehicleRentalFormPage } from './pages/VehicleRentalFormPage'
 import { VehicleSalesPage } from './pages/VehicleSalesPage'
 import { VehicleSaleFormPage } from './pages/VehicleSaleFormPage'
+import { OrderServicesPage } from './pages/OrderServicesPage'
+import { OrderServiceFormPage } from './pages/OrderServiceFormPage'
 import { TowingSalesPage } from './pages/TowingSalesPage'
 import { TowingSaleFormPage } from './pages/TowingSaleFormPage'
 import { BankAccountsPage } from './pages/BankAccountsPage'
@@ -71,6 +73,7 @@ function App() {
   const productsView = useEntityView()
   const vehicleRentalsView = useEntityView()
   const vehicleSalesView = useEntityView()
+  const orderServicesView = useEntityView()
   const towingSalesView = useEntityView()
   const bankAccountsView = useEntityView()
   const categoriesView = useEntityView()
@@ -90,6 +93,7 @@ function App() {
     products: productsView,
     'vehicle-rentals': vehicleRentalsView,
     'vehicle-sales': vehicleSalesView,
+    'order-services': orderServicesView,
     'towing-sales': towingSalesView,
     'bank-accounts': bankAccountsView,
     categories: categoriesView,
@@ -235,6 +239,24 @@ function App() {
             company={activeCompany}
             onCreate={vehicleSalesView.create}
             onEdit={(sale) => vehicleSalesView.edit(sale.id)}
+          />
+        )
+    } else if (page === 'order-services') {
+      pageContent =
+        orderServicesView.view.mode === 'form' ? (
+          <OrderServiceFormPage
+            session={session}
+            company={activeCompany}
+            orderServiceId={orderServicesView.view.id}
+            onBack={orderServicesView.reset}
+            onSaved={orderServicesView.reset}
+          />
+        ) : (
+          <OrderServicesPage
+            session={session}
+            company={activeCompany}
+            onCreate={orderServicesView.create}
+            onEdit={(orderService) => orderServicesView.edit(orderService.id)}
           />
         )
     } else if (page === 'towing-sales') {

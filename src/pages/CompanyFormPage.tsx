@@ -264,7 +264,7 @@ export function CompanyFormPage({ session, companyId, onBack, onSaved, embedded 
       social_name: socialName || undefined,
       people_type: documentDigits.length > 11 ? 1 : 0,
       simple,
-      phone: phone || undefined,
+      phone: phone ? phone.replace(/\D/g, '') : undefined,
       email: email || undefined,
       state_registration_indicator: stateRegistrationIndicator,
       state_registration: stateRegistrationIndicator === 1 ? stateRegistration || undefined : undefined,

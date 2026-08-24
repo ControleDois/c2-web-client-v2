@@ -464,6 +464,14 @@ export function PenIcon(props: SVGProps<SVGSVGElement>) {
   )
 }
 
+export function WrenchIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" {...props}>
+      <path d="M13.5 3a3.5 3.5 0 0 0-4.6 4.3L3 13.2v2.3h2.3l5.9-5.9A3.5 3.5 0 0 0 15.5 5l-2.4 2.4-1.4-1.4L14 3.5" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
 export function ClipboardCheckIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" {...props}>

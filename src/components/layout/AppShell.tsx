@@ -20,6 +20,7 @@ import {
   BoxIcon,
   KeyIcon,
   CoinIcon as SaleIcon,
+  WrenchIcon,
 } from '../icons'
 import { getCompanyName, type AuthCompany, type AuthSession } from '../../lib/auth'
 import { isLocacaoVeiculos } from '../../lib/systemTypes'
@@ -50,6 +51,7 @@ export type AppPage =
   | 'towing-collection'
   | 'vehicle-rental-operations'
   | 'towing-billing-report'
+  | 'order-services'
 
 interface AppShellProps {
   session: AuthSession
@@ -71,6 +73,7 @@ function buildNavGroups(systemType?: number): NavGroup[] {
         { page: 'products' as const, label: 'Produtos e Serviços', icon: BoxIcon },
         { page: 'vehicle-rentals' as const, label: 'Aluguel', icon: KeyIcon },
         { page: 'vehicle-sales' as const, label: 'Venda', icon: SaleIcon },
+        { page: 'order-services' as const, label: 'Ordens de Serviço', icon: WrenchIcon },
       ]
     : [
         { page: 'dashboard' as const, label: 'Dashboard', icon: GridIcon },
