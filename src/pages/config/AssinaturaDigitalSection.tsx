@@ -63,7 +63,7 @@ export function AssinaturaDigitalSection({ value, onChange }: AssinaturaDigitalS
         />
 
         <div className="sm:col-span-2">
-          <label className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1.5">
             <span className="text-[12px] font-semibold text-[var(--ink-soft)]">URL do webhook (somente leitura)</span>
             <div className="flex items-center gap-2 rounded-xl bg-[var(--page)] px-3.5 py-2.5">
               <LinkIcon className="h-4 w-4 flex-none text-[var(--muted)]" />
@@ -82,7 +82,7 @@ export function AssinaturaDigitalSection({ value, onChange }: AssinaturaDigitalS
                 )}
               </button>
             </div>
-          </label>
+          </div>
         </div>
       </div>
     </SectionCard>
