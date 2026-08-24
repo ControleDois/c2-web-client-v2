@@ -247,7 +247,7 @@ export function CompanyFormPage({ session, companyId, onBack, onSaved, embedded 
     }
 
     const address = {
-      zip_code: zipCode || undefined,
+      zip_code: zipCode ? zipCode.replace(/\D/g, '') : undefined,
       address: street || undefined,
       number: number || undefined,
       district: district || undefined,

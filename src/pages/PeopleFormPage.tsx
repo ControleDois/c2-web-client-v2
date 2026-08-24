@@ -222,7 +222,7 @@ export function PeopleFormPage({ session, company, personId, onBack, onSaved }: 
     }
 
     const address = {
-      zip_code: zipCode || undefined,
+      zip_code: zipCode ? zipCode.replace(/\D/g, '') : undefined,
       address: street || undefined,
       number: number || undefined,
       district: district || undefined,
