@@ -5,6 +5,7 @@ import { SignupPage } from './pages/SignupPage'
 import { CompanySelectionPage } from './pages/CompanySelectionPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { RentalDashboardPage } from './pages/RentalDashboardPage'
+import { StandaloneInspectionPage } from './pages/StandaloneInspectionPage'
 import { PeoplePage } from './pages/PeoplePage'
 import { PeopleFormPage } from './pages/PeopleFormPage'
 import { VehiclesPage } from './pages/VehiclesPage'
@@ -488,8 +489,23 @@ function App() {
       pageContent = <VehicleRentalOperationsPage session={session} company={activeCompany} />
     } else if (page === 'towing-billing-report') {
       pageContent = <TowingBillingReportPage session={session} company={activeCompany} />
+    } else if (page === 'standalone-inspection') {
+      pageContent = (
+        <StandaloneInspectionPage
+          session={session}
+          company={activeCompany}
+          onBack={() => handleNavigate('dashboard')}
+          onSaved={() => handleNavigate('dashboard')}
+        />
+      )
     } else if (isLocacaoVeiculos(activeCompany.system_type)) {
-      pageContent = <RentalDashboardPage session={session} company={activeCompany} />
+      pageContent = (
+        <RentalDashboardPage
+          session={session}
+          company={activeCompany}
+          onNewInspection={() => handleNavigate('standalone-inspection')}
+        />
+      )
     } else {
       pageContent = <DashboardPage session={session} company={activeCompany} />
     }

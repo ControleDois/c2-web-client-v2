@@ -423,7 +423,7 @@ function RentalOperationModal({ session, company, sale, mode, detailedRequired, 
         </button>
       </div>
 
-      <div className="mx-auto flex w-full max-w-[900px] flex-1 flex-col overflow-y-auto px-6 py-6">
+      <div className="mx-auto flex w-full min-h-0 max-w-[900px] flex-1 flex-col overflow-y-auto px-4 py-6 sm:px-6">
         <div className="grid gap-4 sm:grid-cols-3">
           <label className="flex flex-col gap-1.5">
             <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Quilometragem</span>

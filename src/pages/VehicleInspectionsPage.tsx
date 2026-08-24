@@ -708,7 +708,7 @@ export function VehicleInspectionsPage({ session, company }: VehicleInspectionsP
             </button>
           </div>
 
-          <div className="mx-auto flex w-full max-w-[900px] flex-1 flex-col overflow-y-auto px-6 py-6">
+          <div className="mx-auto flex w-full min-h-0 max-w-[900px] flex-1 flex-col overflow-y-auto px-4 py-6 sm:px-6">
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <p className="text-[11px] font-semibold tracking-wide text-[var(--muted)] uppercase">Veículo</p>

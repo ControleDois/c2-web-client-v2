@@ -11,12 +11,14 @@ import { formatCurrency } from '../lib/format'
 import { BarChart } from '../components/charts/BarChart'
 import { ApiError } from '../lib/api'
 import { getCached, setCached } from '../lib/cache'
-import { CoinIcon, KeyIcon, TrendUpIcon, TruckIcon, WrenchIcon, ClockIcon } from '../components/icons'
+import { CoinIcon, KeyIcon, TrendUpIcon, TruckIcon, WrenchIcon, ClockIcon, ClipboardCheckIcon, WhatsappIcon } from '../components/icons'
 import { getPersonName, type AuthCompany, type AuthSession } from '../lib/auth'
+import { SUPPORT_PHONE_DISPLAY, SUPPORT_WHATSAPP_URL } from '../lib/support'
 
 interface RentalDashboardPageProps {
   session: AuthSession
   company: AuthCompany
+  onNewInspection: () => void
 }
 
 type PeriodKey = 'all' | 'today' | '7d' | 'month'
@@ -65,6 +67,65 @@ function inRange(dateValue: string | undefined, start?: string, end?: string): b
   return true
 }
 
+interface ActionCardProps {
+  icon: typeof CoinIcon
+  tone: 'blue' | 'green'
+  title: string
+  eyebrow: string
+  headline: string
+  description: string
+  buttonLabel: string
+  onClick?: () => void
+  href?: string
+}
+
+const ACTION_ICON_TONE: Record<ActionCardProps['tone'], string> = {
+  blue: 'bg-[var(--blue-100)] text-[var(--blue-700)]',
+  green: 'bg-[#e8faf0] text-[#1da851]',
+}
+
+function ActionCard({ icon: Icon, tone, title, eyebrow, headline, description, buttonLabel, onClick, href }: ActionCardProps) {
+  const button =
+    href !== undefined ? (
+      <a
+        href={href}
+        target="_blank"
+        rel="noreferrer"
+        className="mt-5 flex w-full items-center justify-center rounded-xl bg-[var(--blue-500)] py-3 text-[13.5px] font-bold text-white transition hover:bg-[var(--blue-700)]"
+      >
+        {buttonLabel}
+      </a>
+    ) : (
+      <button
+        type="button"
+        onClick={onClick}
+        className="mt-5 flex w-full items-center justify-center rounded-xl bg-[var(--blue-500)] py-3 text-[13.5px] font-bold text-white transition hover:bg-[var(--blue-700)]"
+      >
+        {buttonLabel}
+      </button>
+    )
+
+  return (
+    <div className="flex flex-col rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
+      <h2 className="border-b border-[var(--border)] pb-3.5 text-[14.5px] font-bold text-[var(--ink)]">{title}</h2>
+
+      <div className="mt-4 flex items-center gap-3.5">
+        <span className={`flex h-12 w-12 flex-none items-center justify-center rounded-xl ${ACTION_ICON_TONE[tone]}`}>
+          <Icon className="h-5.5 w-5.5" />
+        </span>
+        <div className="min-w-0">
+          <p className="truncate text-[12px] text-[var(--muted)]">{eyebrow}</p>
+          <p className="truncate text-[15.5px] font-bold text-[var(--ink)]">{headline}</p>
+        </div>
+      </div>
+
+      <p className="mt-4 text-center text-[12.5px] text-[var(--muted)]">{description}</p>
+
+      {button}
+    </div>
+  )
+}
+
 function StatusBarList({ items }: { items: { label: string; total: number }[] }) {
   const max = Math.max(...items.map((item) => item.total), 1)
 
@@ -86,7 +147,7 @@ function StatusBarList({ items }: { items: { label: string; total: number }[] })
   )
 }
 
-export function RentalDashboardPage({ session, company }: RentalDashboardPageProps) {
+export function RentalDashboardPage({ session, company, onNewInspection }: RentalDashboardPageProps) {
   const [period, setPeriod] = useState<PeriodKey>('all')
   const [sales, setSales] = useState<SaleRecord[]>([])
   const [orderServices, setOrderServices] = useState<OrderServiceRecord[]>([])
@@ -249,7 +310,7 @@ export function RentalDashboardPage({ session, company }: RentalDashboardPagePro
   }
 
   return (
-    <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8">
+    <div className="flex flex-col gap-6 p-4 pb-6 sm:p-6 lg:p-8" style={{ paddingBottom: 'max(1.5rem, calc(env(safe-area-inset-bottom) + 4.5rem))' }}>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="text-[12px] font-semibold tracking-wide text-[var(--blue-700)] uppercase">
@@ -375,6 +436,29 @@ export function RentalDashboardPage({ session, company }: RentalDashboardPagePro
                 </table>
               </div>
             )}
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <ActionCard
+              icon={ClipboardCheckIcon}
+              tone="blue"
+              title="Fazer vistoria de veículo?"
+              eyebrow="Registrar vistoria"
+              headline="Vistoria do veículo"
+              description="Clique no botão abaixo para fazer a vistoria do veículo."
+              buttonLabel="Fazer vistoria"
+              onClick={onNewInspection}
+            />
+            <ActionCard
+              icon={WhatsappIcon}
+              tone="green"
+              title="Precisa de ajuda?"
+              eyebrow="Fale agora."
+              headline={SUPPORT_PHONE_DISPLAY}
+              description="Clique no botão abaixo para falar com o suporte."
+              buttonLabel="Entrar em contato"
+              href={SUPPORT_WHATSAPP_URL}
+            />
           </div>
         </>
       )}

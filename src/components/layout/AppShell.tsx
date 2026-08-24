@@ -52,6 +52,7 @@ export type AppPage =
   | 'vehicle-rental-operations'
   | 'towing-billing-report'
   | 'order-services'
+  | 'standalone-inspection'
 
 interface AppShellProps {
   session: AuthSession
