@@ -397,44 +397,78 @@ export function RentalDashboardPage({ session, company, onNewInspection }: Renta
                 Nenhum lançamento encontrado neste período.
               </p>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse text-[13px]">
-                  <thead>
-                    <tr className="border-b border-[var(--border)] text-left text-[11px] font-semibold tracking-wide text-[var(--muted)] uppercase">
-                      <th className="pb-2.5">Código</th>
-                      <th className="pb-2.5">Tipo</th>
-                      <th className="pb-2.5">Cliente</th>
-                      <th className="pb-2.5">Veículo</th>
-                      <th className="pb-2.5">Status</th>
-                      <th className="pb-2.5 text-right">Valor</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recentRecords.map((sale) => {
-                      const isRental = Boolean(sale.vehicleRentalContract)
-                      const person = isRental ? sale.vehicleRentalContract?.renter : sale.vehicleSaleContract?.buyer
-                      const status = isRental ? sale.vehicleRentalContract?.status : sale.vehicleSaleContract?.status
-                      const statusLabel = isRental
-                        ? VEHICLE_RENTAL_STATUS_LABELS[status ?? 0]
-                        : VEHICLE_SALE_STATUS_LABELS[status ?? 0]
-                      return (
-                        <tr key={sale.id} className="border-b border-[var(--border)] last:border-none">
-                          <td className="py-2.5 font-mono text-[var(--ink-soft)]">#{sale.internal_code ?? sale.code}</td>
-                          <td className="py-2.5 text-[var(--ink-soft)]">{isRental ? 'Aluguel' : 'Venda'}</td>
-                          <td className="py-2.5 font-medium text-[var(--ink)]">{person?.name ?? '—'}</td>
-                          <td className="py-2.5 text-[var(--ink-soft)]">
-                            {[sale.vehicle?.brand, sale.vehicle?.model].filter(Boolean).join(' ') || sale.vehicle?.license_plate || '—'}
-                          </td>
-                          <td className="py-2.5 text-[var(--ink-soft)]">{statusLabel ?? '—'}</td>
-                          <td className="py-2.5 text-right font-mono font-semibold text-[var(--ink)]">
+              <>
+                <div className="flex flex-col gap-2.5 sm:hidden">
+                  {recentRecords.map((sale) => {
+                    const isRental = Boolean(sale.vehicleRentalContract)
+                    const person = isRental ? sale.vehicleRentalContract?.renter : sale.vehicleSaleContract?.buyer
+                    const status = isRental ? sale.vehicleRentalContract?.status : sale.vehicleSaleContract?.status
+                    const statusLabel = isRental
+                      ? VEHICLE_RENTAL_STATUS_LABELS[status ?? 0]
+                      : VEHICLE_SALE_STATUS_LABELS[status ?? 0]
+                    const vehicleLabel =
+                      [sale.vehicle?.brand, sale.vehicle?.model].filter(Boolean).join(' ') || sale.vehicle?.license_plate || '—'
+                    return (
+                      <div key={sale.id} className="rounded-xl border border-[var(--border)] p-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="min-w-0 truncate text-[13px] font-bold text-[var(--ink)]">
+                            #{sale.internal_code ?? sale.code} · {person?.name ?? '—'}
+                          </p>
+                          <span className="flex-none text-[12px] font-mono font-semibold text-[var(--ink)]">
                             {formatCurrency(Number(sale.net_total || 0))}
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                          </span>
+                        </div>
+                        <p className="mt-1 flex items-center gap-1.5 truncate text-[12px] text-[var(--ink-soft)]">
+                          <TruckIcon className="h-3.5 w-3.5 flex-none text-[var(--muted)]" />
+                          {vehicleLabel}
+                        </p>
+                        <p className="mt-1.5 text-[11.5px] text-[var(--muted)]">
+                          {isRental ? 'Aluguel' : 'Venda'} · {statusLabel ?? '—'}
+                        </p>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                <div className="hidden overflow-x-auto sm:block">
+                  <table className="w-full border-collapse text-[13px]">
+                    <thead>
+                      <tr className="border-b border-[var(--border)] text-left text-[11px] font-semibold tracking-wide text-[var(--muted)] uppercase">
+                        <th className="pb-2.5">Código</th>
+                        <th className="pb-2.5">Tipo</th>
+                        <th className="pb-2.5">Cliente</th>
+                        <th className="pb-2.5">Veículo</th>
+                        <th className="pb-2.5">Status</th>
+                        <th className="pb-2.5 text-right">Valor</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {recentRecords.map((sale) => {
+                        const isRental = Boolean(sale.vehicleRentalContract)
+                        const person = isRental ? sale.vehicleRentalContract?.renter : sale.vehicleSaleContract?.buyer
+                        const status = isRental ? sale.vehicleRentalContract?.status : sale.vehicleSaleContract?.status
+                        const statusLabel = isRental
+                          ? VEHICLE_RENTAL_STATUS_LABELS[status ?? 0]
+                          : VEHICLE_SALE_STATUS_LABELS[status ?? 0]
+                        return (
+                          <tr key={sale.id} className="border-b border-[var(--border)] last:border-none">
+                            <td className="py-2.5 font-mono text-[var(--ink-soft)]">#{sale.internal_code ?? sale.code}</td>
+                            <td className="py-2.5 text-[var(--ink-soft)]">{isRental ? 'Aluguel' : 'Venda'}</td>
+                            <td className="py-2.5 font-medium text-[var(--ink)]">{person?.name ?? '—'}</td>
+                            <td className="py-2.5 text-[var(--ink-soft)]">
+                              {[sale.vehicle?.brand, sale.vehicle?.model].filter(Boolean).join(' ') || sale.vehicle?.license_plate || '—'}
+                            </td>
+                            <td className="py-2.5 text-[var(--ink-soft)]">{statusLabel ?? '—'}</td>
+                            <td className="py-2.5 text-right font-mono font-semibold text-[var(--ink)]">
+                              {formatCurrency(Number(sale.net_total || 0))}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
           </div>
 

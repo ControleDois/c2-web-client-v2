@@ -37,6 +37,7 @@ export interface CompanyRecord {
   special_regime?: number
   certificate_path?: string | null
   certificate_password?: string | null
+  file_url?: string | null
   address?: CompanyAddress | null
   company?: CompanyLicense | null
   createdAt?: string
@@ -64,6 +65,7 @@ export interface CompanyPayload {
   address?: CompanyAddress
   certificate_file?: File
   certificate_password?: string
+  logo_file?: File
 }
 
 interface Paginated<T> {
@@ -137,7 +139,7 @@ export function fetchCertificateStatus(token: string, id: string) {
 
 function buildCompanyForm(payload: CompanyPayload): FormData {
   const form = new FormData()
-  const { address, certificate_file: certificateFile, ...scalars } = payload
+  const { address, certificate_file: certificateFile, logo_file: logoFile, ...scalars } = payload
 
   for (const [key, value] of Object.entries(scalars)) {
     if (value === undefined || value === '') continue
@@ -155,6 +157,7 @@ function buildCompanyForm(payload: CompanyPayload): FormData {
   }
 
   if (certificateFile) form.append('certificate_file', certificateFile)
+  if (logoFile) form.append('file', logoFile)
 
   return form
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import {
   createCompany,
   fetchCompany,
@@ -33,8 +33,9 @@ import {
   LockIcon,
   CheckCircleIcon,
   AlertTriangleIcon,
+  BuildingIcon,
 } from '../components/icons'
-import type { AuthSession } from '../lib/auth'
+import { isMasterOfCompany, type AuthSession } from '../lib/auth'
 
 interface CompanyFormPageProps {
   session: AuthSession
@@ -45,6 +46,7 @@ interface CompanyFormPageProps {
 }
 
 export function CompanyFormPage({ session, companyId, onBack, onSaved, embedded = false }: CompanyFormPageProps) {
+  const isMaster = isMasterOfCompany(session, companyId)
   const [loading, setLoading] = useState(Boolean(companyId))
   const [loadError, setLoadError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -82,6 +84,21 @@ export function CompanyFormPage({ session, companyId, onBack, onSaved, embedded 
   const [cepLoading, setCepLoading] = useState(false)
   const [cepMessage, setCepMessage] = useState<string | null>(null)
 
+  const [existingLogoUrl, setExistingLogoUrl] = useState<string | null>(null)
+  const [logoFile, setLogoFile] = useState<File | undefined>(undefined)
+
+  const logoPreviewUrl = useMemo(() => (logoFile ? URL.createObjectURL(logoFile) : existingLogoUrl), [
+    logoFile,
+    existingLogoUrl,
+  ])
+
+  useEffect(() => {
+    return () => {
+      if (logoFile) URL.revokeObjectURL(logoPreviewUrl!)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [logoFile])
+
   const [certificatePath, setCertificatePath] = useState<string | null>(null)
   const [certificateFile, setCertificateFile] = useState<File | undefined>(undefined)
   const [certificatePassword, setCertificatePassword] = useState('')
@@ -118,6 +135,7 @@ export function CompanyFormPage({ session, companyId, onBack, onSaved, embedded 
       setComplement(company.address?.complement ?? '')
       setCertificatePath(company.certificate_path ?? null)
       setCertificatePassword(company.certificate_password ?? '')
+      setExistingLogoUrl(company.file_url ?? null)
     }
 
     // Cache-first: se já temos os dados dessa empresa em memória, mostramos
@@ -274,10 +292,11 @@ export function CompanyFormPage({ session, companyId, onBack, onSaved, embedded 
       crt,
       special_regime: specialRegime,
       active: companyId ? active : undefined,
-      system_type: companyId ? systemType : undefined,
+      system_type: companyId && isMaster ? systemType : undefined,
       address: hasAddress ? address : undefined,
       certificate_file: certificateFile,
       certificate_password: certificatePassword || undefined,
+      logo_file: logoFile,
     }
 
     setSubmitting(true)
@@ -295,6 +314,10 @@ export function CompanyFormPage({ session, companyId, onBack, onSaved, embedded 
         setCertificatePassword('')
         setCertificatePath(result.certificate_path ?? null)
         setCertificateReloadKey((key) => key + 1)
+      }
+      if (logoFile) {
+        setLogoFile(undefined)
+        setExistingLogoUrl(result.file_url ?? null)
       }
       if (embedded) {
         setSaved(true)
@@ -348,6 +371,38 @@ export function CompanyFormPage({ session, companyId, onBack, onSaved, embedded 
         <form onSubmit={handleSubmit} className="flex flex-col gap-6">
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6">
             <h2 className="mb-4 text-[14px] font-bold text-[var(--ink)]">Dados</h2>
+
+            <div className="mb-5 flex items-center gap-4">
+              <span className="flex h-16 w-16 flex-none items-center justify-center overflow-hidden rounded-2xl bg-[var(--blue-100)] text-[var(--blue-700)]">
+                {logoPreviewUrl ? (
+                  <img src={logoPreviewUrl} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <BuildingIcon className="h-7 w-7" />
+                )}
+              </span>
+              <div className="flex flex-col gap-1.5">
+                <label className="flex w-fit cursor-pointer items-center gap-2 rounded-xl border border-[var(--border)] px-3.5 py-2 text-[12.5px] font-bold text-[var(--ink-soft)] hover:text-[var(--ink)]">
+                  <PaperclipIcon className="h-3.5 w-3.5 flex-none" />
+                  {logoFile ? logoFile.name : 'Alterar logo'}
+                  <input
+                    type="file"
+                    accept=".jpg,.jpeg,.png,.webp"
+                    className="hidden"
+                    onChange={(event) => setLogoFile(event.target.files?.[0])}
+                  />
+                </label>
+                {logoFile && (
+                  <button
+                    type="button"
+                    onClick={() => setLogoFile(undefined)}
+                    className="w-fit text-[12px] font-semibold text-[var(--red-500)] hover:underline"
+                  >
+                    Cancelar novo logo
+                  </button>
+                )}
+              </div>
+            </div>
+
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               <TextField
                 label="Nome fantasia"
@@ -410,29 +465,29 @@ export function CompanyFormPage({ session, companyId, onBack, onSaved, embedded 
                 />
                 <span className="text-[13.5px] font-semibold text-[var(--ink)]">Optante pelo Simples Nacional</span>
               </label>
+              {companyId && isMaster && (
+                <SelectField
+                  label="Nicho do sistema"
+                  value={systemType}
+                  onChange={(event) => setSystemType(Number(event.target.value))}
+                >
+                  {Object.entries(SYSTEM_TYPE_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </SelectField>
+              )}
               {companyId && !embedded && (
-                <>
-                  <SelectField
-                    label="Nicho do sistema"
-                    value={systemType}
-                    onChange={(event) => setSystemType(Number(event.target.value))}
-                  >
-                    {Object.entries(SYSTEM_TYPE_LABELS).map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
-                  </SelectField>
-                  <label className="flex items-center gap-2.5 self-end pb-2.5">
-                    <input
-                      type="checkbox"
-                      checked={active}
-                      onChange={(event) => setActive(event.target.checked)}
-                      className="h-4 w-4 accent-[var(--blue-500)]"
-                    />
-                    <span className="text-[13.5px] font-semibold text-[var(--ink)]">Empresa ativa</span>
-                  </label>
-                </>
+                <label className="flex items-center gap-2.5 self-end pb-2.5">
+                  <input
+                    type="checkbox"
+                    checked={active}
+                    onChange={(event) => setActive(event.target.checked)}
+                    className="h-4 w-4 accent-[var(--blue-500)]"
+                  />
+                  <span className="text-[13.5px] font-semibold text-[var(--ink)]">Empresa ativa</span>
+                </label>
               )}
             </div>
           </div>

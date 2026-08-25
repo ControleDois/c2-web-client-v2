@@ -1,4 +1,4 @@
-import { apiPost, ApiError } from './api'
+import { apiGet, apiPost, ApiError } from './api'
 
 export interface AuthPeople {
   id: string
@@ -20,6 +20,7 @@ export interface AuthCompany {
   license_status?: string
   license_expires_at?: string | null
   people?: AuthPeople | null
+  isMaster?: boolean
   [key: string]: unknown
 }
 
@@ -35,6 +36,7 @@ export interface AuthSession {
   token: AuthToken
   user: AuthUser
   company: AuthCompany
+  isMaster?: boolean
 }
 
 const SESSION_KEY = 'c2_auth'
@@ -49,6 +51,13 @@ export async function signin(email: string, password: string) {
     }
     throw err
   }
+}
+
+// Recarrega as empresas vinculadas ao usuário logado, sem precisar de um
+// novo login — usado ao clicar em "Trocar empresa", pra refletir empresas
+// criadas/removidas/alteradas depois do login original.
+export function fetchMyCompanies(token: string) {
+  return apiGet<{ user: AuthUser; companies: AuthCompany[] }>('/auth/me', {}, token)
 }
 
 export function saveSession(session: AuthSession) {
@@ -105,4 +114,17 @@ export function getUserRoleName(user: AuthUser): string | null {
 
 export function getCompanyName(company: AuthCompany): string {
   return company.people?.name ?? 'Empresa sem nome'
+}
+
+// A role Master é por (usuário, empresa) — por isso a flag vive em cada
+// AuthCompany (não só no topo da sessão), pra continuar correta quando o
+// usuário troca de empresa sem precisar logar de novo.
+//
+// `companyId` aqui é o id do People que representa a empresa (role=1) — o
+// mesmo id usado nas rotas /company/:id — não o id da Company em si. É
+// contra `company.people.id` que precisamos comparar, não `company.id`.
+export function isMasterOfCompany(session: AuthSession, companyId: string | undefined): boolean {
+  if (!companyId) return false
+  const company = getUserCompanies(session).find((c) => c.people?.id === companyId)
+  return Boolean(company?.isMaster)
 }

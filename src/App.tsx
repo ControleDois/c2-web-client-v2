@@ -58,6 +58,7 @@ import {
   saveActiveCompany,
   clearActiveCompany,
   getUserCompanies,
+  fetchMyCompanies,
   type AuthSession,
   type AuthCompany,
 } from './lib/auth'
@@ -70,6 +71,7 @@ function App() {
   const [activeCompany, setActiveCompany] = useState<AuthCompany | null>(() => loadActiveCompany())
   const [screen, setScreen] = useState<Screen>('login')
   const [page, setPage] = useState<AppPage>('dashboard')
+  const [switchingCompany, setSwitchingCompany] = useState(false)
 
   const peopleView = useEntityView()
   const vehiclesView = useEntityView()
@@ -131,11 +133,33 @@ function App() {
     Object.values(entityViews).forEach((view) => view.reset())
   }
 
-  function handleSwitchCompany() {
+  async function handleSwitchCompany() {
     clearActiveCompany()
     setActiveCompany(null)
     setPage('dashboard')
     resetAllViews()
+
+    if (!session) return
+
+    // Recarrega as empresas vinculadas ao usuário (podem ter mudado desde o
+    // login) e, se sobrar só uma, entra direto nela em vez de mostrar a
+    // tela de seleção pra uma escolha óbvia.
+    setSwitchingCompany(true)
+    try {
+      const { companies } = await fetchMyCompanies(session.token.token)
+      const updatedSession: AuthSession = { ...session, user: { ...session.user, companies } }
+      saveSession(updatedSession)
+      setSession(updatedSession)
+
+      if (companies.length === 1) {
+        handleSelectCompany(companies[0])
+      }
+    } catch {
+      // Se a atualização falhar, segue com a lista antiga (já em sessão)
+      // em vez de travar a troca de empresa.
+    } finally {
+      setSwitchingCompany(false)
+    }
   }
 
   function handleLogout() {
@@ -156,7 +180,13 @@ function App() {
 
   let content: ReactNode
 
-  if (session && activeCompany) {
+  if (session && switchingCompany) {
+    content = (
+      <div className="flex h-svh items-center justify-center bg-[var(--page)]">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--blue-300)] border-t-[var(--blue-500)]" />
+      </div>
+    )
+  } else if (session && activeCompany) {
     let pageContent: ReactNode
 
     if (page === 'people') {
