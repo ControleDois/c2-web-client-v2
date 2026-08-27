@@ -406,11 +406,16 @@ export function PeopleFormPage({ session, company, personId, onBack, onSaved }: 
                   onChange={(event) => setEmail(event.target.value)}
                 />
                 <SelectField label="Papel" value={role} onChange={(event) => setRole(Number(event.target.value))}>
-                  {Object.entries(ROLE_LABELS).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
+                  {Object.entries(ROLE_LABELS)
+                    // role 1 ("Empresa") é reservado para a identidade da
+                    // própria empresa (tenant) — nunca selecionável aqui, ou
+                    // duplica/corrompe esse registro (backend também bloqueia).
+                    .filter(([value]) => value !== '1')
+                    .map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
                 </SelectField>
                 <SelectField label="Status" value={status} onChange={(event) => setStatus(Number(event.target.value))}>
                   {Object.entries(STATUS_LABELS).map(([value, label]) => (
