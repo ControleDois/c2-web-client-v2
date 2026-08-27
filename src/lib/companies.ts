@@ -116,7 +116,7 @@ export const SPECIAL_REGIME_LABELS: Record<number, string> = {
 
 export function fetchCompanies(
   token: string,
-  options: { search?: string; page?: number; limit?: number } = {}
+  options: { search?: string; page?: number; limit?: number; scope?: 'all'; companyId?: string } = {}
 ) {
   return apiGet<Paginated<CompanyRecord>>(
     '/company',
@@ -124,6 +124,8 @@ export function fetchCompanies(
       search: options.search,
       page: options.page ? String(options.page) : '1',
       limit: options.limit ? String(options.limit) : '10',
+      scope: options.scope,
+      companyId: options.companyId,
     },
     token
   )

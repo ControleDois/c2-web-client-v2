@@ -72,6 +72,7 @@ export function VehicleFormPage({ session, company, vehicleId, onBack, onSaved }
   const [licensePlate, setLicensePlate] = useState('')
   const [color, setColor] = useState('')
   const [vinNumber, setVinNumber] = useState('')
+  const [reindeer, setReindeer] = useState('')
   const [fipeCode, setFipeCode] = useState('')
   const [fipeValue, setFipeValue] = useState('')
   const [fabricationYear, setFabricationYear] = useState('')
@@ -112,6 +113,7 @@ export function VehicleFormPage({ session, company, vehicleId, onBack, onSaved }
         setLicensePlate(vehicle.license_plate ?? '')
         setColor(vehicle.color ?? '')
         setVinNumber(vehicle.vin_number ?? '')
+        setReindeer(vehicle.reindeer ?? '')
         setFipeCode(vehicle.fipe_code ?? '')
         setFipeValue(vehicle.fipe_value ? String(vehicle.fipe_value) : '')
         setFabricationYear(vehicle.fabrication_year ?? '')
@@ -220,6 +222,7 @@ export function VehicleFormPage({ session, company, vehicleId, onBack, onSaved }
       license_plate: licensePlate.trim().toUpperCase(),
       color: color || undefined,
       vin_number: vinNumber || undefined,
+      reindeer: reindeer || undefined,
       fipe_code: fipeCode || undefined,
       fipe_value: fipeValue ? parseAmount(fipeValue) : undefined,
       fabrication_year: fabricationYear || undefined,
@@ -383,6 +386,14 @@ export function VehicleFormPage({ session, company, vehicleId, onBack, onSaved }
                 placeholder="Opcional"
                 value={vinNumber}
                 onChange={(event) => setVinNumber(event.target.value.toUpperCase())}
+              />
+              <TextField
+                label="Renavam"
+                icon={<BadgeIcon className="h-4 w-4" />}
+                placeholder="Opcional"
+                inputMode="numeric"
+                value={reindeer}
+                onChange={(event) => setReindeer(event.target.value.replace(/\D/g, '').slice(0, 11))}
               />
               <TextField
                 label="Código FIPE"

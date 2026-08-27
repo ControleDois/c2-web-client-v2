@@ -26,6 +26,7 @@ export interface VehicleRecord {
   license_plate: string
   color?: string | null
   vin_number?: string | null
+  reindeer?: string | null
   fipe_code?: string | null
   fipe_value?: number | null
   fabrication_year?: string | null
@@ -49,6 +50,7 @@ export interface VehiclePayload {
   license_plate: string
   color?: string
   vin_number?: string
+  reindeer?: string
   fipe_code?: string
   fipe_value?: number
   fabrication_year?: string
@@ -149,6 +151,7 @@ function buildVehicleForm(payload: VehiclePayload): FormData {
     ['license_plate', payload.license_plate],
     ['color', payload.color],
     ['vin_number', payload.vin_number],
+    ['reindeer', payload.reindeer],
     ['fipe_code', payload.fipe_code],
     ['fipe_value', payload.fipe_value],
     ['fabrication_year', payload.fabrication_year],

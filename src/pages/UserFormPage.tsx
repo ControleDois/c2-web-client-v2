@@ -1,12 +1,29 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { createUser, fetchUser, updateUser } from '../lib/users'
 import { fetchRoles, type RoleRecord } from '../lib/roles'
+import { fetchCompanies, type CompanyRecord } from '../lib/companies'
 import { ApiError } from '../lib/api'
 import { TextField } from '../components/form/TextField'
 import { PasswordField } from '../components/form/PasswordField'
 import { SelectField } from '../components/form/SelectField'
-import { MailIcon, BadgeIcon, TagIcon, UserIcon, PaperclipIcon, ChevronLeftIcon } from '../components/icons'
+import { SearchSelectField } from '../components/form/SearchSelectField'
+import { SectionCard } from '../components/SectionCard'
+import {
+  MailIcon,
+  BadgeIcon,
+  TagIcon,
+  UserIcon,
+  PaperclipIcon,
+  ChevronLeftIcon,
+  TrashIcon,
+} from '../components/icons'
 import type { AuthSession, AuthCompany } from '../lib/auth'
+
+interface LinkedCompany {
+  id: string
+  label: string
+  sub: string | null
+}
 
 interface UserFormPageProps {
   session: AuthSession
@@ -17,6 +34,7 @@ interface UserFormPageProps {
 }
 
 export function UserFormPage({ session, company, userId, onBack, onSaved }: UserFormPageProps) {
+  const isMaster = Boolean(company.isMaster)
   const [loading, setLoading] = useState(Boolean(userId))
   const [loadError, setLoadError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -31,6 +49,9 @@ export function UserFormPage({ session, company, userId, onBack, onSaved }: User
   const [internalCode, setInternalCode] = useState('')
   const [existingAvatarUrl, setExistingAvatarUrl] = useState<string | null>(null)
   const [avatarFile, setAvatarFile] = useState<File | undefined>(undefined)
+  const [linkedCompanies, setLinkedCompanies] = useState<LinkedCompany[]>([
+    { id: company.id, label: company.people?.name ?? 'Empresa atual', sub: company.people?.document ?? null },
+  ])
 
   const avatarPreviewUrl = useMemo(() => (avatarFile ? URL.createObjectURL(avatarFile) : existingAvatarUrl), [
     avatarFile,
@@ -69,6 +90,13 @@ export function UserFormPage({ session, company, userId, onBack, onSaved }: User
         setInternalCode(user.people?.internal_code != null ? String(user.people.internal_code) : '')
         setExistingAvatarUrl(user.people?.file_url ?? null)
         setAvatarFile(undefined)
+        setLinkedCompanies(
+          (user.companies ?? []).map((linked) => ({
+            id: linked.id,
+            label: linked.people?.name ?? 'Empresa sem nome',
+            sub: linked.people?.document ?? null,
+          }))
+        )
       })
       .catch((err) => {
         if (cancelled) return
@@ -82,6 +110,26 @@ export function UserFormPage({ session, company, userId, onBack, onSaved }: User
       cancelled = true
     }
   }, [userId, company.id, session.token.token, reloadKey])
+
+  function addLinkedCompany(item: CompanyRecord) {
+    // `/company` devolve o People da empresa: o id de verdade da Company (o
+    // que a tabela de vínculo company_users exige) vem em item.company.id,
+    // não em item.id (que é o id do People).
+    const realCompanyId = item.company?.id
+    if (!realCompanyId) {
+      setError('Não foi possível identificar essa empresa. Tente novamente.')
+      return
+    }
+    setError(null)
+    setLinkedCompanies((current) => {
+      if (current.some((linked) => linked.id === realCompanyId)) return current
+      return [...current, { id: realCompanyId, label: item.name, sub: item.document ?? null }]
+    })
+  }
+
+  function removeLinkedCompany(companyId: string) {
+    setLinkedCompanies((current) => current.filter((linked) => linked.id !== companyId))
+  }
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
@@ -103,7 +151,7 @@ export function UserFormPage({ session, company, userId, onBack, onSaved }: User
       internalCode: internalCode.trim() ? Number(internalCode.trim()) : undefined,
       name: name.trim() || undefined,
       file: avatarFile,
-      companies: [company.id],
+      companies: linkedCompanies.map((linked) => linked.id),
     }
 
     setSubmitting(true)
@@ -243,6 +291,56 @@ export function UserFormPage({ session, company, userId, onBack, onSaved }: User
               )}
             </div>
           </div>
+
+          <SectionCard
+            title="Empresas vinculadas"
+            subtitle="Empresas que este usuário pode acessar"
+            defaultCollapsed
+          >
+            <div className="flex flex-col gap-2">
+              {linkedCompanies.map((linked) => (
+                <div
+                  key={linked.id}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-[var(--border)] p-3"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-[13px] font-semibold text-[var(--ink)]">{linked.label}</p>
+                    <p className="truncate text-[11.5px] text-[var(--muted)]">
+                      {linked.sub || (linked.id === company.id ? 'Empresa atual' : '—')}
+                    </p>
+                  </div>
+                  {linked.id !== company.id && (
+                    <button
+                      type="button"
+                      onClick={() => removeLinkedCompany(linked.id)}
+                      className="flex h-8 w-8 flex-none items-center justify-center rounded-lg text-[var(--muted)] hover:bg-[var(--red-100)] hover:text-[var(--red-500)]"
+                      aria-label={`Desvincular ${linked.label}`}
+                    >
+                      <TrashIcon className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-3">
+              <SearchSelectField
+                label="Adicionar empresa"
+                placeholder={isMaster ? 'Buscar qualquer empresa do sistema' : 'Buscar entre suas empresas'}
+                selectedLabel={null}
+                onSearch={(query) =>
+                  fetchCompanies(
+                    session.token.token,
+                    isMaster ? { search: query, scope: 'all', companyId: company.id } : { search: query }
+                  ).then((res) => res.data)
+                }
+                getOptionLabel={(item: CompanyRecord) => item.name}
+                getOptionSubLabel={(item: CompanyRecord) => item.document}
+                onSelect={(item: CompanyRecord) => addLinkedCompany(item)}
+                onClear={() => {}}
+              />
+            </div>
+          </SectionCard>
 
           {error && (
             <p className="rounded-xl bg-[var(--red-100)] px-4 py-3 text-[13.5px] font-medium text-[var(--red-500)]">

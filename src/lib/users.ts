@@ -22,6 +22,10 @@ export interface UserDetail {
     file_url?: string | null
     role?: { id: string; name: string } | null
   } | null
+  companies?: {
+    id: string
+    people?: { name?: string; document?: string } | null
+  }[]
 }
 
 export interface UserPayload {

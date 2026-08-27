@@ -304,6 +304,7 @@ export function VehiclesPage({ session, company, onCreate, onEdit }: VehiclesPag
                         {vehicle.internal_code != null ? `#${vehicle.internal_code}` : '—'}
                         {vehicle.model_year ? ` · ${vehicle.model_year}` : ''}
                         {vehicle.color ? ` · ${vehicle.color}` : ''}
+                        {vehicle.fuel ? ` · ${vehicle.fuel}` : ''}
                         {' · '}
                         {VEHICLE_ROLE_LABELS[vehicle.role ?? 1]}
                       </p>
