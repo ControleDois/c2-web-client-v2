@@ -1,6 +1,19 @@
 import { Fragment, useEffect, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { getCompanyName, type AuthCompany } from '../lib/auth'
+import { formatDocument } from '../lib/formatDocument'
+import { formatPhone } from '../lib/formatPhone'
+import { formatCep } from '../lib/formatCep'
+
+function formatCompanyAddress(address: Record<string, unknown> | null | undefined): string {
+  if (!address) return ''
+  const street = [address.address, address.number].filter(Boolean).join(', ')
+  const districtCity = [address.district, address.city && address.state ? `${address.city}/${address.state}` : address.city]
+    .filter(Boolean)
+    .join(' - ')
+  const zip = address.zip_code ? `CEP ${formatCep(String(address.zip_code))}` : ''
+  return [street, districtCity, zip].filter(Boolean).join(' - ')
+}
 
 export interface PrintColumn {
   key: string
@@ -19,10 +32,14 @@ interface PrintPreviewModalProps {
   // Linha extra opcional abaixo de cada item, pra detalhes que não cabem bem
   // como coluna estreita (ex.: fornecedor/observação de uma peça ou serviço).
   rowDetail?: (row: Record<string, ReactNode>) => ReactNode
+  // Linhas de total exibidas abaixo da tabela (ex.: subtotal de peças,
+  // subtotal de serviços, total geral). A última entrada com emphasis=true
+  // é destacada como o total final.
+  totals?: { label: string; value: string; emphasis?: boolean }[]
   onClose: () => void
 }
 
-export function PrintPreviewModal({ open, title, subtitle, headerDetails, company, columns, rows, rowDetail, onClose }: PrintPreviewModalProps) {
+export function PrintPreviewModal({ open, title, subtitle, headerDetails, company, columns, rows, rowDetail, totals, onClose }: PrintPreviewModalProps) {
   const triggeredRef = useRef(false)
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
@@ -54,6 +71,9 @@ export function PrintPreviewModal({ open, title, subtitle, headerDetails, compan
 
   const logoUrl = company.people?.file_url
   const companyName = getCompanyName(company)
+  const companyDocument = company.people?.document ? formatDocument(String(company.people.document)) : ''
+  const companyPhone = company.people?.phone ? formatPhone(String(company.people.phone)) : ''
+  const companyAddress = formatCompanyAddress(company.people?.address as Record<string, unknown> | null | undefined)
 
   return createPortal(
     <div className="print-area-root">
@@ -78,36 +98,51 @@ export function PrintPreviewModal({ open, title, subtitle, headerDetails, compan
         <div
           style={{
             display: 'flex',
-            alignItems: 'center',
-            gap: 12,
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+            gap: 16,
             marginBottom: 22,
             paddingBottom: 16,
             borderBottom: '1px solid #e5e7eb',
           }}
         >
-          <span
-            style={{
-              display: 'flex',
-              height: 44,
-              width: 44,
-              flex: 'none',
-              alignItems: 'center',
-              justifyContent: 'center',
-              overflow: 'hidden',
-              borderRadius: 10,
-              background: '#dbeafe',
-              color: '#1d4ed8',
-              fontWeight: 700,
-              fontSize: 16,
-            }}
-          >
-            {logoUrl ? (
-              <img src={logoUrl} alt="" style={{ height: '100%', width: '100%', objectFit: 'cover' }} />
-            ) : (
-              companyName.charAt(0).toUpperCase()
-            )}
-          </span>
-          <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span
+              style={{
+                display: 'flex',
+                height: 48,
+                width: 48,
+                flex: 'none',
+                alignItems: 'center',
+                justifyContent: 'center',
+                overflow: 'hidden',
+                borderRadius: 10,
+                background: '#dbeafe',
+                color: '#1d4ed8',
+                fontWeight: 700,
+                fontSize: 17,
+              }}
+            >
+              {logoUrl ? (
+                <img src={logoUrl} alt="" style={{ height: '100%', width: '100%', objectFit: 'cover' }} />
+              ) : (
+                companyName.charAt(0).toUpperCase()
+              )}
+            </span>
+            <div>
+              <p style={{ margin: 0, fontSize: 14.5, fontWeight: 700, color: '#111827' }}>{companyName}</p>
+              {companyDocument && (
+                <p style={{ margin: '2px 0 0', fontSize: 11, color: '#6b7280' }}>CNPJ/CPF: {companyDocument}</p>
+              )}
+              {companyAddress && (
+                <p style={{ margin: '1px 0 0', fontSize: 11, color: '#6b7280' }}>{companyAddress}</p>
+              )}
+              {companyPhone && (
+                <p style={{ margin: '1px 0 0', fontSize: 11, color: '#6b7280' }}>Tel: {companyPhone}</p>
+              )}
+            </div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
             <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#111827' }}>{title}</h1>
             {subtitle && (
               <p style={{ margin: '2px 0 0', fontSize: 12.5, color: '#6b7280' }}>{subtitle}</p>
@@ -199,6 +234,32 @@ export function PrintPreviewModal({ open, title, subtitle, headerDetails, compan
             })}
           </tbody>
         </table>
+
+        {totals && totals.length > 0 && (
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 14 }}>
+            <div style={{ minWidth: 220 }}>
+              {totals.map((total, index) => (
+                <div
+                  key={total.label}
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    gap: 24,
+                    padding: total.emphasis ? '8px 0 0' : '4px 0',
+                    marginTop: total.emphasis ? 6 : 0,
+                    borderTop: total.emphasis ? '1px solid #d1d5db' : index === 0 ? 'none' : undefined,
+                    fontSize: total.emphasis ? 14.5 : 12,
+                    fontWeight: total.emphasis ? 700 : 500,
+                    color: total.emphasis ? '#111827' : '#4b5563',
+                  }}
+                >
+                  <span>{total.label}</span>
+                  <span>{total.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <p style={{ marginTop: 22, fontSize: 10.5, color: '#9ca3af' }}>
           {rows.length} registro{rows.length === 1 ? '' : 's'} · Gerado em {new Date().toLocaleString('pt-BR')}

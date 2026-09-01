@@ -175,6 +175,18 @@ export function OrderServicesPage({ session, company, onCreate, onEdit }: OrderS
     })
   }, [printTarget])
 
+  const printTotals = useMemo(() => {
+    if (!printTarget) return []
+    const items = printTarget.items ?? []
+    const partsTotal = items.filter((item) => item.product?.role !== 1).reduce((sum, item) => sum + Number(item.total || 0), 0)
+    const servicesTotal = items.filter((item) => item.product?.role === 1).reduce((sum, item) => sum + Number(item.total || 0), 0)
+    return [
+      { label: 'Total de peças', value: formatCurrency(partsTotal) },
+      { label: 'Total de serviços', value: formatCurrency(servicesTotal) },
+      { label: 'Total geral', value: formatCurrency(partsTotal + servicesTotal), emphasis: true },
+    ]
+  }, [printTarget])
+
   async function handleConfirmDelete() {
     if (!deleteTarget) return
     const deletedId = deleteTarget.id
@@ -618,6 +630,7 @@ export function OrderServicesPage({ session, company, onCreate, onEdit }: OrderS
                 </div>
               )
         }
+        totals={printTotals}
         onClose={() => setPrintTarget(null)}
       />
     </div>
