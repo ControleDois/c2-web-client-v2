@@ -48,8 +48,11 @@ function statusTone(status: number): string {
 }
 
 function vehicleLabel(orderService: OrderServiceRecord): string {
-  const parts = [orderService.vehicle?.brand, orderService.vehicle?.model].filter(Boolean)
-  return parts.length ? parts.join(' ') : orderService.vehicle?.license_plate || '—'
+  const modelParts = [orderService.vehicle?.brand, orderService.vehicle?.model].filter(Boolean)
+  const model = modelParts.join(' ')
+  const plate = orderService.vehicle?.license_plate
+  if (model && plate) return `${model} · ${plate}`
+  return model || plate || '—'
 }
 
 function orderServiceTotal(orderService: OrderServiceRecord): number {

@@ -15,6 +15,13 @@ import { CoinIcon, KeyIcon, TrendUpIcon, TruckIcon, WrenchIcon, ClockIcon, Clipb
 import { getPersonName, type AuthCompany, type AuthSession } from '../lib/auth'
 import { SUPPORT_PHONE_DISPLAY, SUPPORT_WHATSAPP_URL } from '../lib/support'
 
+function vehicleLabel(vehicle: { brand?: string | null; model?: string | null; license_plate?: string | null } | null | undefined): string {
+  const model = [vehicle?.brand, vehicle?.model].filter(Boolean).join(' ')
+  const plate = vehicle?.license_plate
+  if (model && plate) return `${model} · ${plate}`
+  return model || plate || '—'
+}
+
 interface RentalDashboardPageProps {
   session: AuthSession
   company: AuthCompany
@@ -406,8 +413,7 @@ export function RentalDashboardPage({ session, company, onNewInspection }: Renta
                     const statusLabel = isRental
                       ? VEHICLE_RENTAL_STATUS_LABELS[status ?? 0]
                       : VEHICLE_SALE_STATUS_LABELS[status ?? 0]
-                    const vehicleLabel =
-                      [sale.vehicle?.brand, sale.vehicle?.model].filter(Boolean).join(' ') || sale.vehicle?.license_plate || '—'
+                    const saleVehicleLabel = vehicleLabel(sale.vehicle)
                     return (
                       <div key={sale.id} className="rounded-xl border border-[var(--border)] p-3">
                         <div className="flex items-start justify-between gap-2">
@@ -420,7 +426,7 @@ export function RentalDashboardPage({ session, company, onNewInspection }: Renta
                         </div>
                         <p className="mt-1 flex items-center gap-1.5 truncate text-[12px] text-[var(--ink-soft)]">
                           <TruckIcon className="h-3.5 w-3.5 flex-none text-[var(--muted)]" />
-                          {vehicleLabel}
+                          {saleVehicleLabel}
                         </p>
                         <p className="mt-1.5 text-[11.5px] text-[var(--muted)]">
                           {isRental ? 'Aluguel' : 'Venda'} · {statusLabel ?? '—'}
@@ -456,7 +462,7 @@ export function RentalDashboardPage({ session, company, onNewInspection }: Renta
                             <td className="py-2.5 text-[var(--ink-soft)]">{isRental ? 'Aluguel' : 'Venda'}</td>
                             <td className="py-2.5 font-medium text-[var(--ink)]">{person?.name ?? '—'}</td>
                             <td className="py-2.5 text-[var(--ink-soft)]">
-                              {[sale.vehicle?.brand, sale.vehicle?.model].filter(Boolean).join(' ') || sale.vehicle?.license_plate || '—'}
+                              {vehicleLabel(sale.vehicle)}
                             </td>
                             <td className="py-2.5 text-[var(--ink-soft)]">{statusLabel ?? '—'}</td>
                             <td className="py-2.5 text-right font-mono font-semibold text-[var(--ink)]">
