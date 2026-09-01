@@ -215,6 +215,14 @@ export function VehicleRentalFormPage({ session, company, saleId, onBack, onSave
 
   const plotsTotal = useMemo(() => plots.reduce((sum, plot) => sum + parseAmount(plot.amount), 0), [plots])
 
+  const rentalDayCount = useMemo(() => {
+    if (!startDate || !endDate) return null
+    const start = new Date(startDate)
+    const end = new Date(endDate)
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) return null
+    return Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
+  }, [startDate, endDate])
+
   function addMonthsToDate(dateStr: string, months: number): string {
     const date = new Date(dateStr)
     date.setMonth(date.getMonth() + months)
@@ -525,6 +533,13 @@ export function VehicleRentalFormPage({ session, company, saleId, onBack, onSave
                   className="min-w-0 w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
                 />
               </label>
+              {rentalDayCount !== null && (
+                <div className="flex items-end sm:col-span-2 xl:col-span-1">
+                  <span className="inline-flex items-center gap-1.5 rounded-xl bg-[var(--blue-100)] px-3.5 py-2.5 text-[13px] font-semibold text-[var(--blue-700)]">
+                    {rentalDayCount} {rentalDayCount === 1 ? 'dia' : 'dias'} de locação
+                  </span>
+                </div>
+              )}
               <TextField
                 label="Dia de cobrança"
                 icon={<UserIcon className="h-4 w-4" />}
