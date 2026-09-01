@@ -759,7 +759,7 @@ export function VehicleRentalOperationsPage({ session, company }: VehicleRentalO
     setLoading(true)
     setError(null)
 
-    fetchSales(session.token.token, company.id, { limit: 500 })
+    fetchSales(session.token.token, company.id, { limit: 5000 })
       .then((res) => {
         if (cancelled) return
         const rentals = (res.data || []).filter((sale) => sale.vehicleRentalContract)

@@ -171,8 +171,8 @@ export function RentalDashboardPage({ session, company, onNewInspection }: Renta
     setError(null)
 
     Promise.all([
-      fetchSales(session.token.token, company.id, { limit: 500 }),
-      fetchOrderServices(session.token.token, company.id, { limit: 500, dateStart: '1970-01-01', dateEnd: toISODate(new Date()) }),
+      fetchSales(session.token.token, company.id, { limit: 5000 }),
+      fetchOrderServices(session.token.token, company.id, { limit: 5000, dateStart: '1970-01-01', dateEnd: toISODate(new Date()) }),
       fetchVehicles(session.token.token, company.id, { limit: 1 }),
     ])
       .then(([salesRes, orderServicesRes, vehiclesRes]) => {

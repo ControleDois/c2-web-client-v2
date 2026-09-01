@@ -225,7 +225,7 @@ export function fetchSales(
       companyId,
       search: options.search,
       page: options.page ? String(options.page) : '1',
-      limit: options.limit ? String(options.limit) : '500',
+      limit: options.limit ? String(options.limit) : '5000',
     },
     token
   )
