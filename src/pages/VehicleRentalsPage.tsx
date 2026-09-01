@@ -43,6 +43,10 @@ interface StatusBucket {
   textVar: string
 }
 
+// Pendente (0) e Retirado (1) ainda estão em andamento; Devolvido (2) é
+// histórico encerrado — "ativos" agrupa os dois primeiros.
+const ACTIVE_STATUSES = [0, 1]
+
 const STATUS_BUCKETS: StatusBucket[] = [
   { key: '0', status: 0, label: 'Pendentes', barVar: '--amber-500', textVar: '--amber-500' },
   { key: '1', status: 1, label: 'Retirados', barVar: '--blue-500', textVar: '--blue-700' },
@@ -113,7 +117,7 @@ function rentalTotalValue(contract: VehicleRentalContractRecord): number | null 
 
 export function VehicleRentalsPage({ session, company, onCreate, onEdit }: VehicleRentalsPageProps) {
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('total')
+  const [statusFilter, setStatusFilter] = useState('active')
   const [vehicleFilter, setVehicleFilter] = useState<EntityPick | null>(null)
   const [personFilter, setPersonFilter] = useState<EntityPick | null>(null)
   const [dateFrom, setDateFrom] = useState('')
@@ -188,6 +192,13 @@ export function VehicleRentalsPage({ session, company, onCreate, onEdit }: Vehic
         total: matching.reduce((sum, sale) => sum + (sale.vehicleRentalContract ? rentalPeriodValue(sale.vehicleRentalContract) ?? 0 : 0), 0),
       }
     }
+    // "Ativos" = ainda não devolvidos (Pendente ou Retirado) — é o que
+    // interessa no dia a dia, por isso é o filtro padrão da tela.
+    const activeSales = sales.filter((sale) => ACTIVE_STATUSES.includes(Number(sale.vehicleRentalContract?.status ?? 0)))
+    stats.active = {
+      count: activeSales.length,
+      total: activeSales.reduce((sum, sale) => sum + (sale.vehicleRentalContract ? rentalPeriodValue(sale.vehicleRentalContract) ?? 0 : 0), 0),
+    }
     stats.total = {
       count: sales.length,
       total: sales.reduce((sum, sale) => sum + (sale.vehicleRentalContract ? rentalPeriodValue(sale.vehicleRentalContract) ?? 0 : 0), 0),
@@ -199,7 +210,9 @@ export function VehicleRentalsPage({ session, company, onCreate, onEdit }: Vehic
     const term = search.trim().toLowerCase()
     return sales.filter((sale) => {
       const contract = sale.vehicleRentalContract
-      if (statusFilter !== 'total' && Number(contract?.status ?? 0) !== Number(statusFilter)) return false
+      const status = Number(contract?.status ?? 0)
+      if (statusFilter === 'active' && !ACTIVE_STATUSES.includes(status)) return false
+      if (statusFilter !== 'total' && statusFilter !== 'active' && status !== Number(statusFilter)) return false
       if (vehicleFilter && sale.vehicle?.id !== vehicleFilter.id) return false
       if (personFilter && contract?.renter?.id !== personFilter.id) return false
       if ((dateFrom || dateTo) && !periodOverlaps(contract?.startDate, contract?.endDate, dateFrom, dateTo)) return false
@@ -292,7 +305,25 @@ export function VehicleRentalsPage({ session, company, onCreate, onEdit }: Vehic
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-[var(--card-shadow)]">
-        <div className="grid grid-cols-2 divide-y divide-[var(--border)] sm:grid-cols-4 sm:divide-x sm:divide-y-0">
+        <div className="grid grid-cols-2 divide-y divide-[var(--border)] sm:grid-cols-5 sm:divide-x sm:divide-y-0">
+          <button
+            type="button"
+            onClick={() => setStatusFilter('active')}
+            className={`relative py-5 text-center transition-all duration-300 hover:bg-[var(--page)] ${
+              statusFilter !== 'active' ? 'opacity-40' : ''
+            }`}
+          >
+            <span
+              className="absolute left-0 right-0 top-0 bg-[var(--indigo-500)] transition-all duration-300"
+              style={{ height: statusFilter === 'active' ? 6 : 0 }}
+            />
+            <dt className="text-[12px] font-semibold text-[var(--muted)]">
+              Ativos ({bucketStats.active?.count ?? 0})
+            </dt>
+            <dd className="mt-1 text-[17px] font-bold tracking-tight text-[var(--indigo-500)]">
+              {formatCurrency(bucketStats.active?.total ?? 0)}
+            </dd>
+          </button>
           {STATUS_BUCKETS.map((bucket) => {
             const stats = bucketStats[bucket.key] ?? { count: 0, total: 0 }
             const isActive = statusFilter === bucket.key
