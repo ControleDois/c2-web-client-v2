@@ -165,8 +165,8 @@ export function OrderServicesPage({ session, company, onCreate, onEdit }: OrderS
       return {
         tipo: item.product?.role === 1 ? 'Serviço' : 'Peça',
         description: item.description || item.product?.name || '—',
-        supplier: item.supplier?.name || 'Não informado',
-        note: item.note || 'Não informado',
+        supplier: item.supplier?.name || '',
+        note: item.note || '',
         cost: formatCurrency(cost),
         margin: `${margin.toFixed(1)}%`,
         qty: String(item.amount),
@@ -597,38 +597,32 @@ export function OrderServicesPage({ session, company, onCreate, onEdit }: OrderS
               ]
         }
         columns={printMode === 'summary' ? PRINT_COLUMNS_SUMMARY : PRINT_COLUMNS_COMPLETE}
+        detailColumnKey="description"
         rows={printRows}
         rowDetail={
           printMode === 'summary'
             ? undefined
-            : (row) => (
-                <div
-                  style={{
-                    display: 'flex',
-                    flexWrap: 'wrap',
-                    gap: '4px 24px',
-                    marginTop: 2,
-                    padding: '6px 10px',
-                    borderRadius: 8,
-                    background: '#f9fafb',
-                    fontSize: 11.5,
-                    color: '#6b7280',
-                  }}
-                >
-                  <span>
-                    <span style={{ color: '#374151', fontWeight: 700, textTransform: 'uppercase', fontSize: 10, letterSpacing: 0.3 }}>
-                      Fornecedor
-                    </span>{' '}
-                    · {row.supplier}
-                  </span>
-                  <span>
-                    <span style={{ color: '#374151', fontWeight: 700, textTransform: 'uppercase', fontSize: 10, letterSpacing: 0.3 }}>
-                      Observação
-                    </span>{' '}
-                    · {row.note}
-                  </span>
-                </div>
-              )
+            : (row) => {
+                const supplier = typeof row.supplier === 'string' ? row.supplier.trim() : ''
+                const note = typeof row.note === 'string' ? row.note.trim() : ''
+                if (!supplier && !note) return null
+                const parts = [
+                  supplier && { label: 'Fornecedor', value: supplier },
+                  note && { label: 'Observação', value: note },
+                ].filter(Boolean) as { label: string; value: string }[]
+                return (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1px 16px' }}>
+                    {parts.map((part) => (
+                      <span key={part.label}>
+                        <span style={{ color: '#9ca3af', fontWeight: 700, textTransform: 'uppercase', fontSize: 8.5, letterSpacing: 0.3 }}>
+                          {part.label}:
+                        </span>{' '}
+                        {part.value}
+                      </span>
+                    ))}
+                  </div>
+                )
+              }
         }
         totals={printTotals}
         onClose={() => setPrintTarget(null)}
