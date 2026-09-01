@@ -53,6 +53,23 @@ function parseAmount(value: string): number {
   return Number.isNaN(num) ? 0 : num
 }
 
+// Mesma lógica de VehicleRentalsPage.tsx (rentalUnits) — quantas diárias/
+// semanas/meses cabem entre início e fim, pra multiplicar pelo valor por
+// período e chegar no total real da locação.
+function computeRentalUnits(frequency: string, startDateStr: string, endDateStr: string): number {
+  const start = new Date(startDateStr)
+  const end = new Date(endDateStr)
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) return 1
+
+  const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
+
+  if (frequency === 'daily') return Math.max(1, diffDays)
+  if (frequency === 'weekly') return Math.max(1, Math.ceil(diffDays / 7))
+  let months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth())
+  if (end.getDate() < start.getDate()) months -= 1
+  return Math.max(1, months)
+}
+
 export function VehicleRentalFormPage({ session, company, saleId, onBack, onSaved }: VehicleRentalFormPageProps) {
   const [loading, setLoading] = useState(Boolean(saleId))
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -283,6 +300,23 @@ export function VehicleRentalFormPage({ session, company, saleId, onBack, onSave
 
     const periodValue = monthlyValue ? parseAmount(monthlyValue) : undefined
 
+    // net_total é o valor TOTAL da locação (o que aparece como "Total a
+    // pagar" no contrato e nos relatórios) — não pode ser só o valor de um
+    // período isolado. Em locação simples é valor-por-período × nº de
+    // períodos entre início e fim; com opção de compra, é a soma das
+    // parcelas (ou o valor total do veículo, se as parcelas ainda não
+    // foram geradas).
+    let netTotal = periodValue
+    if (purchaseOption) {
+      if (plots.length > 0) {
+        netTotal = plotsTotal
+      } else if (vehicleTotalValue) {
+        netTotal = parseAmount(vehicleTotalValue)
+      }
+    } else if (periodValue !== undefined && startDate && endDate) {
+      netTotal = periodValue * computeRentalUnits(rentalFrequency, startDate, endDate)
+    }
+
     const plotsPayload: SalePlotPayload[] | undefined =
       purchaseOption && plots.length > 0
         ? plots.map((plot, index) => ({
@@ -302,7 +336,7 @@ export function VehicleRentalFormPage({ session, company, saleId, onBack, onSave
       categoryId: purchaseOption ? categoryId || undefined : undefined,
       role: 1,
       status: 3,
-      net_total: periodValue,
+      net_total: netTotal,
       vehicleRentalContract: {
         vehicleId: vehicle.id,
         renterPeopleId: renter.id,
