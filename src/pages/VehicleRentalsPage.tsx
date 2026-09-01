@@ -60,8 +60,11 @@ function statusTone(status: number): string {
 }
 
 function vehicleLabel(sale: SaleRecord): string {
-  const parts = [sale.vehicle?.brand, sale.vehicle?.model].filter(Boolean)
-  return parts.length ? parts.join(' ') : sale.vehicle?.license_plate || '—'
+  const modelParts = [sale.vehicle?.brand, sale.vehicle?.model].filter(Boolean)
+  const model = modelParts.join(' ')
+  const plate = sale.vehicle?.license_plate
+  if (model && plate) return `${model} · ${plate}`
+  return model || plate || '—'
 }
 
 function frequencyLabel(frequency?: string | null): string {
