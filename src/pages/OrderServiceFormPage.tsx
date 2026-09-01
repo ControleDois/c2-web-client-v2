@@ -592,7 +592,7 @@ export function OrderServiceFormPage({ session, company, orderServiceId, onBack,
             )}
           </SectionCard>
 
-          <SectionCard title="Observações" defaultCollapsed>
+          <SectionCard title="Observações" defaultCollapsed={!orderServiceId}>
             <textarea
               value={noteService}
               onChange={(event) => setNoteService(event.target.value)}
