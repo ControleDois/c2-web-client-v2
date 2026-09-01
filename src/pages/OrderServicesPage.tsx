@@ -58,18 +58,10 @@ function orderServiceTotal(orderService: OrderServiceRecord): number {
   return (orderService.items ?? []).reduce((sum, item) => sum + Number(item.total || 0), 0)
 }
 
-function currentMonthRange(): { from: string; to: string } {
-  const now = new Date()
-  const from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
-  const to = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10)
-  return { from, to }
-}
-
 export function OrderServicesPage({ session, company, onCreate, onEdit }: OrderServicesPageProps) {
   const [search, setSearch] = useState('')
-  const [{ from: defaultFrom, to: defaultTo }] = useState(currentMonthRange)
-  const [dateFrom, setDateFrom] = useState(defaultFrom)
-  const [dateTo, setDateTo] = useState(defaultTo)
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
   const [vehicleFilter, setVehicleFilter] = useState<EntityPick | null>(null)
   const [personFilter, setPersonFilter] = useState<EntityPick | null>(null)
   const [statusFilter, setStatusFilter] = useState('total')
