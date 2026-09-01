@@ -586,7 +586,6 @@ export function OrderServicesPage({ session, company, onCreate, onEdit }: OrderS
         }
         columns={printMode === 'summary' ? PRINT_COLUMNS_SUMMARY : PRINT_COLUMNS_COMPLETE}
         rows={printRows}
-        totalValue={printTarget ? formatCurrency(orderServiceTotal(printTarget)) : undefined}
         onClose={() => setPrintTarget(null)}
       />
     </div>

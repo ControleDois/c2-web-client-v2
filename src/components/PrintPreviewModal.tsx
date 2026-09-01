@@ -13,15 +13,13 @@ interface PrintPreviewModalProps {
   title: string
   subtitle?: string
   headerDetails?: { label: string; value: string }[]
-  totalLabel?: string
-  totalValue?: string
   company: AuthCompany
   columns: PrintColumn[]
   rows: Record<string, ReactNode>[]
   onClose: () => void
 }
 
-export function PrintPreviewModal({ open, title, subtitle, headerDetails, totalLabel, totalValue, company, columns, rows, onClose }: PrintPreviewModalProps) {
+export function PrintPreviewModal({ open, title, subtitle, headerDetails, company, columns, rows, onClose }: PrintPreviewModalProps) {
   const triggeredRef = useRef(false)
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
@@ -179,21 +177,6 @@ export function PrintPreviewModal({ open, title, subtitle, headerDetails, totalL
               </tr>
             ))}
           </tbody>
-          {totalValue && (
-            <tfoot>
-              <tr>
-                <td
-                  colSpan={columns.length - 1}
-                  style={{ padding: '10px 0 0', textAlign: 'right', fontSize: 12.5, fontWeight: 700, color: '#111827' }}
-                >
-                  {totalLabel ?? 'Total'}
-                </td>
-                <td style={{ padding: '10px 0 0', textAlign: 'right', fontSize: 14, fontWeight: 700, color: '#111827' }}>
-                  {totalValue}
-                </td>
-              </tr>
-            </tfoot>
-          )}
         </table>
 
         <p style={{ marginTop: 22, fontSize: 10.5, color: '#9ca3af' }}>
