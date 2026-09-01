@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react'
+import { Fragment, useEffect, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { getCompanyName, type AuthCompany } from '../lib/auth'
 
@@ -16,10 +16,13 @@ interface PrintPreviewModalProps {
   company: AuthCompany
   columns: PrintColumn[]
   rows: Record<string, ReactNode>[]
+  // Linha extra opcional abaixo de cada item, pra detalhes que não cabem bem
+  // como coluna estreita (ex.: fornecedor/observação de uma peça ou serviço).
+  rowDetail?: (row: Record<string, ReactNode>) => ReactNode
   onClose: () => void
 }
 
-export function PrintPreviewModal({ open, title, subtitle, headerDetails, company, columns, rows, onClose }: PrintPreviewModalProps) {
+export function PrintPreviewModal({ open, title, subtitle, headerDetails, company, columns, rows, rowDetail, onClose }: PrintPreviewModalProps) {
   const triggeredRef = useRef(false)
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
@@ -159,23 +162,41 @@ export function PrintPreviewModal({ open, title, subtitle, headerDetails, compan
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, index) => (
-              <tr key={index}>
-                {columns.map((column) => (
-                  <td
-                    key={column.key}
-                    style={{
-                      padding: '8px 0',
-                      textAlign: column.align === 'right' ? 'right' : 'left',
-                      color: '#111827',
-                      borderBottom: '1px solid #e5e7eb',
-                    }}
-                  >
-                    {row[column.key] ?? '—'}
-                  </td>
-                ))}
-              </tr>
-            ))}
+            {rows.map((row, index) => {
+              const detail = rowDetail?.(row)
+              return (
+                <Fragment key={index}>
+                  <tr>
+                    {columns.map((column) => (
+                      <td
+                        key={column.key}
+                        style={{
+                          padding: detail ? '10px 0 4px' : '8px 0',
+                          textAlign: column.align === 'right' ? 'right' : 'left',
+                          color: '#111827',
+                          borderBottom: detail ? 'none' : '1px solid #e5e7eb',
+                        }}
+                      >
+                        {row[column.key] ?? '—'}
+                      </td>
+                    ))}
+                  </tr>
+                  {detail && (
+                    <tr>
+                      <td
+                        colSpan={columns.length}
+                        style={{
+                          padding: '0 0 10px',
+                          borderBottom: '1px solid #e5e7eb',
+                        }}
+                      >
+                        {detail}
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              )
+            })}
           </tbody>
         </table>
 

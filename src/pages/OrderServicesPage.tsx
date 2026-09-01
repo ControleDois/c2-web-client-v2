@@ -18,7 +18,6 @@ import type { AuthSession, AuthCompany } from '../lib/auth'
 const PRINT_COLUMNS_COMPLETE: PrintColumn[] = [
   { key: 'tipo', label: 'Tipo' },
   { key: 'description', label: 'Peça/Serviço' },
-  { key: 'supplier', label: 'Fornecedor' },
   { key: 'cost', label: 'Custo', align: 'right' },
   { key: 'margin', label: 'Margem', align: 'right' },
   { key: 'qty', label: 'Qtd.', align: 'right' },
@@ -166,7 +165,8 @@ export function OrderServicesPage({ session, company, onCreate, onEdit }: OrderS
       return {
         tipo: item.product?.role === 1 ? 'Serviço' : 'Peça',
         description: item.description || item.product?.name || '—',
-        supplier: item.supplier?.name || '—',
+        supplier: item.supplier?.name || 'Não informado',
+        note: item.note || 'Não informado',
         cost: formatCurrency(cost),
         margin: `${margin.toFixed(1)}%`,
         qty: String(item.amount),
@@ -586,6 +586,38 @@ export function OrderServicesPage({ session, company, onCreate, onEdit }: OrderS
         }
         columns={printMode === 'summary' ? PRINT_COLUMNS_SUMMARY : PRINT_COLUMNS_COMPLETE}
         rows={printRows}
+        rowDetail={
+          printMode === 'summary'
+            ? undefined
+            : (row) => (
+                <div
+                  style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '4px 24px',
+                    marginTop: 2,
+                    padding: '6px 10px',
+                    borderRadius: 8,
+                    background: '#f9fafb',
+                    fontSize: 11.5,
+                    color: '#6b7280',
+                  }}
+                >
+                  <span>
+                    <span style={{ color: '#374151', fontWeight: 700, textTransform: 'uppercase', fontSize: 10, letterSpacing: 0.3 }}>
+                      Fornecedor
+                    </span>{' '}
+                    · {row.supplier}
+                  </span>
+                  <span>
+                    <span style={{ color: '#374151', fontWeight: 700, textTransform: 'uppercase', fontSize: 10, letterSpacing: 0.3 }}>
+                      Observação
+                    </span>{' '}
+                    · {row.note}
+                  </span>
+                </div>
+              )
+        }
         onClose={() => setPrintTarget(null)}
       />
     </div>
