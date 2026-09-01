@@ -12,13 +12,14 @@ interface PrintPreviewModalProps {
   open: boolean
   title: string
   subtitle?: string
+  headerDetails?: { label: string; value: string }[]
   company: AuthCompany
   columns: PrintColumn[]
   rows: Record<string, ReactNode>[]
   onClose: () => void
 }
 
-export function PrintPreviewModal({ open, title, subtitle, company, columns, rows, onClose }: PrintPreviewModalProps) {
+export function PrintPreviewModal({ open, title, subtitle, headerDetails, company, columns, rows, onClose }: PrintPreviewModalProps) {
   const triggeredRef = useRef(false)
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
@@ -110,6 +111,30 @@ export function PrintPreviewModal({ open, title, subtitle, company, columns, row
             )}
           </div>
         </div>
+
+        {headerDetails && headerDetails.length > 0 && (
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, 1fr)',
+              gap: '10px 24px',
+              marginBottom: 18,
+              paddingBottom: 16,
+              borderBottom: '1px solid #e5e7eb',
+            }}
+          >
+            {headerDetails.map((detail) => (
+              <div key={detail.label} style={{ gridColumn: detail.label === 'Descrição do serviço' ? '1 / -1' : undefined }}>
+                <p style={{ margin: 0, fontSize: 10, fontWeight: 700, letterSpacing: 0.4, color: '#6b7280', textTransform: 'uppercase' }}>
+                  {detail.label}
+                </p>
+                <p style={{ margin: '2px 0 0', fontSize: 13, color: '#111827', whiteSpace: 'pre-wrap' }}>
+                  {detail.value || '—'}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
 
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
           <thead>

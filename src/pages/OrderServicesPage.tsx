@@ -576,6 +576,14 @@ export function OrderServicesPage({ session, company, onCreate, onEdit }: OrderS
         company={company}
         title={`OS #${printTarget?.code ?? ''}`}
         subtitle={`${printTarget?.people?.name ?? ''} · ${printMode === 'summary' ? 'Resumido' : 'Completo'}`}
+        headerDetails={
+          printMode === 'summary' || !printTarget
+            ? undefined
+            : [
+                { label: 'Veículo', value: vehicleLabel(printTarget) },
+                { label: 'Descrição do serviço', value: printTarget.note_service || printTarget.reportedProblem || '' },
+              ]
+        }
         columns={printMode === 'summary' ? PRINT_COLUMNS_SUMMARY : PRINT_COLUMNS_COMPLETE}
         rows={printRows}
         onClose={() => setPrintTarget(null)}

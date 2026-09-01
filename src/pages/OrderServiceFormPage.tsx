@@ -153,7 +153,7 @@ export function OrderServiceFormPage({ session, company, orderServiceId, onBack,
               supplierId: item.supplier?.id,
               supplierLabel: item.supplier?.name,
               note: item.note ?? '',
-              expanded: false,
+              expanded: true,
             }
           })
         )
