@@ -18,10 +18,11 @@ interface SignaturePositionPreviewProps {
   page: number
   x: number
   y: number
+  allPages?: boolean
   onChange: (patch: { x?: number; y?: number }) => void
 }
 
-function SignaturePositionPreview({ page, x, y, onChange }: SignaturePositionPreviewProps) {
+function SignaturePositionPreview({ page, x, y, allPages, onChange }: SignaturePositionPreviewProps) {
   const boxRef = useRef<HTMLDivElement>(null)
   const [dragging, setDragging] = useState(false)
 
@@ -76,7 +77,9 @@ function SignaturePositionPreview({ page, x, y, onChange }: SignaturePositionPre
         </div>
       </div>
       <p className="mt-2 text-center text-[11px] text-[var(--muted)]">
-        Clique ou arraste na página {page} para posicionar a assinatura
+        {allPages
+          ? 'Clique ou arraste para posicionar a assinatura em todas as páginas'
+          : `Clique ou arraste na página ${page} para posicionar a assinatura`}
       </p>
     </div>
   )
@@ -105,6 +108,7 @@ export function ContractTemplateFormPage({ session, company, templateId, onBack,
   const [signaturePage, setSignaturePage] = useState(1)
   const [signatureX, setSignatureX] = useState(15)
   const [signatureY, setSignatureY] = useState(80)
+  const [signatureAllPages, setSignatureAllPages] = useState(false)
   const [isActive, setIsActive] = useState(true)
 
   const [copiedVariable, setCopiedVariable] = useState<string | null>(null)
@@ -126,6 +130,7 @@ export function ContractTemplateFormPage({ session, company, templateId, onBack,
         setSignaturePage(template.signature_page ?? 1)
         setSignatureX(template.signature_x ?? 15)
         setSignatureY(template.signature_y ?? 80)
+        setSignatureAllPages(template.signature_all_pages ?? false)
         setIsActive(template.is_active !== false)
       })
       .catch((err) => {
@@ -172,6 +177,7 @@ export function ContractTemplateFormPage({ session, company, templateId, onBack,
       signature_page: signaturePage,
       signature_x: signatureX,
       signature_y: signatureY,
+      signature_all_pages: signatureAllPages,
       is_active: isActive,
     }
 
@@ -309,6 +315,25 @@ export function ContractTemplateFormPage({ session, company, templateId, onBack,
             <p className="mb-4 text-[12px] text-[var(--muted)]">
               Página e posição (%) onde o campo de assinatura digital será posicionado no PDF gerado.
             </p>
+
+            <label className="mb-4 flex items-start gap-2.5 rounded-xl bg-[var(--page)] p-3">
+              <input
+                type="checkbox"
+                checked={signatureAllPages}
+                onChange={(event) => setSignatureAllPages(event.target.checked)}
+                className="mt-0.5 h-4 w-4 flex-none rounded border-[var(--border)] accent-[var(--blue-500)]"
+              />
+              <span>
+                <span className="block text-[13px] font-semibold text-[var(--ink)]">
+                  Assinar em todas as páginas
+                </span>
+                <span className="mt-0.5 block text-[11.5px] text-[var(--ink-soft)]">
+                  Repete a marcação de assinatura em todas as páginas do PDF, na mesma
+                  posição X/Y. O campo "Página" fica sem efeito.
+                </span>
+              </span>
+            </label>
+
             <div className="grid gap-6 sm:grid-cols-[1fr_auto]">
               <div className="grid gap-4 sm:grid-cols-3">
                 <TextField
@@ -317,6 +342,7 @@ export function ContractTemplateFormPage({ session, company, templateId, onBack,
                   type="number"
                   min={1}
                   value={signaturePage}
+                  disabled={signatureAllPages}
                   onChange={(event) => setSignaturePage(Number(event.target.value))}
                 />
                 <TextField
@@ -342,6 +368,7 @@ export function ContractTemplateFormPage({ session, company, templateId, onBack,
                 page={signaturePage}
                 x={signatureX}
                 y={signatureY}
+                allPages={signatureAllPages}
                 onChange={(patch) => {
                   if (patch.x !== undefined) setSignatureX(patch.x)
                   if (patch.y !== undefined) setSignatureY(patch.y)

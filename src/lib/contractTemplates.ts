@@ -12,6 +12,7 @@ export interface ContractTemplateRecord {
   signature_page: number
   signature_x: number
   signature_y: number
+  signature_all_pages: boolean
   is_active: boolean
   created_at?: string
 }
@@ -26,6 +27,7 @@ export interface ContractTemplatePayload {
   signature_page: number
   signature_x: number
   signature_y: number
+  signature_all_pages: boolean
   is_active: boolean
 }
 

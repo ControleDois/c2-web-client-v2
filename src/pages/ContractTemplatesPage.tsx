@@ -135,6 +135,7 @@ export function ContractTemplatesPage({ session, company, onCreate, onEdit }: Co
         signature_page: template.signature_page,
         signature_x: template.signature_x,
         signature_y: template.signature_y,
+        signature_all_pages: template.signature_all_pages,
         is_active: false,
       })
       reload()
