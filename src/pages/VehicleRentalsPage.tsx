@@ -11,10 +11,11 @@ import { formatCurrency, formatDate } from '../lib/format'
 import { ApiError } from '../lib/api'
 import { getCached, setCached } from '../lib/cache'
 import { useRowSelection } from '../hooks/useRowSelection'
-import { SearchIcon, PlusIcon, PencilIcon, TrashIcon, PrinterIcon, TruckIcon } from '../components/icons'
+import { SearchIcon, PlusIcon, PencilIcon, TrashIcon, PrinterIcon, TruckIcon, WhatsappIcon } from '../components/icons'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { RowActionsMenu, type RowAction } from '../components/RowActionsMenu'
 import { SaleContractPreviewModal } from '../components/SaleContractPreviewModal'
+import { SaleSendContractModal } from '../components/SaleSendContractModal'
 import { ListEntityDateFilters, type EntityPick } from '../components/ListEntityDateFilters'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
@@ -136,6 +137,14 @@ export function VehicleRentalsPage({ session, company, onCreate, onEdit }: Vehic
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [contractSale, setContractSale] = useState<SaleRecord | null>(null)
+  const [sendContractSale, setSendContractSale] = useState<SaleRecord | null>(null)
+  const [feedback, setFeedback] = useState<{ tone: 'success' | 'error'; message: string } | null>(null)
+
+  useEffect(() => {
+    if (!feedback) return
+    const timeout = setTimeout(() => setFeedback(null), 3200)
+    return () => clearTimeout(timeout)
+  }, [feedback])
 
   useEffect(() => {
     let cancelled = false
@@ -278,6 +287,12 @@ export function VehicleRentalsPage({ session, company, onCreate, onEdit }: Vehic
         label: 'Visualizar contrato',
         icon: <PrinterIcon className="h-4 w-4" />,
         onClick: () => setContractSale(sale),
+      },
+      {
+        key: 'send-contract',
+        label: 'Enviar contrato',
+        icon: <WhatsappIcon className="h-4 w-4" />,
+        onClick: () => setSendContractSale(sale),
       },
       {
         key: 'delete',
@@ -675,6 +690,28 @@ export function VehicleRentalsPage({ session, company, onCreate, onEdit }: Vehic
         sale={contractSale}
         onClose={() => setContractSale(null)}
       />
+
+      <SaleSendContractModal
+        open={Boolean(sendContractSale)}
+        session={session}
+        company={company}
+        sale={sendContractSale}
+        onClose={() => setSendContractSale(null)}
+        onSent={(message) => {
+          setFeedback({ tone: 'success', message })
+          reload()
+        }}
+      />
+
+      {feedback && (
+        <div
+          className={`fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-xl px-4 py-2.5 text-[13px] font-semibold text-white shadow-lg ${
+            feedback.tone === 'success' ? 'bg-[var(--green-600)]' : 'bg-[var(--red-500)]'
+          }`}
+        >
+          {feedback.message}
+        </div>
+      )}
     </div>
   )
 }

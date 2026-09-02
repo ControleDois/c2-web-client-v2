@@ -97,6 +97,9 @@ export interface SaleRecord {
   vehicleRentalContract?: VehicleRentalContractRecord | null
   vehicleSaleContract?: VehicleSaleContractRecord | null
   created_at?: string
+  autentique_id?: string | null
+  autentique_public_id?: string | null
+  autentique_short_link?: string | null
 }
 
 export interface VehicleRentalContractPayload {
@@ -249,6 +252,31 @@ export function deleteSale(token: string, id: string) {
 
 export function printSaleContract(token: string, id: string) {
   return apiPost<{ url: string; html: string }>(`/sale/print-contract/${id}`, {}, token)
+}
+
+export function getContractLink(sale: SaleRecord): string {
+  return sale.autentique_short_link || ''
+}
+
+export function sendSaleContract(
+  token: string,
+  id: string,
+  payload: { contractTemplateId: string; whatsappId?: string }
+) {
+  return apiPost<{
+    fileUrl: string
+    contractLink: string
+    whatsappQueued: boolean
+    whatsappError: string | null
+  }>(`/sale/send-contract/${id}`, payload, token)
+}
+
+export function sendSaleContractLink(token: string, id: string, whatsappId: string) {
+  return apiPost<{ message: string; whatsappQueued: boolean }>(
+    `/sale/send-contract-link/${id}`,
+    { whatsappId },
+    token
+  )
 }
 
 export function updateVehicleRentalOperation(token: string, id: string, payload: VehicleRentalOperationPayload) {
