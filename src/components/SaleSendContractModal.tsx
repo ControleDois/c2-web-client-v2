@@ -28,6 +28,7 @@ export function SaleSendContractModal({
   const [whatsapps, setWhatsapps] = useState<CompanyWhatsappRecord[]>([])
   const [templateId, setTemplateId] = useState('')
   const [whatsappId, setWhatsappId] = useState('')
+  const [useAutentique, setUseAutentique] = useState(true)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -35,6 +36,7 @@ export function SaleSendContractModal({
     if (!open || !sale) return
     setTemplateId('')
     setWhatsappId('')
+    setUseAutentique(true)
     setError(null)
 
     const targetType = sale.vehicleRentalContract?.purchaseOption
@@ -77,11 +79,18 @@ export function SaleSendContractModal({
       const result = await sendSaleContract(session.token.token, sale.id, {
         contractTemplateId: templateId,
         whatsappId,
+        useAutentique,
       })
       if (result.whatsappError) {
         onSent(`Contrato gerado, mas o WhatsApp falhou: ${result.whatsappError}`)
       } else {
-        onSent(hasLink ? 'O novo contrato foi colocado na fila do WhatsApp.' : 'O arquivo do contrato foi colocado na fila do WhatsApp.')
+        onSent(
+          useAutentique
+            ? hasLink
+              ? 'O novo contrato foi colocado na fila do WhatsApp.'
+              : 'O contrato foi colocado na fila do WhatsApp (com link de assinatura, se o Autentique estiver configurado).'
+            : 'O arquivo do contrato foi colocado na fila do WhatsApp, sem assinatura digital.'
+        )
       }
       onClose()
     } catch (err) {
@@ -179,6 +188,24 @@ export function SaleSendContractModal({
               : 'Quando não existir link de assinatura, será enviado o arquivo do contrato.'}
           </p>
         </div>
+
+        <label className="mt-4 flex items-start gap-2.5 rounded-xl bg-[var(--page)] p-3">
+          <input
+            type="checkbox"
+            checked={useAutentique}
+            onChange={(event) => setUseAutentique(event.target.checked)}
+            className="mt-0.5 h-4 w-4 flex-none rounded border-[var(--border)] accent-[var(--blue-500)]"
+          />
+          <span>
+            <span className="block text-[13px] font-semibold text-[var(--ink)]">
+              Enviar para assinatura digital (Autentique)
+            </span>
+            <span className="mt-0.5 block text-[11.5px] text-[var(--ink-soft)]">
+              Desmarque se o cliente não usa assinatura digital — o contrato vai só como
+              arquivo PDF pelo WhatsApp, sem passar pelo Autentique.
+            </span>
+          </span>
+        </label>
 
         {error && <p className="mt-3 text-[13px] font-medium text-[var(--red-500)]">{error}</p>}
 

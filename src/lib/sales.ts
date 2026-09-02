@@ -261,7 +261,7 @@ export function getContractLink(sale: SaleRecord): string {
 export function sendSaleContract(
   token: string,
   id: string,
-  payload: { contractTemplateId: string; whatsappId?: string }
+  payload: { contractTemplateId: string; whatsappId?: string; useAutentique?: boolean }
 ) {
   return apiPost<{
     fileUrl: string
