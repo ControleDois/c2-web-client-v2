@@ -56,6 +56,12 @@ function parseAmount(value: string): number {
 // Mesma lógica de VehicleRentalsPage.tsx (rentalUnits) — quantas diárias/
 // semanas/meses cabem entre início e fim, pra multiplicar pelo valor por
 // período e chegar no total real da locação.
+function rentalUnitsLabel(frequency: string, units: number): string {
+  if (frequency === 'daily') return `${units} ${units === 1 ? 'diária' : 'diárias'}`
+  if (frequency === 'weekly') return `${units} ${units === 1 ? 'semana' : 'semanas'}`
+  return `${units} ${units === 1 ? 'mês' : 'meses'}`
+}
+
 function computeRentalUnits(frequency: string, startDateStr: string, endDateStr: string): number {
   const start = new Date(startDateStr)
   const end = new Date(endDateStr)
@@ -222,6 +228,18 @@ export function VehicleRentalFormPage({ session, company, saleId, onBack, onSave
     if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) return null
     return Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
   }, [startDate, endDate])
+
+  // Mesma conta usada no cálculo do net_total no submit: nº de períodos ×
+  // valor por período = total da locação. Mostrado aqui só como conferência
+  // pro usuário — não roda quando há opção de compra (aí o total vem das
+  // parcelas/valor do veículo, não dessa multiplicação).
+  const rentalUnitsCalc = useMemo(() => {
+    if (purchaseOption || rentalDayCount === null) return null
+    const rate = monthlyValue ? parseAmount(monthlyValue) : 0
+    if (!rate) return null
+    const units = computeRentalUnits(rentalFrequency, startDate, endDate)
+    return { units, rate, total: units * rate }
+  }, [purchaseOption, rentalDayCount, monthlyValue, rentalFrequency, startDate, endDate])
 
   function addMonthsToDate(dateStr: string, months: number): string {
     const date = new Date(dateStr)
@@ -536,7 +554,9 @@ export function VehicleRentalFormPage({ session, company, saleId, onBack, onSave
               {rentalDayCount !== null && (
                 <div className="flex items-end sm:col-span-2 xl:col-span-1">
                   <span className="inline-flex items-center gap-1.5 rounded-xl bg-[var(--blue-100)] px-3.5 py-2.5 text-[13px] font-semibold text-[var(--blue-700)]">
-                    {rentalDayCount} {rentalDayCount === 1 ? 'dia' : 'dias'} de locação
+                    {rentalUnitsCalc
+                      ? `${rentalUnitsLabel(rentalFrequency, rentalUnitsCalc.units)} × ${formatCurrency(rentalUnitsCalc.rate)} = ${formatCurrency(rentalUnitsCalc.total)}`
+                      : `${rentalDayCount} ${rentalDayCount === 1 ? 'dia' : 'dias'} de locação`}
                   </span>
                 </div>
               )}
