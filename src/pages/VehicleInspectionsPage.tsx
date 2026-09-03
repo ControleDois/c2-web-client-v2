@@ -925,7 +925,7 @@ export function VehicleInspectionsPage({ session, company }: VehicleInspectionsP
 
       {sendWhatsappSuccess && (
         <div className="fixed bottom-6 left-1/2 z-[80] -translate-x-1/2 rounded-xl bg-[var(--green-600)] px-4 py-2.5 text-[13px] font-semibold text-white shadow-lg">
-          PDF enviado pelo WhatsApp com sucesso.
+          PDF colocado na fila de envio do WhatsApp.
         </div>
       )}
     </div>
