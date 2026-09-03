@@ -75,7 +75,6 @@ function App() {
   const [screen, setScreen] = useState<Screen>('login')
   const [page, setPage] = useState<AppPage>('dashboard')
   const [switchingCompany, setSwitchingCompany] = useState(false)
-  const [operationsInitialSaleId, setOperationsInitialSaleId] = useState<string | null>(null)
 
   const peopleView = useEntityView()
   const vehiclesView = useEntityView()
@@ -260,10 +259,6 @@ function App() {
             company={activeCompany}
             onCreate={vehicleRentalsView.create}
             onEdit={(sale) => vehicleRentalsView.edit(sale.id)}
-            onManageOperation={(saleId) => {
-              setOperationsInitialSaleId(saleId)
-              handleNavigate('vehicle-rental-operations')
-            }}
           />
         )
     } else if (page === 'vehicle-sales') {
@@ -546,14 +541,7 @@ function App() {
     } else if (page === 'towing-collection') {
       pageContent = <TowingCollectionPage session={session} company={activeCompany} />
     } else if (page === 'vehicle-rental-operations') {
-      pageContent = (
-        <VehicleRentalOperationsPage
-          session={session}
-          company={activeCompany}
-          initialSaleId={operationsInitialSaleId}
-          onInitialSaleConsumed={() => setOperationsInitialSaleId(null)}
-        />
-      )
+      pageContent = <VehicleRentalOperationsPage session={session} company={activeCompany} />
     } else if (page === 'towing-billing-report') {
       pageContent = <TowingBillingReportPage session={session} company={activeCompany} />
     } else if (page === 'standalone-inspection') {

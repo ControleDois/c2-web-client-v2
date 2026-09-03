@@ -10,6 +10,7 @@ import {
 import { formatCurrency, formatDate } from '../lib/format'
 import { ApiError } from '../lib/api'
 import { getCached, setCached } from '../lib/cache'
+import { fetchConfig } from '../lib/config'
 import { useRowSelection } from '../hooks/useRowSelection'
 import { SearchIcon, PlusIcon, PencilIcon, TrashIcon, PrinterIcon, TruckIcon, WhatsappIcon, RouteIcon } from '../components/icons'
 import { ConfirmDialog } from '../components/ConfirmDialog'
@@ -18,6 +19,7 @@ import { SaleContractPreviewModal } from '../components/SaleContractPreviewModal
 import { SaleSendContractModal } from '../components/SaleSendContractModal'
 import { SaleQuitacaoPreviewModal } from '../components/SaleQuitacaoPreviewModal'
 import { ListEntityDateFilters, type EntityPick } from '../components/ListEntityDateFilters'
+import { RentalOperationModal, type OperationMode } from '../components/RentalOperationModal'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
 function periodOverlaps(startDate: string | null | undefined, endDate: string | null | undefined, from: string, to: string): boolean {
@@ -33,7 +35,6 @@ interface VehicleRentalsPageProps {
   company: AuthCompany
   onCreate: () => void
   onEdit: (sale: SaleRecord) => void
-  onManageOperation: (saleId: string) => void
 }
 
 const PAGE_SIZE = 10
@@ -121,8 +122,10 @@ function rentalTotalValue(contract: VehicleRentalContractRecord): number | null 
   return units * contract.monthlyValue
 }
 
-export function VehicleRentalsPage({ session, company, onCreate, onEdit, onManageOperation }: VehicleRentalsPageProps) {
+export function VehicleRentalsPage({ session, company, onCreate, onEdit }: VehicleRentalsPageProps) {
   const [search, setSearch] = useState('')
+  const [detailedInspectionRequired, setDetailedInspectionRequired] = useState(false)
+  const [operationTarget, setOperationTarget] = useState<{ sale: SaleRecord; mode: OperationMode } | null>(null)
   const [statusFilter, setStatusFilter] = useState('active')
   const [vehicleFilter, setVehicleFilter] = useState<EntityPick | null>(null)
   const [personFilter, setPersonFilter] = useState<EntityPick | null>(null)
@@ -148,6 +151,20 @@ export function VehicleRentalsPage({ session, company, onCreate, onEdit, onManag
     const timeout = setTimeout(() => setFeedback(null), 3200)
     return () => clearTimeout(timeout)
   }, [feedback])
+
+  useEffect(() => {
+    let cancelled = false
+    fetchConfig(session.token.token, company.id)
+      .then((config) => {
+        if (!cancelled) setDetailedInspectionRequired(Boolean(config.vehicle_inspection_detailed_required))
+      })
+      .catch(() => {
+        if (!cancelled) setDetailedInspectionRequired(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [session.token.token, company.id])
 
   useEffect(() => {
     let cancelled = false
@@ -286,7 +303,7 @@ export function VehicleRentalsPage({ session, company, onCreate, onEdit, onManag
               key: 'operation',
               label: status === 0 ? 'Registrar entrega' : 'Registrar devolução',
               icon: <RouteIcon className="h-4 w-4" />,
-              onClick: () => onManageOperation(sale.id),
+              onClick: () => setOperationTarget({ sale, mode: status === 0 ? 'pickup' : 'return' }),
             },
           ]
         : []
@@ -731,6 +748,25 @@ export function VehicleRentalsPage({ session, company, onCreate, onEdit, onManag
         sale={quitacaoSale}
         onClose={() => setQuitacaoSale(null)}
       />
+
+      {operationTarget && (
+        <RentalOperationModal
+          session={session}
+          company={company}
+          sale={operationTarget.sale}
+          mode={operationTarget.mode}
+          detailedRequired={detailedInspectionRequired}
+          onClose={() => setOperationTarget(null)}
+          onCompleted={() => {
+            setOperationTarget(null)
+            reload()
+            setFeedback({
+              tone: 'success',
+              message: operationTarget.mode === 'pickup' ? 'Entrega registrada com sucesso.' : 'Devolução registrada com sucesso.',
+            })
+          }}
+        />
+      )}
 
       {feedback && (
         <div
