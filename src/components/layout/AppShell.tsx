@@ -69,24 +69,31 @@ interface AppShellProps {
 type NavGroup = { title: string; items: { page: AppPage; label: string; icon: typeof GridIcon }[] }
 
 function buildNavGroups(systemType?: number): NavGroup[] {
-  const principalItems = isLocacaoVeiculos(systemType)
+  const emprestimo = isEmprestimo(systemType)
+
+  const principalItems = emprestimo
     ? [
         { page: 'dashboard' as const, label: 'Dashboard', icon: GridIcon },
         { page: 'people' as const, label: 'Pessoas', icon: UserIcon },
-        { page: 'vehicles' as const, label: 'Veículos', icon: TruckIcon },
-        { page: 'products' as const, label: 'Produtos e Serviços', icon: BoxIcon },
-        { page: 'vehicle-rentals' as const, label: 'Aluguel', icon: KeyIcon },
-        { page: 'vehicle-sales' as const, label: 'Venda', icon: SaleIcon },
-        { page: 'order-services' as const, label: 'Ordens de Serviço', icon: WrenchIcon },
       ]
-    : [
-        { page: 'dashboard' as const, label: 'Dashboard', icon: GridIcon },
-        { page: 'people' as const, label: 'Pessoas', icon: UserIcon },
-        { page: 'vehicles' as const, label: 'Veículos', icon: TruckIcon },
-        { page: 'towing-sales' as const, label: 'Vendas', icon: CoinIcon },
-      ]
+    : isLocacaoVeiculos(systemType)
+      ? [
+          { page: 'dashboard' as const, label: 'Dashboard', icon: GridIcon },
+          { page: 'people' as const, label: 'Pessoas', icon: UserIcon },
+          { page: 'vehicles' as const, label: 'Veículos', icon: TruckIcon },
+          { page: 'products' as const, label: 'Produtos e Serviços', icon: BoxIcon },
+          { page: 'vehicle-rentals' as const, label: 'Aluguel', icon: KeyIcon },
+          { page: 'vehicle-sales' as const, label: 'Venda', icon: SaleIcon },
+          { page: 'order-services' as const, label: 'Ordens de Serviço', icon: WrenchIcon },
+        ]
+      : [
+          { page: 'dashboard' as const, label: 'Dashboard', icon: GridIcon },
+          { page: 'people' as const, label: 'Pessoas', icon: UserIcon },
+          { page: 'vehicles' as const, label: 'Veículos', icon: TruckIcon },
+          { page: 'towing-sales' as const, label: 'Vendas', icon: CoinIcon },
+        ]
 
-  return [
+  const groups: NavGroup[] = [
     { title: 'Principal', items: principalItems },
     {
       title: 'Financeiro',
@@ -98,7 +105,24 @@ function buildNavGroups(systemType?: number): NavGroup[] {
         { page: 'bills-receivable', label: 'Contas a Receber', icon: ArrowUpCircleIcon },
       ],
     },
-    {
+  ]
+
+  // Empréstimo é um nicho à parte, sem veículos/operação de vistoria — só
+  // entra o grupo próprio dele, sem o grupo "Operação" (que é todo sobre
+  // vistoria/busca/entrega de veículo, irrelevante pra esse nicho).
+  if (emprestimo) {
+    groups.push({
+      title: 'Empréstimo',
+      items: [
+        {
+          page: 'loan-customer-verifications' as const,
+          label: 'Verificações de Cadastro',
+          icon: BadgeIcon,
+        },
+      ],
+    })
+  } else {
+    groups.push({
       title: 'Operação',
       items: [
         { page: 'vehicle-inspections', label: 'Aprovação de Vistorias', icon: ClipboardCheckIcon },
@@ -106,26 +130,15 @@ function buildNavGroups(systemType?: number): NavGroup[] {
           ? { page: 'vehicle-rental-operations', label: 'Entrega e Devoluções', icon: RouteIcon }
           : { page: 'towing-collection', label: 'Busca de Veículos', icon: RouteIcon },
       ],
-    },
-    ...(isEmprestimo(systemType)
-      ? [
-          {
-            title: 'Empréstimo',
-            items: [
-              {
-                page: 'loan-customer-verifications' as const,
-                label: 'Verificações de Cadastro',
-                icon: BadgeIcon,
-              },
-            ],
-          },
-        ]
-      : []),
-    {
-      title: 'Relatórios',
-      items: [{ page: 'towing-billing-report', label: 'Faturamento', icon: TrendUpIcon }],
-    },
-  ]
+    })
+  }
+
+  groups.push({
+    title: 'Relatórios',
+    items: [{ page: 'towing-billing-report', label: 'Faturamento', icon: TrendUpIcon }],
+  })
+
+  return groups
 }
 
 export function AppShell({ session, company, activePage, onNavigate, onSwitchCompany, onLogout, children }: AppShellProps) {
