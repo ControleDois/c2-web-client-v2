@@ -27,6 +27,8 @@ export interface LoanCustomerVerificationRecord {
   selfieDocumentId: string | null
   employmentProofDocumentId: string | null
   references: LoanReference[] | null
+  housingType: 'own' | 'rented' | null
+  rentalContractDocumentId: string | null
   status: LoanCustomerVerificationStatus
   notes: string | null
   reviewedBy: string | null
@@ -49,6 +51,7 @@ export interface LoanCustomerVerificationRecord {
   identityDocumentBack?: PeopleDocumentRef | null
   selfieDocument?: PeopleDocumentRef | null
   employmentProofDocument?: PeopleDocumentRef | null
+  rentalContractDocument?: PeopleDocumentRef | null
 }
 
 interface Paginated<T> {

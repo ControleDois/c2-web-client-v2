@@ -52,6 +52,8 @@ export function getLoanSession(sessionToken: string): Promise<LoanSessionData> {
 
 export type LoanReference = { name: string; phone: string }
 
+export type LoanHousingType = 'own' | 'rented'
+
 export function submitLoanVerification(params: {
   sessionToken: string
   addressProof: File
@@ -66,6 +68,8 @@ export function submitLoanVerification(params: {
   monthlyIncome: number
   employmentProof?: File
   references: LoanReference[]
+  housingType: LoanHousingType
+  rentalContract?: File
 }): Promise<{ message: string; verification: LoanVerification }> {
   const form = new FormData()
   form.append('session_token', params.sessionToken)
@@ -80,6 +84,8 @@ export function submitLoanVerification(params: {
   form.append('employer_name', params.employerName)
   form.append('monthly_income', String(params.monthlyIncome))
   if (params.employmentProof) form.append('employment_proof', params.employmentProof)
+  form.append('housing_type', params.housingType)
+  if (params.rentalContract) form.append('rental_contract', params.rentalContract)
   form.append('references', JSON.stringify(params.references))
 
   return apiPostForm('/connect/loan/customer/submit-verification', form)

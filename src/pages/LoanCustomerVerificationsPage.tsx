@@ -48,6 +48,7 @@ function buildDocuments(item: LoanCustomerVerificationRecord): DocumentViewerIte
     { key: 'back', title: `${identityLabel} (verso)`, doc: item.identityDocumentBack },
     { key: 'selfie', title: 'Selfie', doc: item.selfieDocument },
     { key: 'employment', title: 'Comprovante de trabalho', doc: item.employmentProofDocument },
+    { key: 'rental', title: 'Contrato de aluguel', doc: item.rentalContractDocument },
   ]
 
   return entries
@@ -366,6 +367,12 @@ export function LoanCustomerVerificationsPage({ session, company }: LoanCustomer
               <div>
                 <p className="text-[11px] font-semibold tracking-wide text-[var(--muted)] uppercase">Renda mensal</p>
                 <p className="mt-0.5 text-[13.5px] text-[var(--ink)]">{formatMoney(detailItem.people?.monthlyIncome)}</p>
+              </div>
+              <div>
+                <p className="text-[11px] font-semibold tracking-wide text-[var(--muted)] uppercase">Moradia</p>
+                <p className="mt-0.5 text-[13.5px] text-[var(--ink)]">
+                  {detailItem.housingType === 'rented' ? 'Alugada' : detailItem.housingType === 'own' ? 'Própria' : '—'}
+                </p>
               </div>
             </div>
 

@@ -29,6 +29,7 @@ import {
   type LoanSessionData,
   type LoanCustomerVerificationStatus,
   type LoanReference,
+  type LoanHousingType,
 } from '../../lib/loanCustomerApi'
 
 type Step = 'loading' | 'welcome' | 'register' | 'login' | 'code' | 'documents'
@@ -310,6 +311,8 @@ export function LoanCustomerPage({ companyToken }: { companyToken: string }) {
     monthlyIncome: number
     employmentProof?: File
     references: LoanReference[]
+    housingType: LoanHousingType
+    rentalContract?: File
   }) {
     if (!sessionToken) return
     setSubmitting(true)
@@ -607,6 +610,8 @@ function DocumentsPanel({
     monthlyIncome: number
     employmentProof?: File
     references: LoanReference[]
+    housingType: LoanHousingType
+    rentalContract?: File
   }) => void
 }) {
   const status = verification?.status || 'pending_documents'
@@ -624,6 +629,8 @@ function DocumentsPanel({
   const [motherName, setMotherName] = useState('')
   const [occupation, setOccupation] = useState('')
   const [employerName, setEmployerName] = useState('')
+  const [housingType, setHousingType] = useState<LoanHousingType>('own')
+  const [rentalContract, setRentalContract] = useState<File | null>(null)
   const [monthlyIncome, setMonthlyIncome] = useState('')
   const [employmentProof, setEmploymentProof] = useState<File | null>(null)
   const [references, setReferences] = useState<LoanReference[]>([
@@ -674,7 +681,7 @@ function DocumentsPanel({
     const validReferences = references.filter((ref) => ref.name.trim() && onlyDigits(ref.phone).length >= 10)
 
     if (!addressProof || !identityFront || !selfie) {
-      setLocalError('Envie o comprovante de endereço, o documento e tire a selfie.')
+      setLocalError('Envie a conta de luz ou água (comprovante de endereço), o documento e tire a selfie.')
       return
     }
 
@@ -685,6 +692,11 @@ function DocumentsPanel({
 
     if (validReferences.length < 2) {
       setLocalError('Informe nome e WhatsApp de pelo menos duas referências pessoais.')
+      return
+    }
+
+    if (housingType === 'rented' && !rentalContract) {
+      setLocalError('Como a casa é alugada, envie também o contrato de aluguel.')
       return
     }
 
@@ -700,6 +712,8 @@ function DocumentsPanel({
       employerName: employerName.trim(),
       monthlyIncome: income,
       employmentProof: employmentProof || undefined,
+      housingType,
+      rentalContract: rentalContract || undefined,
       references: validReferences.map((ref) => ({ name: ref.name.trim(), phone: onlyDigits(ref.phone) })),
     })
   }
@@ -736,7 +750,12 @@ function DocumentsPanel({
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <p className="text-[12px] font-bold tracking-wide text-[var(--blue-700)] uppercase">Documentos</p>
 
-          <FileField label="Comprovante de endereço" file={addressProof} onChange={setAddressProof} required />
+          <FileField
+            label="Comprovante de endereço — conta de luz ou água (não aceitamos outro tipo de comprovante)"
+            file={addressProof}
+            onChange={setAddressProof}
+            required
+          />
 
           <SelectField
             label="Tipo de documento"
@@ -762,6 +781,19 @@ function DocumentsPanel({
 
           <TextField label="Nome do pai" icon={<UserIcon className="h-4 w-4" />} placeholder="Nome completo do pai" value={fatherName} onChange={(e) => setFatherName(e.target.value)} />
           <TextField label="Nome da mãe" icon={<UserIcon className="h-4 w-4" />} placeholder="Nome completo da mãe" value={motherName} onChange={(e) => setMotherName(e.target.value)} />
+
+          <SelectField
+            label="A casa onde mora é própria ou alugada?"
+            value={housingType}
+            onChange={(e) => setHousingType(e.target.value as LoanHousingType)}
+          >
+            <option value="own">Própria</option>
+            <option value="rented">Alugada</option>
+          </SelectField>
+
+          {housingType === 'rented' && (
+            <FileField label="Contrato de aluguel" file={rentalContract} onChange={setRentalContract} required />
+          )}
 
           <p className="mt-2 text-[12px] font-bold tracking-wide text-[var(--blue-700)] uppercase">Trabalho e renda</p>
 
