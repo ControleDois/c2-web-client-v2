@@ -108,6 +108,16 @@ export function VehicleRentalFormPage({ session, company, saleId, onBack, onSave
   const [plotsFormPayment, setPlotsFormPayment] = useState(9)
   const [plots, setPlots] = useState<PlotEntry[]>([])
   const [plotsLoading, setPlotsLoading] = useState(false)
+  // Parâmetros do aluguel no momento em que as parcelas foram carregadas ou
+  // regeneradas pela última vez — usado só na edição, pra avisar quando
+  // data/frequência/valor mudaram depois disso e as parcelas pendentes podem
+  // estar desatualizadas.
+  const [plotsBaseline, setPlotsBaseline] = useState<{
+    startDate: string
+    endDate: string
+    rentalFrequency: string
+    monthlyValue: string
+  } | null>(null)
 
   useEffect(() => {
     if (saleId || !myCompanyPerson) return
@@ -176,6 +186,12 @@ export function VehicleRentalFormPage({ session, company, saleId, onBack, onSave
                 status: bill.status ?? 0,
               }))
             setPlots(loaded)
+            setPlotsBaseline({
+              startDate: contract?.startDate ? contract.startDate.slice(0, 10) : '',
+              endDate: contract?.endDate ? contract.endDate.slice(0, 10) : '',
+              rentalFrequency: contract?.rentalFrequency ?? 'monthly',
+              monthlyValue: contract?.monthlyValue ? String(contract.monthlyValue) : '',
+            })
           })
           .catch(() => {
             if (!cancelled) setPlots([])
@@ -273,17 +289,55 @@ export function VehicleRentalFormPage({ session, company, saleId, onBack, onSave
     }))
   }
 
+  // Recalcula só as parcelas pendentes a partir da data/frequência/valor
+  // atuais — as já recebidas ficam intocadas (não é possível "desfazer" um
+  // pagamento por aqui) e a contagem continua depois delas, não do zero.
   function handleRegeneratePeriodPlots() {
     if (!startDate || !endDate) {
       setError('Preencha as datas de início e término para gerar as contas.')
       return
     }
-    if (!parseAmount(monthlyValue)) {
+    const rate = parseAmount(monthlyValue)
+    if (!rate) {
       setError('Preencha o valor para gerar as contas.')
       return
     }
-    setPlots(buildPeriodPlots())
+
+    const received = plots.filter((plot) => plot.status === 1)
+    const totalUnits = computeRentalUnits(rentalFrequency, startDate, endDate)
+
+    if (received.length > totalUnits) {
+      setError(
+        `Já existem ${received.length} conta(s) recebida(s), mas o novo período só permite ${totalUnits}. Ajuste as datas ou o valor antes de atualizar.`
+      )
+      return
+    }
+
+    const pending: PlotEntry[] = Array.from({ length: totalUnits - received.length }).map((_, index) => {
+      const portion = received.length + index + 1
+      return {
+        tempId: `plot-${Date.now()}-${index}`,
+        portion,
+        dateDue: nextDueDate(startDate, portion - 1),
+        amount: rate.toFixed(2),
+        status: 0,
+      }
+    })
+
+    setPlots([...received, ...pending])
+    setPlotsBaseline({ startDate, endDate, rentalFrequency, monthlyValue })
+    setError(null)
   }
+
+  const plotsOutOfSync = Boolean(
+    saleId &&
+      !purchaseOption &&
+      plotsBaseline &&
+      (plotsBaseline.startDate !== startDate ||
+        plotsBaseline.endDate !== endDate ||
+        plotsBaseline.rentalFrequency !== rentalFrequency ||
+        plotsBaseline.monthlyValue !== monthlyValue)
+  )
 
   // Gera as contas a receber automaticamente pra aluguel novo (sem opção de
   // compra) — segue os campos ao vivo até o usuário salvar. Na edição, quem
@@ -659,6 +713,21 @@ export function VehicleRentalFormPage({ session, company, saleId, onBack, onSave
               </span>
             }
           >
+            {plotsOutOfSync && (
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-[var(--amber-100)] px-4 py-3">
+                <p className="text-[12.5px] font-semibold text-[var(--amber-500)]">
+                  A data, frequência ou valor mudaram desde que as parcelas foram geradas. As contas já recebidas não
+                  são alteradas — só as pendentes são recalculadas a partir de agora.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleRegeneratePeriodPlots}
+                  className="flex-none rounded-lg bg-[var(--amber-500)] px-3.5 py-2 text-[12.5px] font-bold text-white hover:opacity-90"
+                >
+                  Atualizar parcelas pendentes
+                </button>
+              </div>
+            )}
             <div className="mb-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               <SelectField label="Categoria" value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
                 <option value="">Selecione</option>
@@ -694,7 +763,7 @@ export function VehicleRentalFormPage({ session, company, saleId, onBack, onSave
                     onClick={handleRegeneratePeriodPlots}
                     className="w-full rounded-xl border border-[var(--border)] px-4 py-2.5 text-[13px] font-bold text-[var(--ink-soft)] hover:border-[var(--blue-500)] hover:text-[var(--blue-700)]"
                   >
-                    Regenerar parcelas
+                    Atualizar parcelas pendentes
                   </button>
                 )}
               </div>
