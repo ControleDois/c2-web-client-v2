@@ -253,7 +253,7 @@ export function deleteSale(token: string, id: string) {
 }
 
 export function printSaleContract(token: string, id: string) {
-  return apiPost<{ url: string; html: string }>(`/sale/print-contract/${id}`, {}, token)
+  return apiPost<{ url: string; html: string | null; signed?: boolean }>(`/sale/print-contract/${id}`, {}, token)
 }
 
 export function printSaleQuitacao(token: string, id: string) {
