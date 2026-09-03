@@ -44,6 +44,7 @@ export type AppPage =
   | 'config'
   | 'whatsapp-api'
   | 'contract-templates'
+  | 'rental-types'
   | 'roles'
   | 'permissions'
   | 'company-groups'

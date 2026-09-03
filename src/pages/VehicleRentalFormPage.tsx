@@ -13,6 +13,7 @@ import { fetchPeople, type PersonRecord } from '../lib/people'
 import { fetchVehicles, type VehicleRecord } from '../lib/vehicles'
 import { fetchBills, FORM_PAYMENT_LABELS } from '../lib/bills'
 import { fetchCategories, type CategoryRecord } from '../lib/categories'
+import { fetchRentalTypes, type RentalTypeRecord } from '../lib/rentalTypes'
 import { formatDocument } from '../lib/formatDocument'
 import { formatCurrency } from '../lib/format'
 import { ApiError } from '../lib/api'
@@ -105,6 +106,8 @@ export function VehicleRentalFormPage({ session, company, saleId, onBack, onSave
 
   const [categoryId, setCategoryId] = useState('')
   const [categories, setCategories] = useState<CategoryRecord[]>([])
+  const [rentalTypeId, setRentalTypeId] = useState('')
+  const [rentalTypes, setRentalTypes] = useState<RentalTypeRecord[]>([])
   const [plotsFormPayment, setPlotsFormPayment] = useState(9)
   const [plots, setPlots] = useState<PlotEntry[]>([])
   const [plotsLoading, setPlotsLoading] = useState(false)
@@ -132,6 +135,20 @@ export function VehicleRentalFormPage({ session, company, saleId, onBack, onSave
       })
       .catch(() => {
         if (!cancelled) setCategories([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [session.token.token, company.id])
+
+  useEffect(() => {
+    let cancelled = false
+    fetchRentalTypes(session.token.token, company.id, { limit: 200 })
+      .then((res) => {
+        if (!cancelled) setRentalTypes(res.data || [])
+      })
+      .catch(() => {
+        if (!cancelled) setRentalTypes([])
       })
     return () => {
       cancelled = true
@@ -170,6 +187,7 @@ export function VehicleRentalFormPage({ session, company, saleId, onBack, onSave
         setStatus(contract?.status ?? 0)
         setNotes(contract?.notes ?? '')
         setCategoryId(sale.category_id ?? '')
+        setRentalTypeId(contract?.rentalTypeId ?? '')
 
         setPlotsLoading(true)
         fetchBills(session.token.token, company.id, { role: 1, limit: 200, saleId })
@@ -459,6 +477,7 @@ export function VehicleRentalFormPage({ session, company, saleId, onBack, onSave
         renterPeopleId: renter.id,
         ownerPeopleId: vehicleOwnerType === 1 ? owner?.id : undefined,
         driverPeopleId: driver?.id,
+        rentalTypeId: rentalTypeId || undefined,
         vehicleOwnerType,
         startDate: startDate || undefined,
         endDate: endDate || undefined,
@@ -601,6 +620,14 @@ export function VehicleRentalFormPage({ session, company, saleId, onBack, onSave
 
           <SectionCard title="Condições do aluguel">
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              <SelectField label="Tipo de aluguel" value={rentalTypeId} onChange={(event) => setRentalTypeId(event.target.value)}>
+                <option value="">Nenhum</option>
+                {rentalTypes.map((type) => (
+                  <option key={type.id} value={type.id}>
+                    {type.name}
+                  </option>
+                ))}
+              </SelectField>
               <SelectField label="Frequência" value={rentalFrequency} onChange={(event) => setRentalFrequency(event.target.value)}>
                 {Object.entries(RENTAL_FREQUENCY_LABELS).map(([value, label]) => (
                   <option key={value} value={value}>

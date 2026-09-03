@@ -21,12 +21,22 @@ import {
   LockIcon,
   ClockIcon,
   MenuIcon,
+  TargetIcon,
 } from '../icons'
 
 interface HeaderProps {
   session: AuthSession
   onNavigate: (
-    page: 'users' | 'companies' | 'whatsapp-api' | 'contract-templates' | 'roles' | 'permissions' | 'company-groups' | 'audit-logs'
+    page:
+      | 'users'
+      | 'companies'
+      | 'whatsapp-api'
+      | 'contract-templates'
+      | 'rental-types'
+      | 'roles'
+      | 'permissions'
+      | 'company-groups'
+      | 'audit-logs'
   ) => void
   onOpenMobileNav: () => void
   onLogout: () => void
@@ -239,6 +249,17 @@ export function Header({ session, onNavigate, onOpenMobileNav, onLogout }: Heade
             >
               <FileTextIcon className="h-4 w-4 flex-none text-[var(--muted)]" />
               Modelos de Contratos
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setUserMenuOpen(false)
+                onNavigate('rental-types')
+              }}
+              className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-[13px] font-semibold text-[var(--ink)] hover:bg-[var(--page)]"
+            >
+              <TargetIcon className="h-4 w-4 flex-none text-[var(--muted)]" />
+              Tipos de Aluguel
             </button>
             <div className="my-1.5 border-t border-[var(--border)]" />
             <p className="px-4 pb-1.5 text-[10.5px] font-bold tracking-[0.09em] text-[var(--muted)] uppercase">

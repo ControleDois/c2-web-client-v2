@@ -22,6 +22,7 @@ export interface VehicleRentalContractRecord {
   renterPeopleId?: string
   ownerPeopleId?: string | null
   driverPeopleId?: string | null
+  rentalTypeId?: string | null
   vehicleOwnerType: number
   startDate?: string | null
   endDate?: string | null
@@ -107,6 +108,7 @@ export interface VehicleRentalContractPayload {
   renterPeopleId?: string
   ownerPeopleId?: string
   driverPeopleId?: string
+  rentalTypeId?: string
   vehicleOwnerType?: number
   startDate?: string
   endDate?: string

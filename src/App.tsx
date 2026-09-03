@@ -36,6 +36,8 @@ import { WhatsappApiPage } from './pages/WhatsappApiPage'
 import { ConfigPage } from './pages/ConfigPage'
 import { ContractTemplatesPage } from './pages/ContractTemplatesPage'
 import { ContractTemplateFormPage } from './pages/ContractTemplateFormPage'
+import { RentalTypesPage } from './pages/RentalTypesPage'
+import { RentalTypeFormPage } from './pages/RentalTypeFormPage'
 import { RolesPage } from './pages/RolesPage'
 import { RoleFormPage } from './pages/RoleFormPage'
 import { PermissionsPage } from './pages/PermissionsPage'
@@ -89,6 +91,7 @@ function App() {
   const usersView = useEntityView()
   const companiesView = useEntityView()
   const contractTemplatesView = useEntityView()
+  const rentalTypesView = useEntityView()
   const rolesView = useEntityView()
   const permissionsView = useEntityView()
   const companyGroupsView = useEntityView()
@@ -109,6 +112,7 @@ function App() {
     users: usersView,
     companies: companiesView,
     'contract-templates': contractTemplatesView,
+    'rental-types': rentalTypesView,
     roles: rolesView,
     permissions: permissionsView,
     'company-groups': companyGroupsView,
@@ -461,6 +465,24 @@ function App() {
             company={activeCompany}
             onCreate={contractTemplatesView.create}
             onEdit={(template) => contractTemplatesView.edit(template.id)}
+          />
+        )
+    } else if (page === 'rental-types') {
+      pageContent =
+        rentalTypesView.view.mode === 'form' ? (
+          <RentalTypeFormPage
+            session={session}
+            company={activeCompany}
+            rentalTypeId={rentalTypesView.view.id}
+            onBack={rentalTypesView.reset}
+            onSaved={rentalTypesView.reset}
+          />
+        ) : (
+          <RentalTypesPage
+            session={session}
+            company={activeCompany}
+            onCreate={rentalTypesView.create}
+            onEdit={(rentalType) => rentalTypesView.edit(rentalType.id)}
           />
         )
     } else if (page === 'roles') {
