@@ -11,6 +11,11 @@ export interface PeopleDocumentRef {
   file_size?: number | null
 }
 
+export interface LoanReference {
+  name: string
+  phone: string
+}
+
 export interface LoanCustomerVerificationRecord {
   id: string
   companyId: string
@@ -20,17 +25,30 @@ export interface LoanCustomerVerificationRecord {
   identityDocumentBackId: string | null
   documentType: 'rg' | 'cnh' | null
   selfieDocumentId: string | null
+  employmentProofDocumentId: string | null
+  references: LoanReference[] | null
   status: LoanCustomerVerificationStatus
   notes: string | null
   reviewedBy: string | null
   reviewedAt: string | null
   createdAt: string
   updatedAt: string
-  people?: { id: string; name: string; document: string; phone: string | null } | null
+  people?: {
+    id: string
+    name: string
+    document: string
+    phone: string | null
+    fatherName?: string | null
+    motherName?: string | null
+    occupation?: string | null
+    employerName?: string | null
+    monthlyIncome?: number | null
+  } | null
   addressProofDocument?: PeopleDocumentRef | null
   identityDocument?: PeopleDocumentRef | null
   identityDocumentBack?: PeopleDocumentRef | null
   selfieDocument?: PeopleDocumentRef | null
+  employmentProofDocument?: PeopleDocumentRef | null
 }
 
 interface Paginated<T> {

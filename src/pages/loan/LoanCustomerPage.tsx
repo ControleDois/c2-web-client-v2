@@ -1,10 +1,22 @@
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Logo } from '../../components/Logo'
 import { LegalFooter } from '../../components/LegalFooter'
 import { TextField } from '../../components/form/TextField'
 import { SelectField } from '../../components/form/SelectField'
-import { MailIcon, UserIcon, BadgeIcon, KeyIcon, CheckCircleIcon, ClockIcon, AlertCircleIcon } from '../../components/icons'
+import {
+  MailIcon,
+  UserIcon,
+  BadgeIcon,
+  KeyIcon,
+  CheckCircleIcon,
+  ClockIcon,
+  AlertCircleIcon,
+  CameraIcon,
+  TrashIcon,
+  PlusIcon,
+} from '../../components/icons'
 import { ApiError } from '../../lib/api'
+import { formatTimestamp, getLocationLines, watermarkPhoto } from '../../lib/photoWatermark'
 import {
   registerCustomer,
   requestAccessCode,
@@ -16,6 +28,7 @@ import {
   clearLoanSession,
   type LoanSessionData,
   type LoanCustomerVerificationStatus,
+  type LoanReference,
 } from '../../lib/loanCustomerApi'
 
 type Step = 'loading' | 'welcome' | 'register' | 'login' | 'code' | 'documents'
@@ -37,6 +50,12 @@ function maskDocument(value: string): string {
     .replace(/(\d{3})(\d)/, '$1.$2')
     .replace(/(\d{3})(\d)/, '$1/$2')
     .replace(/(\d{4})(\d{1,2})$/, '$1-$2')
+}
+
+function maskMoney(value: string): string {
+  const digits = onlyDigits(value)
+  const cents = Number(digits || '0')
+  return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
 function maskPhone(value: string): string {
@@ -134,6 +153,67 @@ function FileField({
   )
 }
 
+function CameraField({
+  label,
+  file,
+  previewUrl,
+  onCapture,
+  capturing,
+}: {
+  label: string
+  file: File | null
+  previewUrl: string | null
+  onCapture: (file: File) => void
+  capturing: boolean
+}) {
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span className="text-[12px] font-semibold text-[var(--ink-soft)]">
+        {label}
+        <span className="text-[var(--red-500)]"> *</span>
+      </span>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        capture="user"
+        className="hidden"
+        onChange={(e) => {
+          const rawFile = e.target.files?.[0]
+          e.target.value = ''
+          if (rawFile) onCapture(rawFile)
+        }}
+      />
+      {previewUrl ? (
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          disabled={capturing}
+          className="group relative overflow-hidden rounded-xl border border-[var(--border)]"
+        >
+          <img src={previewUrl} alt={label} className="h-48 w-full object-cover" />
+          <span className="absolute inset-0 flex items-center justify-center bg-black/0 text-[13px] font-semibold text-white opacity-0 transition group-hover:bg-black/40 group-hover:opacity-100">
+            Tirar outra foto
+          </span>
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          disabled={capturing}
+          className="flex h-32 flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[var(--border)] bg-[var(--page)] text-[var(--muted)] transition hover:border-[var(--blue-300)] hover:text-[var(--blue-700)] disabled:opacity-60"
+        >
+          <CameraIcon className="h-6 w-6" />
+          <span className="text-[13px] font-semibold">{capturing ? 'Processando…' : 'Tirar foto agora'}</span>
+        </button>
+      )}
+      {file && <span className="text-[11px] text-[var(--green-600)]">Foto capturada com data/hora.</span>}
+    </div>
+  )
+}
+
 export function LoanCustomerPage({ companyToken }: { companyToken: string }) {
   const [step, setStep] = useState<Step>('loading')
   const [sessionToken, setSessionToken] = useState<string | null>(null)
@@ -223,6 +303,13 @@ export function LoanCustomerPage({ companyToken }: { companyToken: string }) {
     identityFront: File
     identityBack?: File
     selfie: File
+    fatherName: string
+    motherName: string
+    occupation: string
+    employerName: string
+    monthlyIncome: number
+    employmentProof?: File
+    references: LoanReference[]
   }) {
     if (!sessionToken) return
     setSubmitting(true)
@@ -513,6 +600,13 @@ function DocumentsPanel({
     identityFront: File
     identityBack?: File
     selfie: File
+    fatherName: string
+    motherName: string
+    occupation: string
+    employerName: string
+    monthlyIncome: number
+    employmentProof?: File
+    references: LoanReference[]
   }) => void
 }) {
   const status = verification?.status || 'pending_documents'
@@ -524,14 +618,73 @@ function DocumentsPanel({
   const [identityFront, setIdentityFront] = useState<File | null>(null)
   const [identityBack, setIdentityBack] = useState<File | null>(null)
   const [selfie, setSelfie] = useState<File | null>(null)
+  const [selfiePreview, setSelfiePreview] = useState<string | null>(null)
+  const [capturingSelfie, setCapturingSelfie] = useState(false)
+  const [fatherName, setFatherName] = useState('')
+  const [motherName, setMotherName] = useState('')
+  const [occupation, setOccupation] = useState('')
+  const [employerName, setEmployerName] = useState('')
+  const [monthlyIncome, setMonthlyIncome] = useState('')
+  const [employmentProof, setEmploymentProof] = useState<File | null>(null)
+  const [references, setReferences] = useState<LoanReference[]>([
+    { name: '', phone: '' },
+    { name: '', phone: '' },
+  ])
   const [localError, setLocalError] = useState<string | null>(null)
+
+  const locationLinesRef = useRef<string[]>([])
+
+  useEffect(() => {
+    getLocationLines().then((lines) => {
+      locationLinesRef.current = lines
+    })
+  }, [])
+
+  async function handleCaptureSelfie(rawFile: File) {
+    setCapturingSelfie(true)
+    try {
+      const lines = [formatTimestamp(), ...locationLinesRef.current]
+      const file = await watermarkPhoto(rawFile, lines)
+      setSelfie(file)
+      setSelfiePreview(URL.createObjectURL(file))
+    } catch {
+      setLocalError('Não foi possível processar a foto. Tente novamente.')
+    } finally {
+      setCapturingSelfie(false)
+    }
+  }
+
+  function updateReference(index: number, patch: Partial<LoanReference>) {
+    setReferences((prev) => prev.map((ref, i) => (i === index ? { ...ref, ...patch } : ref)))
+  }
+
+  function addReference() {
+    setReferences((prev) => [...prev, { name: '', phone: '' }])
+  }
+
+  function removeReference(index: number) {
+    setReferences((prev) => prev.filter((_, i) => i !== index))
+  }
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault()
     setLocalError(null)
 
+    const income = Number(monthlyIncome.replace(/\D/g, '')) / 100
+    const validReferences = references.filter((ref) => ref.name.trim() && onlyDigits(ref.phone).length >= 10)
+
     if (!addressProof || !identityFront || !selfie) {
-      setLocalError('Envie o comprovante de endereço, o documento e a selfie.')
+      setLocalError('Envie o comprovante de endereço, o documento e tire a selfie.')
+      return
+    }
+
+    if (!fatherName.trim() || !motherName.trim() || !occupation.trim() || !employerName.trim() || !income) {
+      setLocalError('Preencha nome do pai, nome da mãe, ocupação, onde trabalha e o salário.')
+      return
+    }
+
+    if (validReferences.length < 2) {
+      setLocalError('Informe nome e WhatsApp de pelo menos duas referências pessoais.')
       return
     }
 
@@ -541,6 +694,13 @@ function DocumentsPanel({
       identityFront,
       identityBack: identityBack || undefined,
       selfie,
+      fatherName: fatherName.trim(),
+      motherName: motherName.trim(),
+      occupation: occupation.trim(),
+      employerName: employerName.trim(),
+      monthlyIncome: income,
+      employmentProof: employmentProof || undefined,
+      references: validReferences.map((ref) => ({ name: ref.name.trim(), phone: onlyDigits(ref.phone) })),
     })
   }
 
@@ -574,6 +734,8 @@ function DocumentsPanel({
 
       {needsUpload && (
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <p className="text-[12px] font-bold tracking-wide text-[var(--blue-700)] uppercase">Documentos</p>
+
           <FileField label="Comprovante de endereço" file={addressProof} onChange={setAddressProof} required />
 
           <SelectField
@@ -587,11 +749,78 @@ function DocumentsPanel({
 
           <FileField label={`${documentType === 'rg' ? 'RG' : 'CNH'} (frente)`} file={identityFront} onChange={setIdentityFront} required />
           <FileField label={`${documentType === 'rg' ? 'RG' : 'CNH'} (verso, opcional)`} file={identityBack} onChange={setIdentityBack} />
-          <FileField label="Selfie (foto do seu rosto)" file={selfie} onChange={setSelfie} required />
+
+          <CameraField
+            label="Selfie (foto do seu rosto, tirada na hora)"
+            file={selfie}
+            previewUrl={selfiePreview}
+            onCapture={handleCaptureSelfie}
+            capturing={capturingSelfie}
+          />
+
+          <p className="mt-2 text-[12px] font-bold tracking-wide text-[var(--blue-700)] uppercase">Dados pessoais</p>
+
+          <TextField label="Nome do pai" icon={<UserIcon className="h-4 w-4" />} placeholder="Nome completo do pai" value={fatherName} onChange={(e) => setFatherName(e.target.value)} />
+          <TextField label="Nome da mãe" icon={<UserIcon className="h-4 w-4" />} placeholder="Nome completo da mãe" value={motherName} onChange={(e) => setMotherName(e.target.value)} />
+
+          <p className="mt-2 text-[12px] font-bold tracking-wide text-[var(--blue-700)] uppercase">Trabalho e renda</p>
+
+          <TextField label="Onde trabalha" icon={<BadgeIcon className="h-4 w-4" />} placeholder="Nome da empresa (ou 'autônomo')" value={employerName} onChange={(e) => setEmployerName(e.target.value)} />
+          <TextField label="Ocupação / cargo" icon={<BadgeIcon className="h-4 w-4" />} placeholder="Ex: vendedor, pedreiro, motorista…" value={occupation} onChange={(e) => setOccupation(e.target.value)} />
+          <TextField label="Salário / renda mensal" icon={<BadgeIcon className="h-4 w-4" />} placeholder="R$ 0,00" value={monthlyIncome} onChange={(e) => setMonthlyIncome(maskMoney(e.target.value))} inputMode="numeric" />
+          <FileField label="Comprovante de trabalho (se tiver)" file={employmentProof} onChange={setEmploymentProof} />
+
+          <p className="mt-2 text-[12px] font-bold tracking-wide text-[var(--blue-700)] uppercase">
+            Referências pessoais (pelo menos 2)
+          </p>
+
+          {references.map((reference, index) => (
+            <div key={index} className="rounded-xl border border-[var(--border)] p-3.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Referência {index + 1}</span>
+                {references.length > 2 && (
+                  <button
+                    type="button"
+                    onClick={() => removeReference(index)}
+                    className="rounded-lg p-1 text-[var(--muted)] hover:bg-[var(--red-100)] hover:text-[var(--red-500)]"
+                    aria-label="Remover referência"
+                  >
+                    <TrashIcon className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+              <div className="mt-2 flex flex-col gap-2.5">
+                <TextField
+                  label="Nome"
+                  icon={<UserIcon className="h-4 w-4" />}
+                  placeholder="Nome da pessoa"
+                  value={reference.name}
+                  onChange={(e) => updateReference(index, { name: e.target.value })}
+                />
+                <TextField
+                  label="WhatsApp"
+                  icon={<BadgeIcon className="h-4 w-4" />}
+                  placeholder="(00) 00000-0000"
+                  value={reference.phone}
+                  onChange={(e) => updateReference(index, { phone: maskPhone(e.target.value) })}
+                  inputMode="numeric"
+                />
+              </div>
+            </div>
+          ))}
+
+          <button
+            type="button"
+            onClick={addReference}
+            className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--border)] py-2.5 text-[13px] font-semibold text-[var(--ink-soft)] transition hover:border-[var(--blue-300)] hover:text-[var(--blue-700)]"
+          >
+            <PlusIcon className="h-4 w-4" />
+            Adicionar outra referência
+          </button>
 
           {(localError || error) && <ErrorBanner message={localError || error || ''} />}
 
-          <PrimaryButton disabled={submitting}>{submitting ? 'Enviando…' : 'Enviar documentos'}</PrimaryButton>
+          <PrimaryButton disabled={submitting}>{submitting ? 'Enviando…' : 'Enviar cadastro'}</PrimaryButton>
         </form>
       )}
     </div>

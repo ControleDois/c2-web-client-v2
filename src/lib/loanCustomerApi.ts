@@ -50,6 +50,8 @@ export function getLoanSession(sessionToken: string): Promise<LoanSessionData> {
   return apiPost('/connect/loan/customer/session', { session_token: sessionToken })
 }
 
+export type LoanReference = { name: string; phone: string }
+
 export function submitLoanVerification(params: {
   sessionToken: string
   addressProof: File
@@ -57,6 +59,13 @@ export function submitLoanVerification(params: {
   identityFront: File
   identityBack?: File
   selfie: File
+  fatherName: string
+  motherName: string
+  occupation: string
+  employerName: string
+  monthlyIncome: number
+  employmentProof?: File
+  references: LoanReference[]
 }): Promise<{ message: string; verification: LoanVerification }> {
   const form = new FormData()
   form.append('session_token', params.sessionToken)
@@ -65,6 +74,13 @@ export function submitLoanVerification(params: {
   form.append('identity_document_front', params.identityFront)
   if (params.identityBack) form.append('identity_document_back', params.identityBack)
   form.append('selfie', params.selfie)
+  form.append('father_name', params.fatherName)
+  form.append('mother_name', params.motherName)
+  form.append('occupation', params.occupation)
+  form.append('employer_name', params.employerName)
+  form.append('monthly_income', String(params.monthlyIncome))
+  if (params.employmentProof) form.append('employment_proof', params.employmentProof)
+  form.append('references', JSON.stringify(params.references))
 
   return apiPostForm('/connect/loan/customer/submit-verification', form)
 }

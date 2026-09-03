@@ -47,6 +47,7 @@ function buildDocuments(item: LoanCustomerVerificationRecord): DocumentViewerIte
     { key: 'front', title: `${identityLabel} (frente)`, doc: item.identityDocument },
     { key: 'back', title: `${identityLabel} (verso)`, doc: item.identityDocumentBack },
     { key: 'selfie', title: 'Selfie', doc: item.selfieDocument },
+    { key: 'employment', title: 'Comprovante de trabalho', doc: item.employmentProofDocument },
   ]
 
   return entries
@@ -57,6 +58,11 @@ function buildDocuments(item: LoanCustomerVerificationRecord): DocumentViewerIte
       url: entry.doc!.file_url!,
       fileName: entry.doc?.file_name,
     }))
+}
+
+function formatMoney(value: number | null | undefined): string {
+  if (value === null || value === undefined) return '—'
+  return Number(value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
 export function LoanCustomerVerificationsPage({ session, company }: LoanCustomerVerificationsPageProps) {
@@ -337,6 +343,45 @@ export function LoanCustomerVerificationsPage({ session, company }: LoanCustomer
                   <p className="text-[11px] font-semibold tracking-wide text-[var(--muted)] uppercase">Observações</p>
                   <p className="mt-0.5 text-[13.5px] text-[var(--ink)]">{detailItem.notes}</p>
                 </div>
+              )}
+            </div>
+
+            <div className="mt-6 grid gap-4 rounded-xl border border-[var(--border)] p-4 sm:grid-cols-2">
+              <div>
+                <p className="text-[11px] font-semibold tracking-wide text-[var(--muted)] uppercase">Nome do pai</p>
+                <p className="mt-0.5 text-[13.5px] text-[var(--ink)]">{detailItem.people?.fatherName || '—'}</p>
+              </div>
+              <div>
+                <p className="text-[11px] font-semibold tracking-wide text-[var(--muted)] uppercase">Nome da mãe</p>
+                <p className="mt-0.5 text-[13.5px] text-[var(--ink)]">{detailItem.people?.motherName || '—'}</p>
+              </div>
+              <div>
+                <p className="text-[11px] font-semibold tracking-wide text-[var(--muted)] uppercase">Onde trabalha</p>
+                <p className="mt-0.5 text-[13.5px] text-[var(--ink)]">{detailItem.people?.employerName || '—'}</p>
+              </div>
+              <div>
+                <p className="text-[11px] font-semibold tracking-wide text-[var(--muted)] uppercase">Ocupação</p>
+                <p className="mt-0.5 text-[13.5px] text-[var(--ink)]">{detailItem.people?.occupation || '—'}</p>
+              </div>
+              <div>
+                <p className="text-[11px] font-semibold tracking-wide text-[var(--muted)] uppercase">Renda mensal</p>
+                <p className="mt-0.5 text-[13.5px] text-[var(--ink)]">{formatMoney(detailItem.people?.monthlyIncome)}</p>
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <p className="text-[11px] font-semibold tracking-wide text-[var(--muted)] uppercase">Referências pessoais</p>
+              {detailItem.references && detailItem.references.length > 0 ? (
+                <div className="mt-2 flex flex-col gap-2">
+                  {detailItem.references.map((reference, index) => (
+                    <div key={index} className="flex items-center justify-between rounded-xl border border-[var(--border)] px-3.5 py-2.5">
+                      <span className="text-[13px] font-medium text-[var(--ink)]">{reference.name}</span>
+                      <span className="text-[13px] text-[var(--ink-soft)]">{formatPhone(reference.phone)}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-1 text-[13px] text-[var(--muted)]">Nenhuma referência informada.</p>
               )}
             </div>
 
