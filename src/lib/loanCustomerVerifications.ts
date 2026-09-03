@@ -35,16 +35,19 @@ export interface LoanCustomerVerificationRecord {
   reviewedAt: string | null
   createdAt: string
   updatedAt: string
+  // People não tem a naming strategy customizada (é um model compartilhado
+  // por todo o resto do app) — por isso essas chaves continuam snake_case,
+  // diferente do resto deste registro.
   people?: {
     id: string
     name: string
     document: string
     phone: string | null
-    fatherName?: string | null
-    motherName?: string | null
+    father_name?: string | null
+    mother_name?: string | null
     occupation?: string | null
-    employerName?: string | null
-    monthlyIncome?: number | null
+    employer_name?: string | null
+    monthly_income?: number | null
   } | null
   addressProofDocument?: PeopleDocumentRef | null
   identityDocument?: PeopleDocumentRef | null

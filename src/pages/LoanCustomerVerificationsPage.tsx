@@ -350,15 +350,15 @@ export function LoanCustomerVerificationsPage({ session, company }: LoanCustomer
             <div className="mt-6 grid gap-4 rounded-xl border border-[var(--border)] p-4 sm:grid-cols-2">
               <div>
                 <p className="text-[11px] font-semibold tracking-wide text-[var(--muted)] uppercase">Nome do pai</p>
-                <p className="mt-0.5 text-[13.5px] text-[var(--ink)]">{detailItem.people?.fatherName || '—'}</p>
+                <p className="mt-0.5 text-[13.5px] text-[var(--ink)]">{detailItem.people?.father_name || '—'}</p>
               </div>
               <div>
                 <p className="text-[11px] font-semibold tracking-wide text-[var(--muted)] uppercase">Nome da mãe</p>
-                <p className="mt-0.5 text-[13.5px] text-[var(--ink)]">{detailItem.people?.motherName || '—'}</p>
+                <p className="mt-0.5 text-[13.5px] text-[var(--ink)]">{detailItem.people?.mother_name || '—'}</p>
               </div>
               <div>
                 <p className="text-[11px] font-semibold tracking-wide text-[var(--muted)] uppercase">Onde trabalha</p>
-                <p className="mt-0.5 text-[13.5px] text-[var(--ink)]">{detailItem.people?.employerName || '—'}</p>
+                <p className="mt-0.5 text-[13.5px] text-[var(--ink)]">{detailItem.people?.employer_name || '—'}</p>
               </div>
               <div>
                 <p className="text-[11px] font-semibold tracking-wide text-[var(--muted)] uppercase">Ocupação</p>
@@ -366,7 +366,7 @@ export function LoanCustomerVerificationsPage({ session, company }: LoanCustomer
               </div>
               <div>
                 <p className="text-[11px] font-semibold tracking-wide text-[var(--muted)] uppercase">Renda mensal</p>
-                <p className="mt-0.5 text-[13.5px] text-[var(--ink)]">{formatMoney(detailItem.people?.monthlyIncome)}</p>
+                <p className="mt-0.5 text-[13.5px] text-[var(--ink)]">{formatMoney(detailItem.people?.monthly_income)}</p>
               </div>
               <div>
                 <p className="text-[11px] font-semibold tracking-wide text-[var(--muted)] uppercase">Moradia</p>
