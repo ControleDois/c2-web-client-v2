@@ -16,6 +16,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog'
 import { RowActionsMenu, type RowAction } from '../components/RowActionsMenu'
 import { SaleContractPreviewModal } from '../components/SaleContractPreviewModal'
 import { SaleSendContractModal } from '../components/SaleSendContractModal'
+import { SaleQuitacaoPreviewModal } from '../components/SaleQuitacaoPreviewModal'
 import { ListEntityDateFilters, type EntityPick } from '../components/ListEntityDateFilters'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
@@ -138,6 +139,7 @@ export function VehicleRentalsPage({ session, company, onCreate, onEdit }: Vehic
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [contractSale, setContractSale] = useState<SaleRecord | null>(null)
   const [sendContractSale, setSendContractSale] = useState<SaleRecord | null>(null)
+  const [quitacaoSale, setQuitacaoSale] = useState<SaleRecord | null>(null)
   const [feedback, setFeedback] = useState<{ tone: 'success' | 'error'; message: string } | null>(null)
 
   useEffect(() => {
@@ -293,6 +295,12 @@ export function VehicleRentalsPage({ session, company, onCreate, onEdit }: Vehic
         label: 'Enviar contrato',
         icon: <WhatsappIcon className="h-4 w-4" />,
         onClick: () => setSendContractSale(sale),
+      },
+      {
+        key: 'quitacao',
+        label: 'Nota de Quitação',
+        icon: <PrinterIcon className="h-4 w-4" />,
+        onClick: () => setQuitacaoSale(sale),
       },
       {
         key: 'delete',
@@ -701,6 +709,13 @@ export function VehicleRentalsPage({ session, company, onCreate, onEdit }: Vehic
           setFeedback({ tone: 'success', message })
           reload()
         }}
+      />
+
+      <SaleQuitacaoPreviewModal
+        open={Boolean(quitacaoSale)}
+        session={session}
+        sale={quitacaoSale}
+        onClose={() => setQuitacaoSale(null)}
       />
 
       {feedback && (

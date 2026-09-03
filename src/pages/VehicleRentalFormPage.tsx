@@ -161,30 +161,28 @@ export function VehicleRentalFormPage({ session, company, saleId, onBack, onSave
         setNotes(contract?.notes ?? '')
         setCategoryId(sale.category_id ?? '')
 
-        if (contract?.purchaseOption) {
-          setPlotsLoading(true)
-          fetchBills(session.token.token, company.id, { role: 1, limit: 200, saleId })
-            .then((res) => {
-              if (cancelled) return
-              const loaded = (res.data || [])
-                .slice()
-                .sort((a, b) => (a.installment_number ?? 0) - (b.installment_number ?? 0))
-                .map((bill) => ({
-                  tempId: bill.id,
-                  portion: bill.installment_number ?? 0,
-                  dateDue: bill.date_due ? bill.date_due.slice(0, 10) : '',
-                  amount: bill.amount ? String(bill.amount) : '',
-                  status: bill.status ?? 0,
-                }))
-              setPlots(loaded)
-            })
-            .catch(() => {
-              if (!cancelled) setPlots([])
-            })
-            .finally(() => {
-              if (!cancelled) setPlotsLoading(false)
-            })
-        }
+        setPlotsLoading(true)
+        fetchBills(session.token.token, company.id, { role: 1, limit: 200, saleId })
+          .then((res) => {
+            if (cancelled) return
+            const loaded = (res.data || [])
+              .slice()
+              .sort((a, b) => (a.installment_number ?? 0) - (b.installment_number ?? 0))
+              .map((bill) => ({
+                tempId: bill.id,
+                portion: bill.installment_number ?? 0,
+                dateDue: bill.date_due ? bill.date_due.slice(0, 10) : '',
+                amount: bill.amount ? String(bill.amount) : '',
+                status: bill.status ?? 0,
+              }))
+            setPlots(loaded)
+          })
+          .catch(() => {
+            if (!cancelled) setPlots([])
+          })
+          .finally(() => {
+            if (!cancelled) setPlotsLoading(false)
+          })
       })
       .catch((err) => {
         if (cancelled) return
@@ -259,6 +257,45 @@ export function VehicleRentalFormPage({ session, company, saleId, onBack, onSave
     return addMonthsToDate(baseDate, index)
   }
 
+  // Uma conta por período (diária/semanal/mensal, conforme rentalFrequency) — a
+  // 1ª vence na própria data de início (índice 0-based), diferente do fluxo de
+  // financiamento acima (handleGeneratePlots), que só cobra a 1ª parcela um
+  // período depois.
+  function buildPeriodPlots(): PlotEntry[] {
+    const rate = parseAmount(monthlyValue)
+    const units = computeRentalUnits(rentalFrequency, startDate, endDate)
+    return Array.from({ length: units }).map((_, index) => ({
+      tempId: `plot-${Date.now()}-${index}`,
+      portion: index + 1,
+      dateDue: nextDueDate(startDate, index),
+      amount: rate ? rate.toFixed(2) : '',
+      status: 0,
+    }))
+  }
+
+  function handleRegeneratePeriodPlots() {
+    if (!startDate || !endDate) {
+      setError('Preencha as datas de início e término para gerar as contas.')
+      return
+    }
+    if (!parseAmount(monthlyValue)) {
+      setError('Preencha o valor para gerar as contas.')
+      return
+    }
+    setPlots(buildPeriodPlots())
+  }
+
+  // Gera as contas a receber automaticamente pra aluguel novo (sem opção de
+  // compra) — segue os campos ao vivo até o usuário salvar. Na edição, quem
+  // regenera é o botão acima; aqui não mexe pra não descartar contas já
+  // carregadas do backend (algumas podem estar recebidas).
+  useEffect(() => {
+    if (saleId || purchaseOption) return
+    if (!startDate || !endDate || !parseAmount(monthlyValue)) return
+    setPlots(buildPeriodPlots())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [saleId, purchaseOption, startDate, endDate, rentalFrequency, monthlyValue])
+
   function handleGeneratePlots() {
     const count = Number(installmentCount || 0)
     if (count <= 0) {
@@ -319,7 +356,7 @@ export function VehicleRentalFormPage({ session, company, saleId, onBack, onSave
       setError('Selecione o responsável para continuar.')
       return
     }
-    if (purchaseOption && plots.length > 0 && !categoryId) {
+    if (plots.length > 0 && !categoryId) {
       setError('Selecione a categoria para lançar as parcelas.')
       return
     }
@@ -344,7 +381,7 @@ export function VehicleRentalFormPage({ session, company, saleId, onBack, onSave
     }
 
     const plotsPayload: SalePlotPayload[] | undefined =
-      purchaseOption && plots.length > 0
+      plots.length > 0
         ? plots.map((plot, index) => ({
             portion: index + 1,
             form_payment: plotsFormPayment,
@@ -359,7 +396,7 @@ export function VehicleRentalFormPage({ session, company, saleId, onBack, onSave
       peopleId: renter.id,
       vehicleId: vehicle.id,
       userId: responsible.id,
-      categoryId: purchaseOption ? categoryId || undefined : undefined,
+      categoryId: categoryId || undefined,
       role: 1,
       status: 3,
       net_total: netTotal,
@@ -609,37 +646,41 @@ export function VehicleRentalFormPage({ session, company, saleId, onBack, onSave
             )}
           </SectionCard>
 
-          {purchaseOption && (
-            <SectionCard
-              title="Parcelas"
-              subtitle="Valor individual de cada parcela do financiamento — cada uma pode ter um valor diferente"
-              headerExtra={
-                <span className="flex-none text-[13.5px] font-bold text-[var(--ink)]">
-                  Total: {formatCurrency(plotsTotal)}
-                </span>
-              }
-            >
-              <div className="mb-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                <SelectField label="Categoria" value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
-                  <option value="">Selecione</option>
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </SelectField>
-                <SelectField
-                  label="Forma de pagamento"
-                  value={plotsFormPayment}
-                  onChange={(event) => setPlotsFormPayment(Number(event.target.value))}
-                >
-                  {Object.entries(FORM_PAYMENT_LABELS).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </SelectField>
-                <div className="flex items-end">
+          <SectionCard
+            title="Parcelas"
+            subtitle={
+              purchaseOption
+                ? 'Valor individual de cada parcela do financiamento — cada uma pode ter um valor diferente'
+                : 'Uma conta a receber por período de locação, gerada automaticamente'
+            }
+            headerExtra={
+              <span className="flex-none text-[13.5px] font-bold text-[var(--ink)]">
+                Total: {formatCurrency(plotsTotal)}
+              </span>
+            }
+          >
+            <div className="mb-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              <SelectField label="Categoria" value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
+                <option value="">Selecione</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </SelectField>
+              <SelectField
+                label="Forma de pagamento"
+                value={plotsFormPayment}
+                onChange={(event) => setPlotsFormPayment(Number(event.target.value))}
+              >
+                {Object.entries(FORM_PAYMENT_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </SelectField>
+              <div className="flex items-end">
+                {purchaseOption ? (
                   <button
                     type="button"
                     onClick={handleGeneratePlots}
@@ -647,61 +688,82 @@ export function VehicleRentalFormPage({ session, company, saleId, onBack, onSave
                   >
                     Gerar {installmentCount || 'N'} parcelas iguais
                   </button>
-                </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleRegeneratePeriodPlots}
+                    className="w-full rounded-xl border border-[var(--border)] px-4 py-2.5 text-[13px] font-bold text-[var(--ink-soft)] hover:border-[var(--blue-500)] hover:text-[var(--blue-700)]"
+                  >
+                    Regenerar parcelas
+                  </button>
+                )}
               </div>
+            </div>
 
-              {plotsLoading ? (
-                <div className="flex flex-col gap-2">
-                  {Array.from({ length: 3 }).map((_, index) => (
-                    <div key={index} className="h-11 animate-pulse rounded-xl bg-[var(--page)]" />
-                  ))}
-                </div>
-              ) : plots.length === 0 ? (
-                <p className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--page)] px-4 py-6 text-center text-[12.5px] text-[var(--muted)]">
-                  Nenhuma parcela cadastrada. Use "Gerar parcelas iguais" ou adicione manualmente.
-                </p>
-              ) : (
-                <div className="flex flex-col gap-2">
-                  {plots.map((plot) => (
+            {plotsLoading ? (
+              <div className="flex flex-col gap-2">
+                {Array.from({ length: 3 }).map((_, index) => (
+                  <div key={index} className="h-11 animate-pulse rounded-xl bg-[var(--page)]" />
+                ))}
+              </div>
+            ) : plots.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--page)] px-4 py-6 text-center text-[12.5px] text-[var(--muted)]">
+                {purchaseOption
+                  ? 'Nenhuma parcela cadastrada. Use "Gerar parcelas iguais" ou adicione manualmente.'
+                  : 'Preencha as datas e o valor pra gerar as contas automaticamente.'}
+              </p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {plots.map((plot) => {
+                  const received = plot.status === 1
+                  return (
                     <div key={plot.tempId} className="flex flex-wrap items-center gap-2 rounded-xl bg-[var(--page)] px-3.5 py-2.5">
                       <span className="w-9 flex-none text-[12.5px] font-bold text-[var(--ink-soft)]">#{plot.portion}</span>
                       <input
                         type="date"
                         value={plot.dateDue}
+                        disabled={received}
                         onChange={(event) => handleUpdatePlot(plot.tempId, { dateDue: event.target.value })}
-                        className="min-w-0 flex-1 rounded-lg bg-[var(--surface)] px-3 py-2 text-[13px] text-[var(--ink)] ring-1 ring-transparent focus:outline-none focus:ring-[var(--blue-300)]"
+                        className="min-w-0 flex-1 rounded-lg bg-[var(--surface)] px-3 py-2 text-[13px] text-[var(--ink)] ring-1 ring-transparent focus:outline-none focus:ring-[var(--blue-300)] disabled:opacity-60"
                       />
                       <input
                         type="text"
                         inputMode="decimal"
                         placeholder="0,00"
                         value={plot.amount}
+                        disabled={received}
                         onChange={(event) => handleUpdatePlot(plot.tempId, { amount: event.target.value.replace(/[^\d.,]/g, '') })}
-                        className="min-w-0 flex-1 rounded-lg bg-[var(--surface)] px-3 py-2 text-right text-[13px] font-semibold text-[var(--ink)] ring-1 ring-transparent focus:outline-none focus:ring-[var(--blue-300)]"
+                        className="min-w-0 flex-1 rounded-lg bg-[var(--surface)] px-3 py-2 text-right text-[13px] font-semibold text-[var(--ink)] ring-1 ring-transparent focus:outline-none focus:ring-[var(--blue-300)] disabled:opacity-60"
                       />
-                      <button
-                        type="button"
-                        onClick={() => handleRemovePlot(plot.tempId)}
-                        className="flex-none rounded-lg p-2 text-[var(--muted)] hover:bg-[var(--red-100)] hover:text-[var(--red-500)]"
-                        aria-label="Remover parcela"
-                      >
-                        <TrashIcon className="h-3.5 w-3.5" />
-                      </button>
+                      {received ? (
+                        <span className="flex-none rounded-lg bg-[var(--green-100)] px-2.5 py-1 text-[11px] font-bold text-[var(--green-600)]">
+                          Recebido
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleRemovePlot(plot.tempId)}
+                          className="flex-none rounded-lg p-2 text-[var(--muted)] hover:bg-[var(--red-100)] hover:text-[var(--red-500)]"
+                          aria-label="Remover parcela"
+                        >
+                          <TrashIcon className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                     </div>
-                  ))}
-                </div>
-              )}
+                  )
+                })}
+              </div>
+            )}
 
-              <button
-                type="button"
-                onClick={handleAddPlot}
-                className="mt-4 flex items-center gap-1.5 rounded-xl border border-dashed border-[var(--border)] px-4 py-2 text-[12.5px] font-semibold text-[var(--ink-soft)] hover:border-[var(--blue-500)] hover:text-[var(--blue-700)]"
-              >
-                <PlusIcon className="h-3.5 w-3.5" />
-                Adicionar parcela
-              </button>
-            </SectionCard>
-          )}
+            <button
+              type="button"
+              onClick={handleAddPlot}
+              className="mt-4 flex items-center gap-1.5 rounded-xl border border-dashed border-[var(--border)] px-4 py-2 text-[12.5px] font-semibold text-[var(--ink-soft)] hover:border-[var(--blue-500)] hover:text-[var(--blue-700)]"
+            >
+              <PlusIcon className="h-3.5 w-3.5" />
+              Adicionar parcela
+            </button>
+          </SectionCard>
 
           <SectionCard title="Observações" defaultCollapsed>
             <textarea

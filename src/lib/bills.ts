@@ -28,6 +28,7 @@ export interface BillRecord {
   category?: { id: string; name: string } | null
   bank?: { id: string; name: string } | null
   credit_card?: { id: string; name: string } | null
+  sale?: { id: string; vehicleRentalContract?: { id: string } | null } | null
   createdAt?: string
   created_at?: string
 }
@@ -158,4 +159,8 @@ export function deleteBill(token: string, id: string) {
 
 export function deleteBillsSelected(token: string, ids: string[]) {
   return apiPost<void>('/bill/destroy-selected', { ids }, token)
+}
+
+export function printBillReceipt(token: string, id: string) {
+  return apiPost<{ url: string; html: string }>(`/bill/print-receipt/${id}`, {}, token)
 }

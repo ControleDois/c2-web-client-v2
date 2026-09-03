@@ -254,6 +254,10 @@ export function printSaleContract(token: string, id: string) {
   return apiPost<{ url: string; html: string }>(`/sale/print-contract/${id}`, {}, token)
 }
 
+export function printSaleQuitacao(token: string, id: string) {
+  return apiPost<{ url: string; html: string }>(`/sale/print-quitacao/${id}`, {}, token)
+}
+
 export function getContractLink(sale: SaleRecord): string {
   return sale.autentique_short_link || ''
 }

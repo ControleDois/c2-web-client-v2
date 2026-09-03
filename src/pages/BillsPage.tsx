@@ -7,6 +7,7 @@ import { useRowSelection } from '../hooks/useRowSelection'
 import { SearchIcon, PlusIcon, PencilIcon, ChevronDownIcon, TrashIcon, PrinterIcon } from '../components/icons'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { PrintPreviewModal, type PrintColumn } from '../components/PrintPreviewModal'
+import { BillReceiptPreviewModal } from '../components/BillReceiptPreviewModal'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
 interface BillsPageProps {
@@ -73,6 +74,7 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [printOpen, setPrintOpen] = useState(false)
+  const [receiptBill, setReceiptBill] = useState<BillRecord | null>(null)
 
   const PRINT_COLUMNS: PrintColumn[] = [
     { key: 'code', label: 'Código' },
@@ -354,6 +356,16 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
                           {billStatusLabel(bill.status, role)}
                         </span>
                         <div className="flex items-center gap-2">
+                          {bill.sale?.vehicleRentalContract && (
+                            <button
+                              type="button"
+                              onClick={() => setReceiptBill(bill)}
+                              className="flex items-center gap-1.5 rounded-lg bg-[var(--page)] px-3 py-1.5 text-[12px] font-semibold text-[var(--ink-soft)]"
+                            >
+                              <PrinterIcon className="h-3.5 w-3.5" />
+                              Recibo
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={() => onEdit(bill)}
@@ -432,6 +444,16 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
                       </td>
                       <td className="py-2.5 pr-3 text-right">
                         <div className="flex items-center justify-end gap-1">
+                          {bill.sale?.vehicleRentalContract && (
+                            <button
+                              type="button"
+                              onClick={() => setReceiptBill(bill)}
+                              className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-[var(--muted)] hover:bg-[var(--surface)] hover:text-[var(--ink)]"
+                              aria-label="Recibo"
+                            >
+                              <PrinterIcon className="h-3.5 w-3.5" />
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={() => onEdit(bill)}
@@ -526,6 +548,13 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
         columns={PRINT_COLUMNS}
         rows={printRows}
         onClose={() => setPrintOpen(false)}
+      />
+
+      <BillReceiptPreviewModal
+        open={Boolean(receiptBill)}
+        session={session}
+        bill={receiptBill}
+        onClose={() => setReceiptBill(null)}
       />
     </div>
   )
