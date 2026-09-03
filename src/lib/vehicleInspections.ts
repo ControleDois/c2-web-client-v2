@@ -70,6 +70,8 @@ export function fetchVehicleInspections(
     dateEnd?: string
     vehicle?: string
     user?: string
+    vehicleId?: string
+    unlinkedOnly?: boolean
     page?: number
     limit?: number
   } = {}
@@ -84,6 +86,8 @@ export function fetchVehicleInspections(
       dateEnd: options.dateEnd,
       vehicle: options.vehicle,
       user: options.user,
+      vehicleId: options.vehicleId,
+      unlinkedOnly: options.unlinkedOnly ? 'true' : undefined,
       page: options.page ? String(options.page) : '1',
       limit: options.limit ? String(options.limit) : '10',
     },

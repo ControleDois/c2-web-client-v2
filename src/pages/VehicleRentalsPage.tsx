@@ -11,7 +11,7 @@ import { formatCurrency, formatDate } from '../lib/format'
 import { ApiError } from '../lib/api'
 import { getCached, setCached } from '../lib/cache'
 import { useRowSelection } from '../hooks/useRowSelection'
-import { SearchIcon, PlusIcon, PencilIcon, TrashIcon, PrinterIcon, TruckIcon, WhatsappIcon } from '../components/icons'
+import { SearchIcon, PlusIcon, PencilIcon, TrashIcon, PrinterIcon, TruckIcon, WhatsappIcon, RouteIcon } from '../components/icons'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { RowActionsMenu, type RowAction } from '../components/RowActionsMenu'
 import { SaleContractPreviewModal } from '../components/SaleContractPreviewModal'
@@ -33,6 +33,7 @@ interface VehicleRentalsPageProps {
   company: AuthCompany
   onCreate: () => void
   onEdit: (sale: SaleRecord) => void
+  onManageOperation: (saleId: string) => void
 }
 
 const PAGE_SIZE = 10
@@ -120,7 +121,7 @@ function rentalTotalValue(contract: VehicleRentalContractRecord): number | null 
   return units * contract.monthlyValue
 }
 
-export function VehicleRentalsPage({ session, company, onCreate, onEdit }: VehicleRentalsPageProps) {
+export function VehicleRentalsPage({ session, company, onCreate, onEdit, onManageOperation }: VehicleRentalsPageProps) {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('active')
   const [vehicleFilter, setVehicleFilter] = useState<EntityPick | null>(null)
@@ -277,6 +278,18 @@ export function VehicleRentalsPage({ session, company, onCreate, onEdit }: Vehic
   }
 
   function buildRowActions(sale: SaleRecord): RowAction[] {
+    const status = Number(sale.vehicleRentalContract?.status ?? 0)
+    const operationAction: RowAction[] =
+      status === 0 || status === 1
+        ? [
+            {
+              key: 'operation',
+              label: status === 0 ? 'Registrar entrega' : 'Registrar devolução',
+              icon: <RouteIcon className="h-4 w-4" />,
+              onClick: () => onManageOperation(sale.id),
+            },
+          ]
+        : []
     return [
       {
         key: 'edit',
@@ -284,6 +297,7 @@ export function VehicleRentalsPage({ session, company, onCreate, onEdit }: Vehic
         icon: <PencilIcon className="h-4 w-4" />,
         onClick: () => onEdit(sale),
       },
+      ...operationAction,
       {
         key: 'contract',
         label: 'Visualizar contrato',

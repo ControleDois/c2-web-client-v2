@@ -7,10 +7,10 @@ import {
   FUEL_LEVEL_OPTIONS,
   type SaleRecord,
 } from '../lib/sales'
-import { createVehicleInspection } from '../lib/vehicleInspections'
+import { createVehicleInspection, fetchVehicleInspections, type VehicleInspectionRecord } from '../lib/vehicleInspections'
 import { fetchConfig } from '../lib/config'
 import { ApiError } from '../lib/api'
-import { formatCurrency } from '../lib/format'
+import { formatCurrency, formatDateTime } from '../lib/format'
 import { formatDocument } from '../lib/formatDocument'
 import { SearchIcon, RouteIcon, CameraIcon, PaperclipIcon, CheckCircleIcon, CloseIcon, TrashIcon } from '../components/icons'
 import { useMyCompanyPerson } from '../hooks/useMyCompanyPerson'
@@ -19,6 +19,8 @@ import type { AuthSession, AuthCompany } from '../lib/auth'
 interface VehicleRentalOperationsPageProps {
   session: AuthSession
   company: AuthCompany
+  initialSaleId?: string | null
+  onInitialSaleConsumed?: () => void
 }
 
 type OperationMode = 'pickup' | 'return'
@@ -87,6 +89,12 @@ function RentalOperationModal({ session, company, sale, mode, detailedRequired, 
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const [inspectionMode, setInspectionMode] = useState<'new' | 'existing'>('new')
+  const [existingInspections, setExistingInspections] = useState<VehicleInspectionRecord[]>([])
+  const [loadingExisting, setLoadingExisting] = useState(false)
+  const [existingError, setExistingError] = useState<string | null>(null)
+  const [selectedInspectionId, setSelectedInspectionId] = useState<string | null>(null)
+
   const [cameraSlotIndex, setCameraSlotIndex] = useState<number | null>(null)
   const [videoStream, setVideoStream] = useState<MediaStream | null>(null)
   const [locationLines, setLocationLines] = useState<string[]>([])
@@ -106,6 +114,33 @@ function RentalOperationModal({ session, company, sale, mode, detailedRequired, 
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  useEffect(() => {
+    if (inspectionMode !== 'existing') return
+    const vehicleId = sale.vehicle?.id
+    if (!vehicleId) {
+      setExistingError('Este aluguel não possui veículo vinculado.')
+      return
+    }
+    let cancelled = false
+    setLoadingExisting(true)
+    setExistingError(null)
+    fetchVehicleInspections(session.token.token, company.id, { vehicleId, unlinkedOnly: true, limit: 50 })
+      .then((result) => {
+        if (cancelled) return
+        setExistingInspections(result.data)
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setExistingError(err instanceof ApiError ? err.message : 'Não foi possível carregar as vistorias.')
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingExisting(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [inspectionMode, sale.vehicle?.id, session.token.token, company.id])
 
   function dataURLtoFile(dataUrl: string, filename: string): File {
     const [meta, base64] = dataUrl.split(',')
@@ -336,42 +371,48 @@ function RentalOperationModal({ session, company, sale, mode, detailedRequired, 
     })
   }
 
-  const missingRequired = detailedRequired
-    ? slots.some((slot) => slot.required && !slot.file)
-    : false
+  const missingRequired =
+    inspectionMode === 'new' && detailedRequired ? slots.some((slot) => slot.required && !slot.file) : false
+
+  const canSubmit = inspectionMode === 'existing' ? Boolean(selectedInspectionId) : !missingRequired
 
   async function handleSubmit() {
-    if (missingRequired || submitting) return
+    if (!canSubmit || submitting) return
     setSubmitting(true)
     setError(null)
     try {
-      const photos = slots
-        .filter((slot) => slot.file)
-        .map((slot) => ({ file: slot.file as File, label: slot.label, observation: slot.observation }))
-
-      const customerSignature =
-        hasCustomerSignature && customerSignatureCanvasRef.current
-          ? dataURLtoFile(customerSignatureCanvasRef.current.toDataURL('image/png'), `assinatura_locatario_${Date.now()}.png`)
-          : undefined
-      const driverSignature =
-        hasDriverSignature && driverSignatureCanvasRef.current
-          ? dataURLtoFile(driverSignatureCanvasRef.current.toDataURL('image/png'), `assinatura_condutor_${Date.now()}.png`)
-          : undefined
-
       let inspectionId: string | undefined
-      if (photos.length > 0 || customerSignature || driverSignature) {
-        const result = await createVehicleInspection(session.token.token, {
-          company_id: company.id,
-          vehicle_id: sale.vehicle?.id || '',
-          people_id: contract.renterPeopleId,
-          user_id: myCompanyPerson?.id,
-          photos,
-          customer_signature: customerSignature,
-          customer_signer_name: customerSignerName || undefined,
-          driver_signature: driverSignature,
-          driver_signer_name: driverSignerName || undefined,
-        })
-        inspectionId = result.data.id
+
+      if (inspectionMode === 'existing') {
+        inspectionId = selectedInspectionId || undefined
+      } else {
+        const photos = slots
+          .filter((slot) => slot.file)
+          .map((slot) => ({ file: slot.file as File, label: slot.label, observation: slot.observation }))
+
+        const customerSignature =
+          hasCustomerSignature && customerSignatureCanvasRef.current
+            ? dataURLtoFile(customerSignatureCanvasRef.current.toDataURL('image/png'), `assinatura_locatario_${Date.now()}.png`)
+            : undefined
+        const driverSignature =
+          hasDriverSignature && driverSignatureCanvasRef.current
+            ? dataURLtoFile(driverSignatureCanvasRef.current.toDataURL('image/png'), `assinatura_condutor_${Date.now()}.png`)
+            : undefined
+
+        if (photos.length > 0 || customerSignature || driverSignature) {
+          const result = await createVehicleInspection(session.token.token, {
+            company_id: company.id,
+            vehicle_id: sale.vehicle?.id || '',
+            people_id: contract.renterPeopleId,
+            user_id: myCompanyPerson?.id,
+            photos,
+            customer_signature: customerSignature,
+            customer_signer_name: customerSignerName || undefined,
+            driver_signature: driverSignature,
+            driver_signer_name: driverSignerName || undefined,
+          })
+          inspectionId = result.data.id
+        }
       }
 
       const nowISO = new Date().toISOString()
@@ -463,6 +504,76 @@ function RentalOperationModal({ session, company, sale, mode, detailedRequired, 
           </label>
         </div>
 
+        <div className="mt-6 flex w-fit gap-1 rounded-xl bg-[var(--page)] p-1">
+          <button
+            type="button"
+            onClick={() => setInspectionMode('new')}
+            className={`rounded-lg px-3.5 py-2 text-[12.5px] font-semibold transition ${
+              inspectionMode === 'new'
+                ? 'bg-[var(--surface)] text-[var(--ink)] shadow-sm'
+                : 'text-[var(--ink-soft)] hover:text-[var(--ink)]'
+            }`}
+          >
+            Nova vistoria
+          </button>
+          <button
+            type="button"
+            onClick={() => setInspectionMode('existing')}
+            className={`rounded-lg px-3.5 py-2 text-[12.5px] font-semibold transition ${
+              inspectionMode === 'existing'
+                ? 'bg-[var(--surface)] text-[var(--ink)] shadow-sm'
+                : 'text-[var(--ink-soft)] hover:text-[var(--ink)]'
+            }`}
+          >
+            Vincular vistoria existente
+          </button>
+        </div>
+
+        {inspectionMode === 'existing' ? (
+          <div className="mt-4">
+            <p className="text-[13px] text-[var(--muted)]">
+              Selecione uma vistoria já feita para este veículo que ainda não está vinculada a nenhuma retirada ou
+              devolução.
+            </p>
+
+            {loadingExisting ? (
+              <p className="mt-4 text-[12.5px] text-[var(--muted)]">Carregando vistorias…</p>
+            ) : existingError ? (
+              <p className="mt-4 text-[12.5px] font-medium text-[var(--red-500)]">{existingError}</p>
+            ) : existingInspections.length === 0 ? (
+              <p className="mt-4 rounded-xl border border-dashed border-[var(--border)] bg-[var(--page)] px-4 py-6 text-center text-[12.5px] text-[var(--muted)]">
+                Nenhuma vistoria disponível para vincular.
+              </p>
+            ) : (
+              <div className="mt-4 flex flex-col gap-2">
+                {existingInspections.map((inspection) => {
+                  const selected = selectedInspectionId === inspection.id
+                  return (
+                    <button
+                      key={inspection.id}
+                      type="button"
+                      onClick={() => setSelectedInspectionId(inspection.id)}
+                      className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-left transition ${
+                        selected
+                          ? 'border-[var(--blue-500)] bg-[var(--blue-100)]'
+                          : 'border-[var(--border)] hover:border-[var(--blue-300)]'
+                      }`}
+                    >
+                      <div>
+                        <p className="text-[13px] font-semibold text-[var(--ink)]">
+                          Vistoria #{inspection.code ?? inspection.id.slice(0, 8)}
+                        </p>
+                        <p className="text-[11.5px] text-[var(--muted)]">{formatDateTime(inspection.created_at)}</p>
+                      </div>
+                      {selected && <CheckCircleIcon className="h-5 w-5 flex-shrink-0 text-[var(--blue-700)]" />}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        ) : (
+        <>
         <p className="mt-6 text-[13px] text-[var(--muted)]">
           {detailedRequired
             ? 'Registre as fotos obrigatórias do veículo. Você pode adicionar fotos extras para avarias ou detalhes específicos.'
@@ -646,6 +757,8 @@ function RentalOperationModal({ session, company, sale, mode, detailedRequired, 
             </div>
           </div>
         </div>
+        </>
+        )}
 
         {error && (
           <div className="mt-4 rounded-xl bg-[var(--red-100)] p-3 text-[13px] font-medium text-[var(--red-500)]">
@@ -666,7 +779,7 @@ function RentalOperationModal({ session, company, sale, mode, detailedRequired, 
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={missingRequired || submitting}
+          disabled={!canSubmit || submitting}
           className="flex items-center gap-2 rounded-xl bg-[var(--blue-500)] px-4 py-2.5 text-[13.5px] font-bold text-white transition hover:bg-[var(--blue-700)] disabled:opacity-60"
         >
           <CheckCircleIcon className="h-4 w-4" />
@@ -731,7 +844,12 @@ function RentalOperationModal({ session, company, sale, mode, detailedRequired, 
   )
 }
 
-export function VehicleRentalOperationsPage({ session, company }: VehicleRentalOperationsPageProps) {
+export function VehicleRentalOperationsPage({
+  session,
+  company,
+  initialSaleId,
+  onInitialSaleConsumed,
+}: VehicleRentalOperationsPageProps) {
   const [search, setSearch] = useState('')
   const [items, setItems] = useState<SaleRecord[]>([])
   const [loading, setLoading] = useState(true)
@@ -781,6 +899,18 @@ export function VehicleRentalOperationsPage({ session, company }: VehicleRentalO
   function reload() {
     setRefreshKey((key) => key + 1)
   }
+
+  useEffect(() => {
+    if (!initialSaleId || loading) return
+    const sale = items.find((item) => item.id === initialSaleId)
+    if (sale) {
+      const status = sale.vehicleRentalContract?.status ?? 0
+      if (status === 0) setOperationTarget({ sale, mode: 'pickup' })
+      else if (status === 1) setOperationTarget({ sale, mode: 'return' })
+    }
+    onInitialSaleConsumed?.()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialSaleId, loading, items])
 
   const term = search.trim().toLowerCase()
   const filtered = items.filter((sale) => {
