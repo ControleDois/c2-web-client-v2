@@ -44,6 +44,7 @@ import { CompanyGroupsPage } from './pages/CompanyGroupsPage'
 import { CompanyGroupFormPage } from './pages/CompanyGroupFormPage'
 import { AuditLogsPage } from './pages/AuditLogsPage'
 import { VehicleInspectionsPage } from './pages/VehicleInspectionsPage'
+import { LoanCustomerVerificationsPage } from './pages/LoanCustomerVerificationsPage'
 import { TowingCollectionPage } from './pages/TowingCollectionPage'
 import { VehicleRentalOperationsPage } from './pages/VehicleRentalOperationsPage'
 import { TowingBillingReportPage } from './pages/TowingBillingReportPage'
@@ -513,6 +514,8 @@ function App() {
       pageContent = <AuditLogsPage session={session} company={activeCompany} />
     } else if (page === 'vehicle-inspections') {
       pageContent = <VehicleInspectionsPage session={session} company={activeCompany} />
+    } else if (page === 'loan-customer-verifications') {
+      pageContent = <LoanCustomerVerificationsPage session={session} company={activeCompany} />
     } else if (page === 'towing-collection') {
       pageContent = <TowingCollectionPage session={session} company={activeCompany} />
     } else if (page === 'vehicle-rental-operations') {

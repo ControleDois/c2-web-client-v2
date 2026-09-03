@@ -21,9 +21,10 @@ import {
   KeyIcon,
   CoinIcon as SaleIcon,
   WrenchIcon,
+  BadgeIcon,
 } from '../icons'
 import { getCompanyName, type AuthCompany, type AuthSession } from '../../lib/auth'
-import { isLocacaoVeiculos } from '../../lib/systemTypes'
+import { isLocacaoVeiculos, isEmprestimo } from '../../lib/systemTypes'
 
 export type AppPage =
   | 'dashboard'
@@ -53,6 +54,7 @@ export type AppPage =
   | 'towing-billing-report'
   | 'order-services'
   | 'standalone-inspection'
+  | 'loan-customer-verifications'
 
 interface AppShellProps {
   session: AuthSession
@@ -105,6 +107,20 @@ function buildNavGroups(systemType?: number): NavGroup[] {
           : { page: 'towing-collection', label: 'Busca de Veículos', icon: RouteIcon },
       ],
     },
+    ...(isEmprestimo(systemType)
+      ? [
+          {
+            title: 'Empréstimo',
+            items: [
+              {
+                page: 'loan-customer-verifications' as const,
+                label: 'Verificações de Cadastro',
+                icon: BadgeIcon,
+              },
+            ],
+          },
+        ]
+      : []),
     {
       title: 'Relatórios',
       items: [{ page: 'towing-billing-report', label: 'Faturamento', icon: TrendUpIcon }],
