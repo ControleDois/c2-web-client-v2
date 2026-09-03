@@ -11,12 +11,15 @@ import { CobrancasSection } from './config/CobrancasSection'
 import { ProtecaoVeicularSection } from './config/ProtecaoVeicularSection'
 import { IntegracoesSection } from './config/IntegracoesSection'
 import { LojaOnlineSection } from './config/LojaOnlineSection'
+import { ComprasSection } from './config/ComprasSection'
 import { CheckCircleIcon } from '../components/icons'
 import type { AuthSession, AuthCompany } from '../lib/auth'
+import type { AppPage } from '../components/layout/AppShell'
 
 interface ConfigPageProps {
   session: AuthSession
   company: AuthCompany
+  onNavigate: (page: AppPage) => void
 }
 
 type ConfigTab =
@@ -29,6 +32,7 @@ type ConfigTab =
   | 'cobrancas'
   | 'emprestimo'
   | 'loja-online'
+  | 'compras'
 
 interface TabDefinition {
   key: ConfigTab
@@ -46,6 +50,7 @@ function buildConfigPayload(companyId: string, config: ConfigRecord | null): Con
     central_box_payment_methods: parseCentralBoxPaymentMethods(config?.central_box_payment_methods),
 
     vehicle_inspection_detailed_required: config?.vehicle_inspection_detailed_required ?? false,
+    purchase_management_enabled: config?.purchase_management_enabled ?? false,
 
     multa_modalidade: config?.multa_modalidade ?? undefined,
     multa_valor: config?.multa_valor ?? undefined,
@@ -141,7 +146,7 @@ function buildConfigPayload(companyId: string, config: ConfigRecord | null): Con
   }
 }
 
-export function ConfigPage({ session, company }: ConfigPageProps) {
+export function ConfigPage({ session, company, onNavigate }: ConfigPageProps) {
   const [config, setConfig] = useState<ConfigRecord | null>(null)
   const [formState, setFormState] = useState<ConfigPayload>(() => buildConfigPayload(company.id, null))
   const [loading, setLoading] = useState(true)
@@ -165,6 +170,7 @@ export function ConfigPage({ session, company }: ConfigPageProps) {
       { key: 'cobrancas', label: 'Cobranças', visible: true },
       { key: 'emprestimo', label: 'Empréstimo', visible: isEmprestimo(systemType) },
       { key: 'loja-online', label: 'Loja Online', visible: isLojaOnline(systemType) },
+      { key: 'compras', label: 'Compras', visible: true },
     ],
     [systemType]
   )
@@ -326,6 +332,13 @@ export function ConfigPage({ session, company }: ConfigPageProps) {
               )}
               {activeTab === 'cobrancas' && <CobrancasSection value={formState} onChange={handleChange} />}
               {activeTab === 'loja-online' && <LojaOnlineSection value={formState} onChange={handleChange} />}
+              {activeTab === 'compras' && (
+                <ComprasSection
+                  value={formState}
+                  onChange={handleChange}
+                  onOpenPurchaseManagement={() => onNavigate('purchase-management')}
+                />
+              )}
             </div>
           )}
         </>

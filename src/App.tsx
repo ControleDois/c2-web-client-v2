@@ -49,6 +49,8 @@ import { VehicleInspectionsPage } from './pages/VehicleInspectionsPage'
 import { LoanCustomerVerificationsPage } from './pages/LoanCustomerVerificationsPage'
 import { TowingCollectionPage } from './pages/TowingCollectionPage'
 import { VehicleRentalOperationsPage } from './pages/VehicleRentalOperationsPage'
+import { PurchaseManagementPage } from './pages/PurchaseManagementPage'
+import { PurchaseRequestsPage } from './pages/PurchaseRequestsPage'
 import { TowingBillingReportPage } from './pages/TowingBillingReportPage'
 import { AppShell, type AppPage } from './components/layout/AppShell'
 import { ThemeToggle } from './components/ThemeToggle'
@@ -448,7 +450,7 @@ function App() {
     } else if (page === 'whatsapp-api') {
       pageContent = <WhatsappApiPage session={session} company={activeCompany} />
     } else if (page === 'config') {
-      pageContent = <ConfigPage session={session} company={activeCompany} />
+      pageContent = <ConfigPage session={session} company={activeCompany} onNavigate={handleNavigate} />
     } else if (page === 'contract-templates') {
       pageContent =
         contractTemplatesView.view.mode === 'form' ? (
@@ -551,6 +553,23 @@ function App() {
           company={activeCompany}
           onBack={() => handleNavigate('dashboard')}
           onSaved={() => handleNavigate('dashboard')}
+        />
+      )
+    } else if (page === 'purchase-management') {
+      pageContent = (
+        <PurchaseManagementPage
+          session={session}
+          company={activeCompany}
+          onBack={() => handleNavigate('config')}
+          onViewHistory={() => handleNavigate('purchase-requests')}
+        />
+      )
+    } else if (page === 'purchase-requests') {
+      pageContent = (
+        <PurchaseRequestsPage
+          session={session}
+          company={activeCompany}
+          onBack={() => handleNavigate('purchase-management')}
         />
       )
     } else if (isLocacaoVeiculos(activeCompany.system_type)) {

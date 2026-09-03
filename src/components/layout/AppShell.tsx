@@ -56,6 +56,8 @@ export type AppPage =
   | 'order-services'
   | 'standalone-inspection'
   | 'loan-customer-verifications'
+  | 'purchase-management'
+  | 'purchase-requests'
 
 interface AppShellProps {
   session: AuthSession

@@ -52,6 +52,9 @@ export interface ConfigRecord {
   // Vistorias
   vehicle_inspection_detailed_required?: boolean
 
+  // Gestão de Compras
+  purchase_management_enabled?: boolean
+
   // Cobranças — regras genéricas de multa/juros/desconto (movidas da aba Vendas)
   multa_modalidade?: number | null
   multa_valor?: number | null
@@ -169,6 +172,8 @@ export interface ConfigPayload {
   central_box_payment_methods?: number[]
 
   vehicle_inspection_detailed_required?: boolean
+
+  purchase_management_enabled?: boolean
 
   multa_modalidade?: number
   multa_valor?: number
