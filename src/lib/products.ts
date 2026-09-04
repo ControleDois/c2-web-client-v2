@@ -1,5 +1,11 @@
 import { apiGet, apiPost, apiPut, apiDelete } from './api'
 
+export interface ProductCategoryRef {
+  id: string
+  name: string
+  code?: number
+}
+
 export interface ProductRecord {
   id: string
   code?: number
@@ -11,6 +17,7 @@ export interface ProductRecord {
   description?: string | null
   barcode?: string | null
   unit?: string | null
+  categories?: ProductCategoryRef[]
 }
 
 export interface ProductPayload {
@@ -22,6 +29,7 @@ export interface ProductPayload {
   description?: string
   barcode?: string
   unit?: string
+  categories?: { id?: string; name?: string }[]
 }
 
 interface Paginated<T> {

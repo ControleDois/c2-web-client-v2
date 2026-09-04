@@ -6,11 +6,13 @@ import {
   PRODUCT_ROLE_LABELS,
   PRODUCT_UNIT_OPTIONS,
   type ProductRecord,
+  type ProductCategoryRef,
 } from '../lib/products'
+import { fetchCategoryProducts, type CategoryProductRecord } from '../lib/categoryProducts'
 import { ApiError } from '../lib/api'
 import { TextField } from '../components/form/TextField'
 import { SelectField } from '../components/form/SelectField'
-import { BoxIcon, DollarSignIcon, TagIcon, FileTextIcon, ChevronLeftIcon } from '../components/icons'
+import { BoxIcon, DollarSignIcon, TagIcon, FileTextIcon, ChevronLeftIcon, PlusIcon, CloseIcon } from '../components/icons'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
 interface ProductFormPageProps {
@@ -36,7 +38,24 @@ export function ProductFormPage({ session, company, productId, onBack, onSaved }
   const [barcode, setBarcode] = useState('')
   const [description, setDescription] = useState('')
 
+  const [selectedCategories, setSelectedCategories] = useState<ProductCategoryRef[]>([])
+  const [availableCategories, setAvailableCategories] = useState<CategoryProductRecord[]>([])
+  const [showCategoryPicker, setShowCategoryPicker] = useState(false)
+  const [categorySearch, setCategorySearch] = useState('')
+
   const isProduct = role === 0
+
+  useEffect(() => {
+    let cancelled = false
+    fetchCategoryProducts(session.token.token, company.id, { limit: 200 })
+      .then((res) => {
+        if (!cancelled) setAvailableCategories(res.data)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [session.token.token, company.id])
 
   useEffect(() => {
     if (!productId) return
@@ -54,6 +73,7 @@ export function ProductFormPage({ session, company, productId, onBack, onSaved }
         setUnit(product.unit ?? '')
         setBarcode(product.barcode ?? '')
         setDescription(product.description ?? '')
+        setSelectedCategories(product.categories ?? [])
       })
       .catch((err) => {
         if (cancelled) return
@@ -86,6 +106,7 @@ export function ProductFormPage({ session, company, productId, onBack, onSaved }
       unit: isProduct && unit.trim() ? unit.trim() : undefined,
       barcode: isProduct && barcode.trim() ? barcode.trim() : undefined,
       description: isProduct && description.trim() ? description.trim() : undefined,
+      categories: isProduct ? selectedCategories.map((category) => ({ id: category.id })) : undefined,
     }
 
     setSubmitting(true)
@@ -200,6 +221,84 @@ export function ProductFormPage({ session, company, productId, onBack, onSaved }
                 </>
               )}
             </div>
+
+            {isProduct && (
+              <div className="mt-4">
+                <span className="mb-1.5 block text-[12px] font-semibold text-[var(--ink-soft)]">Categorias</span>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {selectedCategories.map((category) => (
+                    <span
+                      key={category.id}
+                      className="flex items-center gap-1.5 rounded-lg bg-[var(--blue-100)] px-2.5 py-1.5 text-[12.5px] font-semibold text-[var(--blue-700)]"
+                    >
+                      {category.name}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSelectedCategories((prev) => prev.filter((c) => c.id !== category.id))
+                        }
+                        className="rounded-full p-0.5 hover:bg-[var(--blue-300)]"
+                      >
+                        <CloseIcon className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setShowCategoryPicker((prev) => !prev)}
+                      className="flex items-center gap-1.5 rounded-lg border border-dashed border-[var(--border)] px-2.5 py-1.5 text-[12.5px] font-semibold text-[var(--ink-soft)] hover:border-[var(--blue-500)] hover:text-[var(--blue-700)]"
+                    >
+                      <PlusIcon className="h-3.5 w-3.5" />
+                      Adicionar categoria
+                    </button>
+
+                    {showCategoryPicker && (
+                      <div className="absolute left-0 top-full z-10 mt-1.5 w-64 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-2 shadow-lg">
+                        <input
+                          type="text"
+                          autoFocus
+                          placeholder="Buscar categoria"
+                          value={categorySearch}
+                          onChange={(event) => setCategorySearch(event.target.value)}
+                          className="w-full rounded-lg bg-[var(--page)] px-3 py-2 text-[13px] text-[var(--ink)] placeholder:text-[var(--muted)] focus:outline-none"
+                        />
+                        <div className="mt-1.5 flex max-h-48 flex-col gap-0.5 overflow-y-auto">
+                          {availableCategories
+                            .filter((category) => !selectedCategories.some((c) => c.id === category.id))
+                            .filter((category) =>
+                              categorySearch.trim()
+                                ? category.name.toLowerCase().includes(categorySearch.trim().toLowerCase())
+                                : true
+                            )
+                            .map((category) => (
+                              <button
+                                key={category.id}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedCategories((prev) => [...prev, category])
+                                  setCategorySearch('')
+                                }}
+                                className="rounded-lg px-2.5 py-1.5 text-left text-[13px] text-[var(--ink)] hover:bg-[var(--page)]"
+                              >
+                                {category.name}
+                              </button>
+                            ))}
+                          {availableCategories.filter(
+                            (category) => !selectedCategories.some((c) => c.id === category.id)
+                          ).length === 0 && (
+                            <p className="px-2.5 py-1.5 text-[12.5px] text-[var(--muted)]">
+                              Nenhuma categoria disponível.
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {error && (
