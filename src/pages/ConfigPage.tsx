@@ -12,6 +12,7 @@ import { ProtecaoVeicularSection } from './config/ProtecaoVeicularSection'
 import { IntegracoesSection } from './config/IntegracoesSection'
 import { LojaOnlineSection } from './config/LojaOnlineSection'
 import { ComprasSection } from './config/ComprasSection'
+import { CategoriasProdutoSection } from './config/CategoriasProdutoSection'
 import { CheckCircleIcon } from '../components/icons'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 import type { AppPage } from '../components/layout/AppShell'
@@ -34,6 +35,7 @@ type ConfigTab =
   | 'emprestimo'
   | 'loja-online'
   | 'compras'
+  | 'categorias-produto'
 
 interface TabDefinition {
   key: ConfigTab
@@ -172,6 +174,7 @@ export function ConfigPage({ session, company, onNavigate, onSaved }: ConfigPage
       { key: 'emprestimo', label: 'Empréstimo', visible: isEmprestimo(systemType) },
       { key: 'loja-online', label: 'Loja Online', visible: isLojaOnline(systemType) },
       { key: 'compras', label: 'Compras', visible: true },
+      { key: 'categorias-produto', label: 'Categorias de Produto', visible: true },
     ],
     [systemType]
   )
@@ -246,7 +249,7 @@ export function ConfigPage({ session, company, onNavigate, onSaved }: ConfigPage
           <p className="text-[12px] font-semibold tracking-wide text-[var(--blue-700)] uppercase">Conta</p>
           <h1 className="mt-0.5 text-[22px] font-bold tracking-tight text-[var(--ink)]">Configurações</h1>
         </div>
-        {activeTab !== 'dados-empresa' && (
+        {activeTab !== 'dados-empresa' && activeTab !== 'categorias-produto' && (
           <button
             type="button"
             onClick={handleSave}
@@ -340,6 +343,9 @@ export function ConfigPage({ session, company, onNavigate, onSaved }: ConfigPage
                   onChange={handleChange}
                   onOpenPurchaseManagement={() => onNavigate('purchase-management')}
                 />
+              )}
+              {activeTab === 'categorias-produto' && (
+                <CategoriasProdutoSection session={session} company={company} />
               )}
             </div>
           )}
