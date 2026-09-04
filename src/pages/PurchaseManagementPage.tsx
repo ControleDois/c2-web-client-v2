@@ -10,7 +10,8 @@ import {
 import { fetchProducts, type ProductRecord } from '../lib/products'
 import { formatCurrency } from '../lib/format'
 import { ApiError } from '../lib/api'
-import { SearchIcon, PlusIcon, TrashIcon, CheckCircleIcon, AlertTriangleIcon, ClockIcon } from '../components/icons'
+import { SearchIcon, PlusIcon, TrashIcon, CheckCircleIcon, AlertTriangleIcon, ClockIcon, PrinterIcon } from '../components/icons'
+import { PurchaseStockPrintModal } from '../components/PurchaseStockPrintModal'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
 interface PurchaseManagementPageProps {
@@ -31,6 +32,8 @@ export function PurchaseManagementPage({ session, company, onBack, onViewHistory
   const [orderQty, setOrderQty] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
   const [feedback, setFeedback] = useState<{ tone: 'success' | 'error'; message: string } | null>(null)
+
+  const [printOpen, setPrintOpen] = useState(false)
 
   const [showAddPanel, setShowAddPanel] = useState(false)
   const [productSearch, setProductSearch] = useState('')
@@ -213,6 +216,15 @@ export function PurchaseManagementPage({ session, company, onBack, onViewHistory
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setPrintOpen(true)}
+            disabled={rows.length === 0}
+            className="flex items-center gap-2 rounded-xl bg-[var(--page)] px-4 py-2.5 text-[13px] font-bold text-[var(--ink-soft)] transition hover:text-[var(--ink)] disabled:opacity-50"
+          >
+            <PrinterIcon className="h-4 w-4" />
+            Imprimir lista
+          </button>
           <button
             type="button"
             onClick={onViewHistory}
@@ -451,6 +463,16 @@ export function PurchaseManagementPage({ session, company, onBack, onViewHistory
           {feedback.message}
         </div>
       )}
+
+      <PurchaseStockPrintModal
+        open={printOpen}
+        company={company}
+        groups={groupedRows.map((group) => ({
+          name: group.name,
+          items: group.rows.map(({ item }) => ({ id: item.id, name: item.product?.name ?? '—' })),
+        }))}
+        onClose={() => setPrintOpen(false)}
+      />
     </div>
   )
 }
