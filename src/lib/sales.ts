@@ -120,6 +120,7 @@ export interface VehicleRentalContractPayload {
   installmentCount?: number
   vehicleTotalValue?: number
   notes?: string
+  pickupOdometer?: number
 }
 
 export interface VehicleSaleContractPayload {
@@ -222,7 +223,7 @@ export const VEHICLE_SALE_STATUS_LABELS: Record<number, string> = {
 export function fetchSales(
   token: string,
   companyId: string,
-  options: { search?: string; page?: number; limit?: number } = {}
+  options: { search?: string; page?: number; limit?: number; vehicleId?: string } = {}
 ) {
   return apiGet<Paginated<SaleRecord>>(
     '/sale',
@@ -231,6 +232,7 @@ export function fetchSales(
       search: options.search,
       page: options.page ? String(options.page) : '1',
       limit: options.limit ? String(options.limit) : '5000',
+      vehicleId: options.vehicleId,
     },
     token
   )

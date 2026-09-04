@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react
 import {
   createSale,
   fetchSale,
+  fetchSales,
   updateSale,
   RENTAL_FREQUENCY_LABELS,
   VEHICLE_OWNER_TYPE_LABELS,
@@ -20,7 +21,7 @@ import { ApiError } from '../lib/api'
 import { TextField } from '../components/form/TextField'
 import { SelectField } from '../components/form/SelectField'
 import { SearchSelectField } from '../components/form/SearchSelectField'
-import { UserIcon, WalletIcon, PlusIcon, TrashIcon, ChevronLeftIcon } from '../components/icons'
+import { UserIcon, WalletIcon, PlusIcon, TrashIcon, ChevronLeftIcon, RouteIcon } from '../components/icons'
 import { SectionCard } from '../components/SectionCard'
 import { useMyCompanyPerson } from '../hooks/useMyCompanyPerson'
 import type { AuthSession, AuthCompany } from '../lib/auth'
@@ -103,6 +104,7 @@ export function VehicleRentalFormPage({ session, company, saleId, onBack, onSave
   const [vehicleTotalValue, setVehicleTotalValue] = useState('')
   const [status, setStatus] = useState(0)
   const [notes, setNotes] = useState('')
+  const [pickupOdometer, setPickupOdometer] = useState('')
 
   const [categoryId, setCategoryId] = useState('')
   const [categories, setCategories] = useState<CategoryRecord[]>([])
@@ -186,6 +188,7 @@ export function VehicleRentalFormPage({ session, company, saleId, onBack, onSave
         setVehicleTotalValue(contract?.vehicleTotalValue ? String(contract.vehicleTotalValue) : '')
         setStatus(contract?.status ?? 0)
         setNotes(contract?.notes ?? '')
+        setPickupOdometer(contract?.pickupOdometer ? String(contract.pickupOdometer) : '')
         setCategoryId(sale.category_id ?? '')
         setRentalTypeId(contract?.rentalTypeId ?? '')
 
@@ -239,6 +242,30 @@ export function VehicleRentalFormPage({ session, company, saleId, onBack, onSave
     (query: string) => fetchVehicles(session.token.token, company.id, { search: query, limit: 8 }).then((res) => res.data),
     [session.token.token, company.id]
   )
+
+  // Ao escolher o veículo num aluguel novo, sugere o KM a partir do último
+  // aluguel dele (devolução, ou retirada se ainda não devolveu) — só
+  // preenche se o campo ainda estiver vazio, nunca sobrescreve o que o
+  // usuário já digitou.
+  useEffect(() => {
+    if (saleId || !vehicle || pickupOdometer) return
+    let cancelled = false
+    fetchSales(session.token.token, company.id, { vehicleId: vehicle.id, limit: 10 })
+      .then((res) => {
+        if (cancelled) return
+        const withOdometer = (res.data || []).find(
+          (item) => item.vehicleRentalContract?.returnOdometer || item.vehicleRentalContract?.pickupOdometer
+        )
+        const lastOdometer =
+          withOdometer?.vehicleRentalContract?.returnOdometer ?? withOdometer?.vehicleRentalContract?.pickupOdometer
+        if (lastOdometer) setPickupOdometer(String(lastOdometer))
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vehicle, saleId])
 
   // Em aluguel com opção de compra, sugere o valor da parcela (valor total /
   // nº de parcelas) só como ponto de partida — sem sobrescrever se o usuário
@@ -515,6 +542,7 @@ export function VehicleRentalFormPage({ session, company, saleId, onBack, onSave
         vehicleTotalValue: purchaseOption && vehicleTotalValue ? parseAmount(vehicleTotalValue) : undefined,
         notes: notes || undefined,
         status,
+        pickupOdometer: pickupOdometer ? Number(pickupOdometer) : undefined,
       },
       plots: plotsPayload,
     }
@@ -595,6 +623,14 @@ export function VehicleRentalFormPage({ session, company, saleId, onBack, onSave
                   setVehicle({ id: item.id, label: [item.brand, item.model].filter(Boolean).join(' ') || item.license_plate, sub: item.license_plate })
                 }
                 onClear={() => setVehicle(null)}
+              />
+              <TextField
+                label="KM do veículo"
+                icon={<RouteIcon className="h-4 w-4" />}
+                placeholder="Opcional — aparece no contrato"
+                inputMode="numeric"
+                value={pickupOdometer}
+                onChange={(event) => setPickupOdometer(event.target.value.replace(/\D/g, ''))}
               />
               <SearchSelectField
                 label="Responsável"
