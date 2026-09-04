@@ -404,8 +404,33 @@ export function VehicleRentalFormPage({ session, company, saleId, onBack, onSave
     setPlots((prev) => prev.map((plot) => (plot.tempId === tempId ? { ...plot, ...patch } : plot)))
   }
 
+  // Ao remover uma parcela pendente, redistribui o total que estava
+  // dividido entre as pendentes (incluindo a removida) pelas que sobraram —
+  // ex: 5 parcelas de R$100 (total R$500), remove 1, sobram 4 de R$125. As
+  // já recebidas nunca mudam de valor (só a numeração é ajustada).
   function handleRemovePlot(tempId: string) {
-    setPlots((prev) => prev.filter((plot) => plot.tempId !== tempId).map((plot, index) => ({ ...plot, portion: index + 1 })))
+    setPlots((prev) => {
+      const pendingTotal = prev
+        .filter((plot) => plot.status !== 1)
+        .reduce((sum, plot) => sum + parseAmount(plot.amount), 0)
+
+      const remaining = prev.filter((plot) => plot.tempId !== tempId)
+      const pendingRemaining = remaining.filter((plot) => plot.status !== 1)
+
+      if (pendingRemaining.length === 0) {
+        return remaining.map((plot, index) => ({ ...plot, portion: index + 1 }))
+      }
+
+      const perPlot = Math.floor((pendingTotal / pendingRemaining.length) * 100) / 100
+      const roundingRemainder = Math.round((pendingTotal - perPlot * pendingRemaining.length) * 100) / 100
+      const lastPendingTempId = pendingRemaining[pendingRemaining.length - 1].tempId
+
+      return remaining.map((plot, index) => {
+        if (plot.status === 1) return { ...plot, portion: index + 1 }
+        const amount = plot.tempId === lastPendingTempId ? perPlot + roundingRemainder : perPlot
+        return { ...plot, portion: index + 1, amount: amount.toFixed(2) }
+      })
+    })
   }
 
   async function handleSubmit(event: FormEvent) {
