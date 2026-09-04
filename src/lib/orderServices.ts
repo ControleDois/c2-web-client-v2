@@ -116,7 +116,7 @@ export function fetchOrderServices(
       search: options.search,
       page: options.page ? String(options.page) : '1',
       limit: options.limit ? String(options.limit) : '500',
-      date: options.dateStart || options.dateEnd ? undefined : options.date ?? new Date().toISOString().slice(0, 10),
+      date: options.dateStart || options.dateEnd ? undefined : options.date,
       dateStart: options.dateStart,
       dateEnd: options.dateEnd,
       peopleId: options.peopleId,
