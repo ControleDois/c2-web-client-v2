@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import {
   fetchPurchaseStockItems,
   addPurchaseStockItem,
@@ -94,7 +94,7 @@ export function PurchaseManagementPage({ session, company, onBack, onViewHistory
         current_stock: 0,
         avg_price: 0,
       })
-      setItems((prev) => [{ ...created, product }, ...prev])
+      setItems((prev) => [{ ...created, product: created.product ?? product }, ...prev])
       setProductSearch('')
     } catch (err) {
       setFeedback({
@@ -163,6 +163,22 @@ export function PurchaseManagementPage({ session, company, onBack, onViewHistory
 
   const total = rows.reduce((sum, row) => sum + row.forecast, 0)
   const hasOrder = rows.some((row) => row.qty > 0)
+
+  const groupedRows = useMemo(() => {
+    const groups = new Map<string, typeof rows>()
+    for (const row of rows) {
+      const categoryName = row.item.product?.categories?.[0]?.name || 'Sem categoria'
+      if (!groups.has(categoryName)) groups.set(categoryName, [])
+      groups.get(categoryName)!.push(row)
+    }
+    const entries = Array.from(groups.entries())
+    entries.sort(([a], [b]) => {
+      if (a === 'Sem categoria') return 1
+      if (b === 'Sem categoria') return -1
+      return a.localeCompare(b, 'pt-BR')
+    })
+    return entries.map(([name, groupRows]) => ({ name, rows: groupRows }))
+  }, [rows])
 
   async function handleSubmitRequest() {
     const requestItems = rows
@@ -307,82 +323,94 @@ export function PurchaseManagementPage({ session, company, onBack, onViewHistory
                 </tr>
               </thead>
               <tbody>
-                {rows.map(({ item, forecast }) => {
-                  const low = isLowStock(item)
-                  return (
-                    <tr
-                      key={item.id}
-                      className={`border-b border-[var(--border)] align-middle last:border-none ${
-                        low ? 'bg-[var(--red-100)]' : ''
-                      }`}
-                    >
-                      <td className="px-2 py-2.5">
-                        <div className="flex items-center gap-1.5">
-                          {low && <AlertTriangleIcon className="h-3.5 w-3.5 flex-none text-[var(--red-500)]" />}
-                          <div className="min-w-0">
-                            <p className="truncate font-semibold text-[var(--ink)]">{item.product?.name ?? '—'}</p>
-                            {item.product?.unit && (
-                              <p className="text-[11px] text-[var(--muted)]">{item.product.unit}</p>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-2 py-2.5">
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          value={item.current_stock}
-                          onChange={(event) => handleFieldChange(item.id, 'current_stock', event.target.value)}
-                          onBlur={() => handleFieldBlur(item, 'current_stock')}
-                          className="w-full rounded-lg bg-[var(--page)] px-2.5 py-1.5 text-[13px] text-[var(--ink)] ring-1 ring-transparent focus:outline-none focus:ring-[var(--blue-300)]"
-                        />
-                      </td>
-                      <td className="px-2 py-2.5">
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          value={item.min_stock ?? ''}
-                          onChange={(event) => handleFieldChange(item.id, 'min_stock', event.target.value)}
-                          onBlur={() => handleFieldBlur(item, 'min_stock')}
-                          placeholder="—"
-                          className="w-full rounded-lg bg-[var(--page)] px-2.5 py-1.5 text-[13px] text-[var(--ink)] ring-1 ring-transparent placeholder:text-[var(--muted)] focus:outline-none focus:ring-[var(--blue-300)]"
-                        />
-                      </td>
-                      <td className="px-2 py-2.5">
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          value={item.avg_price}
-                          onChange={(event) => handleFieldChange(item.id, 'avg_price', event.target.value)}
-                          onBlur={() => handleFieldBlur(item, 'avg_price')}
-                          className="w-full rounded-lg bg-[var(--page)] px-2.5 py-1.5 text-[13px] text-[var(--ink)] ring-1 ring-transparent focus:outline-none focus:ring-[var(--blue-300)]"
-                        />
-                      </td>
-                      <td className="px-2 py-2.5">
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          value={orderQty[item.id] ?? ''}
-                          onChange={(event) => setOrderQty((prev) => ({ ...prev, [item.id]: event.target.value }))}
-                          placeholder="0"
-                          className="w-full rounded-lg bg-[var(--blue-100)] px-2.5 py-1.5 text-[13px] font-semibold text-[var(--blue-700)] ring-1 ring-transparent placeholder:text-[var(--muted)] focus:outline-none focus:ring-[var(--blue-300)]"
-                        />
-                      </td>
-                      <td className="px-2 py-2.5 text-right font-bold text-[var(--ink)]">
-                        {forecast > 0 ? formatCurrency(forecast) : '—'}
-                      </td>
-                      <td className="px-2 py-2.5 text-right">
-                        <button
-                          type="button"
-                          onClick={() => handleRemove(item)}
-                          className="rounded-lg p-1.5 text-[var(--muted)] hover:bg-[var(--page)] hover:text-[var(--red-500)]"
-                        >
-                          <TrashIcon className="h-3.5 w-3.5" />
-                        </button>
+                {groupedRows.map((group) => (
+                  <Fragment key={group.name}>
+                    <tr className="bg-[var(--page)]">
+                      <td colSpan={7} className="px-2 py-2 text-[11px] font-bold uppercase tracking-wide text-[var(--ink-soft)]">
+                        {group.name}
+                        <span className="ml-1.5 font-normal normal-case text-[var(--muted)]">
+                          ({group.rows.length})
+                        </span>
                       </td>
                     </tr>
-                  )
-                })}
+                    {group.rows.map(({ item, forecast }) => {
+                      const low = isLowStock(item)
+                      return (
+                        <tr
+                          key={item.id}
+                          className={`border-b border-[var(--border)] align-middle last:border-none ${
+                            low ? 'bg-[var(--red-100)]' : ''
+                          }`}
+                        >
+                          <td className="px-2 py-2.5">
+                            <div className="flex items-center gap-1.5">
+                              {low && <AlertTriangleIcon className="h-3.5 w-3.5 flex-none text-[var(--red-500)]" />}
+                              <div className="min-w-0">
+                                <p className="truncate font-semibold text-[var(--ink)]">{item.product?.name ?? '—'}</p>
+                                {item.product?.unit && (
+                                  <p className="text-[11px] text-[var(--muted)]">{item.product.unit}</p>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-2 py-2.5">
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={item.current_stock}
+                              onChange={(event) => handleFieldChange(item.id, 'current_stock', event.target.value)}
+                              onBlur={() => handleFieldBlur(item, 'current_stock')}
+                              className="w-full rounded-lg bg-[var(--page)] px-2.5 py-1.5 text-[13px] text-[var(--ink)] ring-1 ring-transparent focus:outline-none focus:ring-[var(--blue-300)]"
+                            />
+                          </td>
+                          <td className="px-2 py-2.5">
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={item.min_stock ?? ''}
+                              onChange={(event) => handleFieldChange(item.id, 'min_stock', event.target.value)}
+                              onBlur={() => handleFieldBlur(item, 'min_stock')}
+                              placeholder="—"
+                              className="w-full rounded-lg bg-[var(--page)] px-2.5 py-1.5 text-[13px] text-[var(--ink)] ring-1 ring-transparent placeholder:text-[var(--muted)] focus:outline-none focus:ring-[var(--blue-300)]"
+                            />
+                          </td>
+                          <td className="px-2 py-2.5">
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={item.avg_price}
+                              onChange={(event) => handleFieldChange(item.id, 'avg_price', event.target.value)}
+                              onBlur={() => handleFieldBlur(item, 'avg_price')}
+                              className="w-full rounded-lg bg-[var(--page)] px-2.5 py-1.5 text-[13px] text-[var(--ink)] ring-1 ring-transparent focus:outline-none focus:ring-[var(--blue-300)]"
+                            />
+                          </td>
+                          <td className="px-2 py-2.5">
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={orderQty[item.id] ?? ''}
+                              onChange={(event) => setOrderQty((prev) => ({ ...prev, [item.id]: event.target.value }))}
+                              placeholder="0"
+                              className="w-full rounded-lg bg-[var(--blue-100)] px-2.5 py-1.5 text-[13px] font-semibold text-[var(--blue-700)] ring-1 ring-transparent placeholder:text-[var(--muted)] focus:outline-none focus:ring-[var(--blue-300)]"
+                            />
+                          </td>
+                          <td className="px-2 py-2.5 text-right font-bold text-[var(--ink)]">
+                            {forecast > 0 ? formatCurrency(forecast) : '—'}
+                          </td>
+                          <td className="px-2 py-2.5 text-right">
+                            <button
+                              type="button"
+                              onClick={() => handleRemove(item)}
+                              className="rounded-lg p-1.5 text-[var(--muted)] hover:bg-[var(--page)] hover:text-[var(--red-500)]"
+                            >
+                              <TrashIcon className="h-3.5 w-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </Fragment>
+                ))}
               </tbody>
               <tfoot>
                 <tr>
