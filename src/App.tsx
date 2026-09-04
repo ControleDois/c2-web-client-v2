@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { LoginPage } from './pages/LoginPage'
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
 import { SignupPage } from './pages/SignupPage'
@@ -34,6 +34,7 @@ import { CompaniesPage } from './pages/CompaniesPage'
 import { CompanyFormPage } from './pages/CompanyFormPage'
 import { WhatsappApiPage } from './pages/WhatsappApiPage'
 import { ConfigPage } from './pages/ConfigPage'
+import { fetchConfig } from './lib/config'
 import { ContractTemplatesPage } from './pages/ContractTemplatesPage'
 import { ContractTemplateFormPage } from './pages/ContractTemplateFormPage'
 import { RentalTypesPage } from './pages/RentalTypesPage'
@@ -77,6 +78,26 @@ function App() {
   const [screen, setScreen] = useState<Screen>('login')
   const [page, setPage] = useState<AppPage>('dashboard')
   const [switchingCompany, setSwitchingCompany] = useState(false)
+  const [purchaseManagementEnabled, setPurchaseManagementEnabled] = useState(false)
+  const [configVersion, setConfigVersion] = useState(0)
+
+  useEffect(() => {
+    if (!session || !activeCompany) {
+      setPurchaseManagementEnabled(false)
+      return
+    }
+    let cancelled = false
+    fetchConfig(session.token.token, activeCompany.id)
+      .then((config) => {
+        if (!cancelled) setPurchaseManagementEnabled(Boolean(config.purchase_management_enabled))
+      })
+      .catch(() => {
+        if (!cancelled) setPurchaseManagementEnabled(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [session, activeCompany, configVersion])
 
   const peopleView = useEntityView()
   const vehiclesView = useEntityView()
@@ -450,7 +471,14 @@ function App() {
     } else if (page === 'whatsapp-api') {
       pageContent = <WhatsappApiPage session={session} company={activeCompany} />
     } else if (page === 'config') {
-      pageContent = <ConfigPage session={session} company={activeCompany} onNavigate={handleNavigate} />
+      pageContent = (
+        <ConfigPage
+          session={session}
+          company={activeCompany}
+          onNavigate={handleNavigate}
+          onSaved={() => setConfigVersion((v) => v + 1)}
+        />
+      )
     } else if (page === 'contract-templates') {
       pageContent =
         contractTemplatesView.view.mode === 'form' ? (
@@ -592,6 +620,7 @@ function App() {
         onNavigate={handleNavigate}
         onSwitchCompany={handleSwitchCompany}
         onLogout={handleLogout}
+        purchaseManagementEnabled={purchaseManagementEnabled}
       >
         {pageContent}
       </AppShell>

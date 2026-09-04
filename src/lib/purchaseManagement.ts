@@ -35,7 +35,7 @@ export interface PurchaseRequestRecord {
   notes?: string | null
   total_amount: number
   created_at?: string
-  requested_by_user?: { id: string; name?: string; email?: string } | null
+  requested_by_user?: { id: string; email?: string; people?: { name?: string } | null } | null
   items?: PurchaseRequestItemRecord[]
 }
 

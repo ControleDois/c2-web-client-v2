@@ -66,12 +66,13 @@ interface AppShellProps {
   onNavigate: (page: AppPage) => void
   onSwitchCompany: () => void
   onLogout: () => void
+  purchaseManagementEnabled?: boolean
   children: ReactNode
 }
 
 type NavGroup = { title: string; items: { page: AppPage; label: string; icon: typeof GridIcon }[] }
 
-function buildNavGroups(systemType?: number): NavGroup[] {
+function buildNavGroups(systemType?: number, purchaseManagementEnabled?: boolean): NavGroup[] {
   const emprestimo = isEmprestimo(systemType)
 
   const principalItems = emprestimo
@@ -136,6 +137,13 @@ function buildNavGroups(systemType?: number): NavGroup[] {
     })
   }
 
+  if (purchaseManagementEnabled) {
+    groups.push({
+      title: 'Compras',
+      items: [{ page: 'purchase-management', label: 'Gestão de Compras', icon: BoxIcon }],
+    })
+  }
+
   groups.push({
     title: 'Relatórios',
     items: [{ page: 'towing-billing-report', label: 'Faturamento', icon: TrendUpIcon }],
@@ -144,9 +152,18 @@ function buildNavGroups(systemType?: number): NavGroup[] {
   return groups
 }
 
-export function AppShell({ session, company, activePage, onNavigate, onSwitchCompany, onLogout, children }: AppShellProps) {
+export function AppShell({
+  session,
+  company,
+  activePage,
+  onNavigate,
+  onSwitchCompany,
+  onLogout,
+  purchaseManagementEnabled,
+  children,
+}: AppShellProps) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
-  const navGroups = buildNavGroups(company.system_type)
+  const navGroups = buildNavGroups(company.system_type, purchaseManagementEnabled)
 
   function handleNavigate(page: AppPage) {
     onNavigate(page)

@@ -20,6 +20,7 @@ interface ConfigPageProps {
   session: AuthSession
   company: AuthCompany
   onNavigate: (page: AppPage) => void
+  onSaved?: () => void
 }
 
 type ConfigTab =
@@ -146,7 +147,7 @@ function buildConfigPayload(companyId: string, config: ConfigRecord | null): Con
   }
 }
 
-export function ConfigPage({ session, company, onNavigate }: ConfigPageProps) {
+export function ConfigPage({ session, company, onNavigate, onSaved }: ConfigPageProps) {
   const [config, setConfig] = useState<ConfigRecord | null>(null)
   const [formState, setFormState] = useState<ConfigPayload>(() => buildConfigPayload(company.id, null))
   const [loading, setLoading] = useState(true)
@@ -229,6 +230,7 @@ export function ConfigPage({ session, company, onNavigate }: ConfigPageProps) {
       const updated = await updateConfig(session.token.token, config.id, payload)
       setConfig(updated)
       setSaved(true)
+      onSaved?.()
       setTimeout(() => setSaved(false), 3000)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Não foi possível salvar as configurações.')

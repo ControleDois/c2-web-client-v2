@@ -101,7 +101,7 @@ export function PurchaseRequestsPage({ session, company, onBack }: PurchaseReque
                       <div>
                         <p className="text-[13px] font-semibold text-[var(--ink)]">{formatDateTime(req.created_at)}</p>
                         <p className="text-[11.5px] text-[var(--muted)]">
-                          {req.requested_by_user?.name || 'Usuário não identificado'}
+                          {req.requested_by_user?.people?.name || req.requested_by_user?.email || 'Usuário não identificado'}
                         </p>
                       </div>
                     </div>
