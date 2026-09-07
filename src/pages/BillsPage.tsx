@@ -1,13 +1,38 @@
 import { useEffect, useState } from 'react'
-import { fetchBills, deleteBill, deleteBillsSelected, updateBill, billStatusLabel, type BillRecord } from '../lib/bills'
+import {
+  fetchBills,
+  deleteBill,
+  deleteBillsSelected,
+  updateBill,
+  billStatusLabel,
+  generateBillPix,
+  cancelBillPix,
+  generateBillsPixLote,
+  cancelBillsPixLote,
+  generateBillBoleto,
+  type BillRecord,
+} from '../lib/bills'
 import { formatCurrency, formatDate } from '../lib/format'
 import { ApiError } from '../lib/api'
 import { getCached, setCached } from '../lib/cache'
 import { useRowSelection } from '../hooks/useRowSelection'
-import { SearchIcon, PlusIcon, PencilIcon, ChevronDownIcon, TrashIcon, PrinterIcon, CheckCircleIcon, XCircleIcon } from '../components/icons'
+import {
+  SearchIcon,
+  PlusIcon,
+  PencilIcon,
+  ChevronDownIcon,
+  TrashIcon,
+  PrinterIcon,
+  CheckCircleIcon,
+  XCircleIcon,
+  QrCodeIcon,
+  CopyIcon,
+  FileTextIcon,
+} from '../components/icons'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { PrintPreviewModal, type PrintColumn } from '../components/PrintPreviewModal'
 import { BillReceiptPreviewModal } from '../components/BillReceiptPreviewModal'
+import { BillBoletoPreviewModal } from '../components/BillBoletoPreviewModal'
 import { BillsSummaryCards, type BillsSummaryFilter } from '../components/BillsSummaryCards'
 import { BillsMoreFiltersPanel, type BillsMoreFilters } from '../components/BillsMoreFiltersPanel'
 import { BatchReceiveBillsModal } from '../components/BatchReceiveBillsModal'
@@ -88,6 +113,12 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
   const [reopenTarget, setReopenTarget] = useState<BillRecord | null>(null)
   const [receiving, setReceiving] = useState(false)
   const [receiveError, setReceiveError] = useState<string | null>(null)
+
+  const [boletoBill, setBoletoBill] = useState<BillRecord | null>(null)
+  const [pixBusyId, setPixBusyId] = useState<string | null>(null)
+  const [pixError, setPixError] = useState<string | null>(null)
+  const [pixLoteBusy, setPixLoteBusy] = useState(false)
+  const [pixLoteResult, setPixLoteResult] = useState<string | null>(null)
 
   function handleSummaryFilterChange(filter: BillsSummaryFilter | null) {
     setSummaryFilter(filter)
@@ -310,6 +341,87 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
     }
   }
 
+  async function handleGeneratePix(bill: BillRecord) {
+    if (pixBusyId) return
+    setPixBusyId(bill.id)
+    setPixError(null)
+    try {
+      await generateBillPix(session.token.token, company.id, bill.id)
+      silentReload()
+    } catch (err) {
+      setPixError(err instanceof ApiError ? err.message : 'Não foi possível gerar o PIX.')
+    } finally {
+      setPixBusyId(null)
+    }
+  }
+
+  async function handleCancelPix(bill: BillRecord) {
+    if (pixBusyId) return
+    setPixBusyId(bill.id)
+    setPixError(null)
+    try {
+      await cancelBillPix(session.token.token, company.id, bill.id)
+      silentReload()
+    } catch (err) {
+      setPixError(err instanceof ApiError ? err.message : 'Não foi possível cancelar o PIX.')
+    } finally {
+      setPixBusyId(null)
+    }
+  }
+
+  async function handleCopyPix(bill: BillRecord) {
+    if (!bill.pix_copia_e_cola) return
+    try {
+      await navigator.clipboard.writeText(bill.pix_copia_e_cola)
+      setPixError(null)
+    } catch {
+      setPixError('Não foi possível copiar o código PIX.')
+    }
+  }
+
+  async function handleGenerateBoleto(bill: BillRecord) {
+    if (pixBusyId) return
+    setPixBusyId(bill.id)
+    setPixError(null)
+    try {
+      await generateBillBoleto(session.token.token, company.id, bill.id)
+      silentReload()
+    } catch (err) {
+      setPixError(err instanceof ApiError ? err.message : 'Não foi possível gerar o boleto.')
+    } finally {
+      setPixBusyId(null)
+    }
+  }
+
+  async function handleGeneratePixLote() {
+    setPixLoteBusy(true)
+    setPixError(null)
+    setPixLoteResult(null)
+    try {
+      const res = await generateBillsPixLote(session.token.token, company.id, Array.from(selected))
+      setPixLoteResult(`${res.results.sucesso.length} PIX gerados, ${res.results.erros.length} com erro.`)
+      silentReload()
+    } catch (err) {
+      setPixError(err instanceof ApiError ? err.message : 'Não foi possível gerar os PIX em lote.')
+    } finally {
+      setPixLoteBusy(false)
+    }
+  }
+
+  async function handleCancelPixLote() {
+    setPixLoteBusy(true)
+    setPixError(null)
+    setPixLoteResult(null)
+    try {
+      await cancelBillsPixLote(session.token.token, company.id, Array.from(selected))
+      silentReload()
+    } catch (err) {
+      setPixError(err instanceof ApiError ? err.message : 'Não foi possível cancelar os PIX em lote.')
+    } finally {
+      setPixLoteBusy(false)
+    }
+  }
+
   function buildRowActions(bill: BillRecord): RowAction[] {
     const actions: RowAction[] = []
     if (bill.status === 1) {
@@ -333,6 +445,47 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
         icon: <CheckCircleIcon className="h-4 w-4" />,
         onClick: () => setReceiveTarget(bill),
       })
+
+      if (role === 1) {
+        if (bill.pix_copia_e_cola) {
+          actions.push({
+            key: 'copy-pix',
+            label: 'Copiar código PIX',
+            icon: <CopyIcon className="h-4 w-4" />,
+            onClick: () => handleCopyPix(bill),
+          })
+          actions.push({
+            key: 'cancel-pix',
+            label: 'Cancelar PIX',
+            icon: <XCircleIcon className="h-4 w-4" />,
+            tone: 'danger',
+            onClick: () => handleCancelPix(bill),
+          })
+        } else if (!bill.boleto_linha_digital) {
+          actions.push({
+            key: 'generate-pix',
+            label: 'Gerar PIX',
+            icon: <QrCodeIcon className="h-4 w-4" />,
+            onClick: () => handleGeneratePix(bill),
+          })
+        }
+
+        if (bill.boleto_linha_digital) {
+          actions.push({
+            key: 'print-boleto',
+            label: 'Imprimir boleto',
+            icon: <FileTextIcon className="h-4 w-4" />,
+            onClick: () => setBoletoBill(bill),
+          })
+        } else if (!bill.pix_copia_e_cola) {
+          actions.push({
+            key: 'generate-boleto',
+            label: 'Gerar boleto',
+            icon: <FileTextIcon className="h-4 w-4" />,
+            onClick: () => handleGenerateBoleto(bill),
+          })
+        }
+      }
     }
     actions.push({
       key: 'edit',
@@ -447,14 +600,34 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
           </span>
           <div className="flex items-center gap-2">
             {role === 1 && (
-              <button
-                type="button"
-                onClick={() => setBatchReceiveOpen(true)}
-                className="flex items-center gap-1.5 rounded-xl bg-[var(--surface)] px-3.5 py-2 text-[12.5px] font-bold text-[var(--green-600)] hover:bg-white"
-              >
-                <CheckCircleIcon className="h-3.5 w-3.5" />
-                Receber selecionados
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={() => setBatchReceiveOpen(true)}
+                  className="flex items-center gap-1.5 rounded-xl bg-[var(--surface)] px-3.5 py-2 text-[12.5px] font-bold text-[var(--green-600)] hover:bg-white"
+                >
+                  <CheckCircleIcon className="h-3.5 w-3.5" />
+                  Receber selecionados
+                </button>
+                <button
+                  type="button"
+                  disabled={pixLoteBusy}
+                  onClick={handleGeneratePixLote}
+                  className="flex items-center gap-1.5 rounded-xl bg-[var(--surface)] px-3.5 py-2 text-[12.5px] font-bold text-[var(--blue-700)] hover:bg-white disabled:opacity-60"
+                >
+                  <QrCodeIcon className="h-3.5 w-3.5" />
+                  {pixLoteBusy ? 'Gerando…' : 'Gerar PIX em lote'}
+                </button>
+                <button
+                  type="button"
+                  disabled={pixLoteBusy}
+                  onClick={handleCancelPixLote}
+                  className="flex items-center gap-1.5 rounded-xl bg-[var(--surface)] px-3.5 py-2 text-[12.5px] font-bold text-[var(--red-500)] hover:bg-white disabled:opacity-60"
+                >
+                  <XCircleIcon className="h-3.5 w-3.5" />
+                  Cancelar PIX em lote
+                </button>
+              </>
             )}
             <button
               type="button"
@@ -731,6 +904,26 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
         bill={receiptBill}
         onClose={() => setReceiptBill(null)}
       />
+
+      <BillBoletoPreviewModal
+        open={Boolean(boletoBill)}
+        session={session}
+        company={company}
+        bill={boletoBill}
+        onClose={() => setBoletoBill(null)}
+      />
+
+      {pixError && (
+        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-xl bg-[var(--red-500)] px-4 py-2.5 text-[13px] font-semibold text-white shadow-lg">
+          {pixError}
+        </div>
+      )}
+
+      {pixLoteResult && !pixError && (
+        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-xl bg-[var(--blue-700)] px-4 py-2.5 text-[13px] font-semibold text-white shadow-lg">
+          {pixLoteResult}
+        </div>
+      )}
     </div>
   )
 }

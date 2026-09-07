@@ -39,6 +39,15 @@ export interface BillRecord {
   discount_calculated?: number
   total_updated?: number
   groupeds?: { id: string; name: string; amount: number }[]
+  // Campos do Sicredi (PIX/boleto), preenchidos após gerar cobrança
+  tx_id?: string | null
+  pix_copia_e_cola?: string | null
+  pix_status?: string | null
+  boleto_linha_digital?: string | null
+  boleto_codigo_barras?: string | null
+  boleto_cooperativa?: string | null
+  boleto_posto?: string | null
+  boleto_nosso_numero?: string | null
 }
 
 export interface BillPayload {
@@ -218,4 +227,47 @@ export function deleteBillsSelected(token: string, ids: string[]) {
 
 export function printBillReceipt(token: string, id: string) {
   return apiPost<{ url: string; html: string }>(`/bill/print-receipt/${id}`, {}, token)
+}
+
+export function generateBillPix(token: string, companyId: string, id: string) {
+  return apiPost<{ message: string; pix: { txid: string; copiaECola: string } }>(
+    `/bill/generate-pix/${id}`,
+    {},
+    token,
+    { companyId }
+  )
+}
+
+export function cancelBillPix(token: string, companyId: string, id: string) {
+  return apiPost<{ message: string }>(`/bill/cancel-pix/${id}`, {}, token, { companyId })
+}
+
+export interface BillsBatchResult {
+  message: string
+  total: number
+  results: {
+    sucesso: string[]
+    erros: { id: string; error: string }[]
+  }
+}
+
+export function generateBillsPixLote(token: string, companyId: string, ids: string[]) {
+  return apiPost<BillsBatchResult>('/bill/generate-pix-lote', { ids }, token, { companyId })
+}
+
+export function cancelBillsPixLote(token: string, companyId: string, ids: string[]) {
+  return apiPost<{ message: string }>('/bill/cancel-pix-lote', { ids }, token, { companyId })
+}
+
+export function generateBillBoleto(token: string, companyId: string, id: string) {
+  return apiPost<{ message: string; data: { nossoNumero: string; linhaDigitavel: string; pixCopiaECola: string | null } }>(
+    `/bill/generate-boleto/${id}`,
+    {},
+    token,
+    { companyId }
+  )
+}
+
+export function printBillBoleto(token: string, companyId: string, id: string) {
+  return apiPost<{ url: string }>(`/bill/print-boleto/${id}`, {}, token, { companyId })
 }

@@ -79,8 +79,13 @@ export function apiGet<T>(path: string, params?: Record<string, string | undefin
   return request<T>(path, { method: 'GET', params, token })
 }
 
-export function apiPost<T>(path: string, body: unknown, token?: string): Promise<T> {
-  return request<T>(path, { method: 'POST', body, token })
+export function apiPost<T>(
+  path: string,
+  body: unknown,
+  token?: string,
+  params?: Record<string, string | undefined>
+): Promise<T> {
+  return request<T>(path, { method: 'POST', body, params, token })
 }
 
 export function apiPut<T>(path: string, body: unknown, token?: string): Promise<T> {
