@@ -1,13 +1,17 @@
 import { useEffect, useState } from 'react'
-import { fetchBills, deleteBill, deleteBillsSelected, billStatusLabel, type BillRecord } from '../lib/bills'
+import { fetchBills, deleteBill, deleteBillsSelected, updateBill, billStatusLabel, type BillRecord } from '../lib/bills'
 import { formatCurrency, formatDate } from '../lib/format'
 import { ApiError } from '../lib/api'
 import { getCached, setCached } from '../lib/cache'
 import { useRowSelection } from '../hooks/useRowSelection'
-import { SearchIcon, PlusIcon, PencilIcon, ChevronDownIcon, TrashIcon, PrinterIcon } from '../components/icons'
+import { SearchIcon, PlusIcon, PencilIcon, ChevronDownIcon, TrashIcon, PrinterIcon, CheckCircleIcon, XCircleIcon } from '../components/icons'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { PrintPreviewModal, type PrintColumn } from '../components/PrintPreviewModal'
 import { BillReceiptPreviewModal } from '../components/BillReceiptPreviewModal'
+import { BillsSummaryCards, type BillsSummaryFilter } from '../components/BillsSummaryCards'
+import { BillsMoreFiltersPanel, type BillsMoreFilters } from '../components/BillsMoreFiltersPanel'
+import { BatchReceiveBillsModal } from '../components/BatchReceiveBillsModal'
+import { RowActionsMenu, type RowAction } from '../components/RowActionsMenu'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
 interface BillsPageProps {
@@ -76,6 +80,22 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
   const [printOpen, setPrintOpen] = useState(false)
   const [receiptBill, setReceiptBill] = useState<BillRecord | null>(null)
 
+  const [summaryFilter, setSummaryFilter] = useState<BillsSummaryFilter | null>(null)
+  const [moreFilters, setMoreFilters] = useState<BillsMoreFilters>({})
+  const [summaryRefreshKey, setSummaryRefreshKey] = useState(0)
+  const [batchReceiveOpen, setBatchReceiveOpen] = useState(false)
+  const [receiveTarget, setReceiveTarget] = useState<BillRecord | null>(null)
+  const [reopenTarget, setReopenTarget] = useState<BillRecord | null>(null)
+  const [receiving, setReceiving] = useState(false)
+  const [receiveError, setReceiveError] = useState<string | null>(null)
+
+  function handleSummaryFilterChange(filter: BillsSummaryFilter | null) {
+    setSummaryFilter(filter)
+    if (filter === 'overdue' || filter === 'pending') setStatusType('0')
+    else if (filter === 'paid') setStatusType('1')
+    else setStatusType('')
+  }
+
   const PRINT_COLUMNS: PrintColumn[] = [
     { key: 'code', label: 'Código' },
     { key: 'name', label: 'Descrição' },
@@ -86,10 +106,22 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
     { key: 'amount', label: 'Valor', align: 'right' },
   ]
 
+  function buildDateRange(): { start?: string; end?: string } {
+    const { start, end } = getPeriodRange(period)
+    if (summaryFilter === 'overdue') {
+      const yesterday = new Date()
+      yesterday.setDate(yesterday.getDate() - 1)
+      return { start: undefined, end: toISODate(yesterday) }
+    }
+    return { start, end }
+  }
+
+  const filtersKey = `${statusType}:${summaryFilter}:${moreFilters.peopleId ?? ''}:${moreFilters.categoryId ?? ''}:${moreFilters.bankAccountId ?? ''}`
+
   useEffect(() => {
     let cancelled = false
-    const { start, end } = getPeriodRange(period)
-    const cacheKey = `bills:${company.id}:${role}:${period}:${statusType}:${page}:${search}`
+    const { start, end } = buildDateRange()
+    const cacheKey = `bills:${company.id}:${role}:${period}:${filtersKey}:${page}:${search}`
     const cached = getCached<{ bills: BillRecord[]; meta: typeof meta }>(cacheKey)
 
     if (cached) {
@@ -111,6 +143,9 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
           statusType: statusType === '' ? undefined : Number(statusType),
           dateStart: start,
           dateEnd: end,
+          peopleId: moreFilters.peopleId,
+          categoryId: moreFilters.categoryId,
+          bankAccountId: moreFilters.bankAccountId,
         })
           .then((res) => {
             if (cancelled) return
@@ -137,15 +172,15 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
       clearTimeout(timeout)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, statusType, period, page, role, company.id, session.token.token])
+  }, [search, filtersKey, period, page, role, company.id, session.token.token])
 
   useEffect(() => {
     setPage(1)
-  }, [search, statusType, period, role])
+  }, [search, filtersKey, period, role])
 
   function silentReload() {
-    const { start, end } = getPeriodRange(period)
-    const cacheKey = `bills:${company.id}:${role}:${period}:${statusType}:${page}:${search}`
+    const { start, end } = buildDateRange()
+    const cacheKey = `bills:${company.id}:${role}:${period}:${filtersKey}:${page}:${search}`
     fetchBills(session.token.token, company.id, {
       search,
       page,
@@ -154,6 +189,9 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
       statusType: statusType === '' ? undefined : Number(statusType),
       dateStart: start,
       dateEnd: end,
+      peopleId: moreFilters.peopleId,
+      categoryId: moreFilters.categoryId,
+      bankAccountId: moreFilters.bankAccountId,
     })
       .then((res) => {
         const nextBills = res.data || []
@@ -176,6 +214,7 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
       setBills((prev) => prev.filter((bill) => bill.id !== deletedId))
       setMeta((prev) => ({ ...prev, total: Math.max(0, prev.total - 1) }))
       silentReload()
+      setSummaryRefreshKey((key) => key + 1)
     } catch (err) {
       setDeleteError(err instanceof ApiError ? err.message : 'Não foi possível excluir a conta.')
     } finally {
@@ -194,11 +233,122 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
       setMeta((prev) => ({ ...prev, total: Math.max(0, prev.total - deletedIds.size) }))
       setSelected(new Set())
       silentReload()
+      setSummaryRefreshKey((key) => key + 1)
     } catch (err) {
       setDeleteError(err instanceof ApiError ? err.message : 'Não foi possível excluir as contas selecionadas.')
     } finally {
       setDeleting(false)
     }
+  }
+
+  async function handleConfirmReceive() {
+    if (!receiveTarget) return
+    setReceiving(true)
+    setReceiveError(null)
+    try {
+      const bill = receiveTarget
+      const updated = await updateBill(session.token.token, bill.id, {
+        company_id: company.id,
+        category_id: bill.categoryId ?? bill.category?.id ?? '',
+        role,
+        name: bill.name,
+        date_competence: (bill.date_competence ?? bill.date_due ?? toISODate(new Date())).slice(0, 10),
+        date_due: (bill.date_due ?? toISODate(new Date())).slice(0, 10),
+        amount: bill.amount,
+        repeat: false,
+        form_payment: bill.form_payment,
+        status: 1,
+        bank_account_id: bill.bankAccountId ?? undefined,
+        credit_card_id: bill.creditCardId ?? undefined,
+        people_id: bill.peopleId ?? bill.people?.id,
+        cost_center_id: bill.costCenterId ?? undefined,
+        note: bill.note ?? undefined,
+        date_received: toISODate(new Date()),
+        bill_value: bill.amount,
+      })
+      setReceiveTarget(null)
+      silentReload()
+      setSummaryRefreshKey((key) => key + 1)
+      setReceiptBill(updated)
+    } catch (err) {
+      setReceiveError(err instanceof ApiError ? err.message : 'Não foi possível receber a conta.')
+    } finally {
+      setReceiving(false)
+    }
+  }
+
+  async function handleConfirmReopen() {
+    if (!reopenTarget) return
+    setReceiving(true)
+    setReceiveError(null)
+    try {
+      const bill = reopenTarget
+      await updateBill(session.token.token, bill.id, {
+        company_id: company.id,
+        category_id: bill.categoryId ?? bill.category?.id ?? '',
+        role,
+        name: bill.name,
+        date_competence: (bill.date_competence ?? bill.date_due ?? toISODate(new Date())).slice(0, 10),
+        date_due: (bill.date_due ?? toISODate(new Date())).slice(0, 10),
+        amount: bill.amount,
+        repeat: false,
+        form_payment: bill.form_payment,
+        status: 0,
+        bank_account_id: bill.bankAccountId ?? undefined,
+        credit_card_id: bill.creditCardId ?? undefined,
+        people_id: bill.peopleId ?? bill.people?.id,
+        cost_center_id: bill.costCenterId ?? undefined,
+        note: bill.note ?? undefined,
+      })
+      setReopenTarget(null)
+      silentReload()
+      setSummaryRefreshKey((key) => key + 1)
+    } catch (err) {
+      setReceiveError(err instanceof ApiError ? err.message : 'Não foi possível reabrir a conta.')
+    } finally {
+      setReceiving(false)
+    }
+  }
+
+  function buildRowActions(bill: BillRecord): RowAction[] {
+    const actions: RowAction[] = []
+    if (bill.status === 1) {
+      actions.push({
+        key: 'receipt',
+        label: 'Recibo',
+        icon: <PrinterIcon className="h-4 w-4" />,
+        onClick: () => setReceiptBill(bill),
+      })
+      actions.push({
+        key: 'reopen',
+        label: 'Reabrir',
+        icon: <XCircleIcon className="h-4 w-4" />,
+        tone: 'warning',
+        onClick: () => setReopenTarget(bill),
+      })
+    } else if (bill.status === 0) {
+      actions.push({
+        key: 'receive',
+        label: role === 1 ? 'Receber' : 'Pagar',
+        icon: <CheckCircleIcon className="h-4 w-4" />,
+        onClick: () => setReceiveTarget(bill),
+      })
+    }
+    actions.push({
+      key: 'edit',
+      label: 'Editar',
+      icon: <PencilIcon className="h-4 w-4" />,
+      onClick: () => onEdit(bill),
+    })
+    actions.push({
+      key: 'delete',
+      label: 'Excluir',
+      icon: <TrashIcon className="h-4 w-4" />,
+      tone: 'danger',
+      dividerBefore: true,
+      onClick: () => setDeleteTarget(bill),
+    })
+    return actions
   }
 
   const selectedBills = bills.filter((bill) => selected.has(bill.id))
@@ -245,6 +395,21 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
         </div>
       </div>
 
+      <BillsSummaryCards
+        session={session}
+        company={company}
+        role={role}
+        search={search}
+        dateStart={buildDateRange().start}
+        dateEnd={buildDateRange().end}
+        peopleId={moreFilters.peopleId}
+        categoryId={moreFilters.categoryId}
+        bankAccountId={moreFilters.bankAccountId}
+        activeFilter={summaryFilter}
+        onFilterChange={handleSummaryFilterChange}
+        refreshKey={summaryRefreshKey}
+      />
+
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex min-w-[240px] flex-1 items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2.5">
           <SearchIcon className="h-4 w-4 flex-none text-[var(--muted)]" />
@@ -259,7 +424,10 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
         <div className="relative flex w-[200px] flex-none items-center rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2.5">
           <select
             value={statusType}
-            onChange={(event) => setStatusType(event.target.value)}
+            onChange={(event) => {
+              setStatusType(event.target.value)
+              setSummaryFilter(null)
+            }}
             className="w-full appearance-none bg-transparent text-[13.5px] text-[var(--ink)] focus:outline-none"
           >
             <option value="">Todos os status</option>
@@ -270,12 +438,24 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
         </div>
       </div>
 
+      <BillsMoreFiltersPanel session={session} company={company} role={role} filters={moreFilters} onChange={setMoreFilters} />
+
       {selected.size > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-[var(--blue-100)] px-4 py-3">
           <span className="text-[13px] font-bold text-[var(--blue-700)]">
             {selected.size} selecionado{selected.size === 1 ? '' : 's'}
           </span>
           <div className="flex items-center gap-2">
+            {role === 1 && (
+              <button
+                type="button"
+                onClick={() => setBatchReceiveOpen(true)}
+                className="flex items-center gap-1.5 rounded-xl bg-[var(--surface)] px-3.5 py-2 text-[12.5px] font-bold text-[var(--green-600)] hover:bg-white"
+              >
+                <CheckCircleIcon className="h-3.5 w-3.5" />
+                Receber selecionados
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setPrintOpen(true)}
@@ -355,34 +535,7 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
                         <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${statusTone(bill.status)}`}>
                           {billStatusLabel(bill.status, role)}
                         </span>
-                        <div className="flex items-center gap-2">
-                          {bill.sale?.vehicleRentalContract && (
-                            <button
-                              type="button"
-                              onClick={() => setReceiptBill(bill)}
-                              className="flex items-center gap-1.5 rounded-lg bg-[var(--page)] px-3 py-1.5 text-[12px] font-semibold text-[var(--ink-soft)]"
-                            >
-                              <PrinterIcon className="h-3.5 w-3.5" />
-                              Recibo
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => onEdit(bill)}
-                            className="flex items-center gap-1.5 rounded-lg bg-[var(--page)] px-3 py-1.5 text-[12px] font-semibold text-[var(--ink-soft)]"
-                          >
-                            <PencilIcon className="h-3.5 w-3.5" />
-                            Editar
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setDeleteTarget(bill)}
-                            className="flex items-center gap-1.5 rounded-lg bg-[var(--red-100)] px-3 py-1.5 text-[12px] font-semibold text-[var(--red-500)]"
-                          >
-                            <TrashIcon className="h-3.5 w-3.5" />
-                            Excluir
-                          </button>
-                        </div>
+                        <RowActionsMenu actions={buildRowActions(bill)} />
                       </div>
                     </div>
                   </div>
@@ -443,33 +596,8 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
                         {formatCurrency(bill.amount)}
                       </td>
                       <td className="py-2.5 pr-3 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          {bill.sale?.vehicleRentalContract && (
-                            <button
-                              type="button"
-                              onClick={() => setReceiptBill(bill)}
-                              className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-[var(--muted)] hover:bg-[var(--surface)] hover:text-[var(--ink)]"
-                              aria-label="Recibo"
-                            >
-                              <PrinterIcon className="h-3.5 w-3.5" />
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => onEdit(bill)}
-                            className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-[var(--muted)] hover:bg-[var(--surface)] hover:text-[var(--ink)]"
-                            aria-label="Editar"
-                          >
-                            <PencilIcon className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setDeleteTarget(bill)}
-                            className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-[var(--muted)] hover:bg-[var(--red-100)] hover:text-[var(--red-500)]"
-                            aria-label="Excluir"
-                          >
-                            <TrashIcon className="h-3.5 w-3.5" />
-                          </button>
+                        <div className="flex items-center justify-end">
+                          <RowActionsMenu actions={buildRowActions(bill)} />
                         </div>
                       </td>
                     </tr>
@@ -539,6 +667,53 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
           {deleteError}
         </div>
       )}
+
+      <ConfirmDialog
+        open={Boolean(receiveTarget)}
+        title={role === 1 ? 'Receber conta' : 'Pagar conta'}
+        message={`Confirma o ${role === 1 ? 'recebimento' : 'pagamento'} de "${receiveTarget?.name}" no valor de ${formatCurrency(receiveTarget?.amount ?? 0)}?`}
+        confirmLabel={role === 1 ? 'Receber' : 'Pagar'}
+        danger={false}
+        loading={receiving}
+        onConfirm={handleConfirmReceive}
+        onCancel={() => {
+          setReceiveTarget(null)
+          setReceiveError(null)
+        }}
+      />
+
+      <ConfirmDialog
+        open={Boolean(reopenTarget)}
+        title="Reabrir conta"
+        message={`Tem certeza que deseja reabrir "${reopenTarget?.name}"? Ela voltará para pendente.`}
+        confirmLabel="Reabrir"
+        loading={receiving}
+        onConfirm={handleConfirmReopen}
+        onCancel={() => {
+          setReopenTarget(null)
+          setReceiveError(null)
+        }}
+      />
+
+      {receiveError && (
+        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-xl bg-[var(--red-500)] px-4 py-2.5 text-[13px] font-semibold text-white shadow-lg">
+          {receiveError}
+        </div>
+      )}
+
+      <BatchReceiveBillsModal
+        open={batchReceiveOpen}
+        session={session}
+        company={company}
+        bills={selectedBills}
+        onClose={() => setBatchReceiveOpen(false)}
+        onSuccess={() => {
+          setBatchReceiveOpen(false)
+          clear()
+          silentReload()
+          setSummaryRefreshKey((key) => key + 1)
+        }}
+      />
 
       <PrintPreviewModal
         open={printOpen}

@@ -31,6 +31,14 @@ export interface BillRecord {
   sale?: { id: string; vehicleRentalContract?: { id: string } | null } | null
   createdAt?: string
   created_at?: string
+  // Campos calculados a cada fetch (hook @afterFind/@afterFetch do model) —
+  // não existem como coluna, só aparecem na resposta.
+  days_late?: number
+  fine_calculated?: number
+  fees_calculated?: number
+  discount_calculated?: number
+  total_updated?: number
+  groupeds?: { id: string; name: string; amount: number }[]
 }
 
 export interface BillPayload {
@@ -106,39 +114,86 @@ export function billStatusLabel(status: number, role: number): string {
   return 'Pendente'
 }
 
-export function fetchBills(
-  token: string,
-  companyId: string,
-  options: {
-    search?: string
-    page?: number
-    limit?: number
-    role: number
-    statusType?: number
-    dateStart?: string
-    dateEnd?: string
-    towingSaleId?: string
-    saleId?: string
+interface BillsFilterOptions {
+  search?: string
+  page?: number
+  limit?: number
+  role: number
+  statusType?: number
+  dateStart?: string
+  dateEnd?: string
+  dateType?: 'date_due' | 'date_received' | 'created_at'
+  towingSaleId?: string
+  saleId?: string
+  peopleId?: string
+  categoryId?: string
+  bankAccountId?: string
+  formPaymentType?: number
+}
+
+function billsFilterParams(companyId: string, options: BillsFilterOptions) {
+  return {
+    companyId,
+    search: options.search,
+    role: String(options.role),
+    statusType: options.statusType !== undefined ? String(options.statusType) : undefined,
+    dateStart: options.dateStart,
+    dateEnd: options.dateEnd,
+    dateType: options.dateType,
+    towingSaleId: options.towingSaleId,
+    saleId: options.saleId,
+    peopleId: options.peopleId,
+    categoryId: options.categoryId,
+    bankAccountId: options.bankAccountId,
+    formPaymentType: options.formPaymentType !== undefined ? String(options.formPaymentType) : undefined,
   }
-) {
+}
+
+export function fetchBills(token: string, companyId: string, options: BillsFilterOptions) {
   return apiGet<Paginated<BillRecord>>(
     '/bill',
     {
-      companyId,
-      search: options.search,
+      ...billsFilterParams(companyId, options),
       page: options.page ? String(options.page) : '1',
       limit: options.limit ? String(options.limit) : '10',
-      role: String(options.role),
-      statusType: options.statusType !== undefined ? String(options.statusType) : undefined,
-      dateStart: options.dateStart,
-      dateEnd: options.dateEnd,
-      towingSaleId: options.towingSaleId,
-      saleId: options.saleId,
       orderBy: 'date_due',
       sortedBy: 'asc',
     },
     token
   )
+}
+
+export interface BillsSummaryBucket {
+  count: number
+  total: number
+}
+
+export interface BillsSummary {
+  pending: BillsSummaryBucket
+  paid: BillsSummaryBucket
+  overdue: BillsSummaryBucket
+  total: BillsSummaryBucket
+}
+
+export function fetchBillsSummary(token: string, companyId: string, options: BillsFilterOptions) {
+  return apiGet<BillsSummary>('/bill/summary', billsFilterParams(companyId, options), token)
+}
+
+export interface BatchReceiveBillsPayload {
+  ids: string[]
+  interest?: number
+  discount?: number
+  amountPaid: number
+  date_received: string
+  bank_account_id: string
+  category_id: string
+  cost_center_id?: string
+  form_payment: number
+  nextDueDate?: string
+}
+
+export function batchReceiveBills(token: string, payload: BatchReceiveBillsPayload) {
+  return apiPost<{ message: string; paymentId: string }>('/bill/batch-receive', payload, token)
 }
 
 export function fetchBill(token: string, id: string) {
