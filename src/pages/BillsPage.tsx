@@ -28,6 +28,8 @@ import {
   QrCodeIcon,
   CopyIcon,
   FileTextIcon,
+  WhatsappIcon,
+  LinkIcon,
 } from '../components/icons'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { PrintPreviewModal, type PrintColumn } from '../components/PrintPreviewModal'
@@ -36,6 +38,9 @@ import { BillBoletoPreviewModal } from '../components/BillBoletoPreviewModal'
 import { BillsSummaryCards, type BillsSummaryFilter } from '../components/BillsSummaryCards'
 import { BillsMoreFiltersPanel, type BillsMoreFilters } from '../components/BillsMoreFiltersPanel'
 import { BatchReceiveBillsModal } from '../components/BatchReceiveBillsModal'
+import { SendBillWhatsappModal } from '../components/SendBillWhatsappModal'
+import { GroupBillsModal } from '../components/GroupBillsModal'
+import { GroupDetailsModal } from '../components/GroupDetailsModal'
 import { RowActionsMenu, type RowAction } from '../components/RowActionsMenu'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
@@ -119,6 +124,11 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
   const [pixError, setPixError] = useState<string | null>(null)
   const [pixLoteBusy, setPixLoteBusy] = useState(false)
   const [pixLoteResult, setPixLoteResult] = useState<string | null>(null)
+
+  const [whatsappBill, setWhatsappBill] = useState<BillRecord | null>(null)
+  const [groupModalOpen, setGroupModalOpen] = useState(false)
+  const [groupDetailsBill, setGroupDetailsBill] = useState<BillRecord | null>(null)
+  const [successToast, setSuccessToast] = useState<string | null>(null)
 
   function handleSummaryFilterChange(filter: BillsSummaryFilter | null) {
     setSummaryFilter(filter)
@@ -485,7 +495,24 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
             onClick: () => handleGenerateBoleto(bill),
           })
         }
+
+        if (bill.pix_copia_e_cola || bill.boleto_linha_digital) {
+          actions.push({
+            key: 'send-whatsapp',
+            label: 'Enviar WhatsApp',
+            icon: <WhatsappIcon className="h-4 w-4" />,
+            onClick: () => setWhatsappBill(bill),
+          })
+        }
       }
+    }
+    if ((bill.groupeds?.length ?? 0) > 0) {
+      actions.push({
+        key: 'group-details',
+        label: 'Ver agrupamento',
+        icon: <LinkIcon className="h-4 w-4" />,
+        onClick: () => setGroupDetailsBill(bill),
+      })
     }
     actions.push({
       key: 'edit',
@@ -628,6 +655,16 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
                   Cancelar PIX em lote
                 </button>
               </>
+            )}
+            {selectedBills.length >= 2 && selectedBills.every((bill) => bill.status === 0) && (
+              <button
+                type="button"
+                onClick={() => setGroupModalOpen(true)}
+                className="flex items-center gap-1.5 rounded-xl bg-[var(--surface)] px-3.5 py-2 text-[12.5px] font-bold text-[var(--blue-700)] hover:bg-white"
+              >
+                <LinkIcon className="h-3.5 w-3.5" />
+                Agrupar selecionados
+              </button>
             )}
             <button
               type="button"
@@ -922,6 +959,48 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
       {pixLoteResult && !pixError && (
         <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-xl bg-[var(--blue-700)] px-4 py-2.5 text-[13px] font-semibold text-white shadow-lg">
           {pixLoteResult}
+        </div>
+      )}
+
+      <SendBillWhatsappModal
+        open={Boolean(whatsappBill)}
+        session={session}
+        company={company}
+        bill={whatsappBill}
+        onClose={() => setWhatsappBill(null)}
+        onSent={(message) => setSuccessToast(message)}
+      />
+
+      <GroupBillsModal
+        open={groupModalOpen}
+        session={session}
+        company={company}
+        bills={selectedBills}
+        onClose={() => setGroupModalOpen(false)}
+        onSuccess={() => {
+          setGroupModalOpen(false)
+          clear()
+          silentReload()
+          setSummaryRefreshKey((key) => key + 1)
+          setSuccessToast('Contas agrupadas com sucesso.')
+        }}
+      />
+
+      <GroupDetailsModal
+        open={Boolean(groupDetailsBill)}
+        session={session}
+        bill={groupDetailsBill}
+        onClose={() => setGroupDetailsBill(null)}
+        onUngrouped={() => {
+          silentReload()
+          setSummaryRefreshKey((key) => key + 1)
+          setSuccessToast('Contas desagrupadas com sucesso.')
+        }}
+      />
+
+      {successToast && (
+        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-xl bg-[var(--green-600)] px-4 py-2.5 text-[13px] font-semibold text-white shadow-lg">
+          {successToast}
         </div>
       )}
     </div>

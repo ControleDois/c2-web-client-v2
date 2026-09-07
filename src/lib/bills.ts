@@ -271,3 +271,19 @@ export function generateBillBoleto(token: string, companyId: string, id: string)
 export function printBillBoleto(token: string, companyId: string, id: string) {
   return apiPost<{ url: string }>(`/bill/print-boleto/${id}`, {}, token, { companyId })
 }
+
+export function sendBillWhatsapp(token: string, billId: string, whatsappId: string) {
+  return apiPost<{ message: string; postId: string; postMessageId: string }>(
+    '/uazapi/send-bill-charge',
+    { billId, whatsappId },
+    token
+  )
+}
+
+export function groupBillsSelected(token: string, payload: { ids: string[]; name?: string; people_id: string }) {
+  return apiPost<{ message: string; data: BillRecord }>('/bill/grouped-selected', payload, token)
+}
+
+export function ungroupBill(token: string, id: string) {
+  return apiPost<{ message: string }>(`/bill/ungroup/${id}`, {}, token)
+}
