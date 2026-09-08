@@ -10,13 +10,13 @@ import {
   configurarWebhookPixSicredi,
   consultarWebhookBoletoSicredi,
   criarWebhookBoletoSicredi,
-  type SicrediWebhookResult,
+  atualizarWebhookBoletoSicredi,
 } from '../../lib/config'
 import { ApiError } from '../../lib/api'
 import { SectionCard } from '../../components/SectionCard'
 import { TextField } from '../../components/form/TextField'
 import { SelectField } from '../../components/form/SelectField'
-import { LockIcon, TagIcon, PaperclipIcon, WalletIcon, LinkIcon } from '../../components/icons'
+import { LockIcon, TagIcon, PaperclipIcon, WalletIcon, LinkIcon, MailIcon } from '../../components/icons'
 import type { AuthSession, AuthCompany } from '../../lib/auth'
 
 interface IntegracoesSectionProps {
@@ -27,27 +27,41 @@ interface IntegracoesSectionProps {
   company: AuthCompany
 }
 
-function SicrediWebhookCard({
-  title,
-  onConsult,
-  onSave,
-}: {
-  title: string
-  onConsult: () => Promise<SicrediWebhookResult>
-  onSave: () => Promise<SicrediWebhookResult>
-}) {
-  const [result, setResult] = useState<SicrediWebhookResult | null>(null)
+function SicrediPixWebhookCard({ token, companyId }: { token: string; companyId: string }) {
+  const [url, setUrl] = useState('')
   const [loading, setLoading] = useState<'consult' | 'save' | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
 
-  async function run(action: 'consult' | 'save', fn: () => Promise<SicrediWebhookResult>) {
-    setLoading(action)
+  async function handleConsult() {
+    setLoading('consult')
     setError(null)
+    setSuccess(null)
     try {
-      const res = await fn()
-      setResult(res)
+      const res = await consultarWebhookPixSicredi(token, companyId)
+      setUrl(res.webhookUrl ?? '')
+      setSuccess(res.webhookUrl ? 'Webhook consultado com sucesso.' : 'Nenhum webhook configurado ainda. Você pode criar um novo.')
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Não foi possível consultar o webhook.')
+      setError(err instanceof ApiError ? err.message : 'Webhook não encontrado para estas credenciais. Você pode criar um novo.')
+      setUrl('')
+    } finally {
+      setLoading(null)
+    }
+  }
+
+  async function handleSave() {
+    if (!url.trim()) {
+      setError('Informe a URL de notificação.')
+      return
+    }
+    setLoading('save')
+    setError(null)
+    setSuccess(null)
+    try {
+      await configurarWebhookPixSicredi(token, companyId, { webhookUrl: url.trim() })
+      setSuccess('Webhook Sicredi PIX atualizado com sucesso.')
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Ocorreu um erro ao atualizar o webhook. Tente novamente mais tarde.')
     } finally {
       setLoading(null)
     }
@@ -55,33 +69,180 @@ function SicrediWebhookCard({
 
   return (
     <div className="rounded-xl bg-[var(--page)] p-4">
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h4 className="flex items-center gap-1.5 text-[12.5px] font-bold text-[var(--ink)]">
-          <LinkIcon className="h-3.5 w-3.5" /> {title}
+          <LinkIcon className="h-3.5 w-3.5" /> Webhook PIX
         </h4>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => run('consult', onConsult)}
-            disabled={loading !== null}
-            className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-[11.5px] font-bold text-[var(--ink-soft)] hover:text-[var(--ink)] disabled:opacity-60"
-          >
-            {loading === 'consult' ? 'Consultando…' : 'Consultar atual'}
-          </button>
-          <button
-            type="button"
-            onClick={() => run('save', onSave)}
-            disabled={loading !== null}
-            className="rounded-lg bg-[var(--blue-500)] px-3 py-1.5 text-[11.5px] font-bold text-white hover:bg-[var(--blue-700)] disabled:opacity-60"
-          >
-            {loading === 'save' ? 'Enviando…' : 'Atualizar webhook'}
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={handleConsult}
+          disabled={loading !== null}
+          className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-[11.5px] font-bold text-[var(--ink-soft)] hover:text-[var(--ink)] disabled:opacity-60"
+        >
+          {loading === 'consult' ? 'Consultando…' : 'Consultar atual'}
+        </button>
       </div>
-      {error && <p className="text-[12px] font-medium text-[var(--red-500)]">{error}</p>}
-      {result && (
-        <p className="truncate text-[12px] text-[var(--ink-soft)]">{result.url || 'Nenhum webhook configurado ainda.'}</p>
-      )}
+
+      <TextField
+        label="URL de notificação"
+        icon={<LinkIcon className="h-4 w-4" />}
+        placeholder="https://sua-api.com/webhook"
+        value={url}
+        onChange={(event) => setUrl(event.target.value)}
+      />
+
+      <button
+        type="button"
+        onClick={handleSave}
+        disabled={loading !== null}
+        className="mt-3 w-full rounded-lg bg-[var(--blue-500)] px-3 py-2 text-[12px] font-bold text-white hover:bg-[var(--blue-700)] disabled:opacity-60"
+      >
+        {loading === 'save' ? 'Enviando…' : 'Atualizar webhook'}
+      </button>
+
+      {error && <p className="mt-2 text-[12px] font-medium text-[var(--red-500)]">{error}</p>}
+      {success && !error && <p className="mt-2 text-[12px] font-medium text-[var(--green-600)]">{success}</p>}
+    </div>
+  )
+}
+
+function SicrediBoletoWebhookCard({ token, companyId }: { token: string; companyId: string }) {
+  const [contratoId, setContratoId] = useState<string | null>(null)
+  const [url, setUrl] = useState('')
+  const [eventos, setEventos] = useState('')
+  const [nome, setNome] = useState('')
+  const [email, setEmail] = useState('')
+  const [telefone, setTelefone] = useState('')
+  const [loading, setLoading] = useState<'consult' | 'save' | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
+
+  async function handleConsult() {
+    setLoading('consult')
+    setError(null)
+    setSuccess(null)
+    try {
+      const res = await consultarWebhookBoletoSicredi(token, companyId)
+      setContratoId(res.idContrato ?? null)
+      setUrl(res.url ?? '')
+      setEventos((res.eventos ?? []).join(','))
+      setNome(res.nomeResponsavel ?? '')
+      setEmail(res.email ?? '')
+      setTelefone(res.telefone ?? '')
+      setSuccess('Webhook consultado com sucesso.')
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Webhook não encontrado para estas credenciais. Você pode criar um novo.')
+      setContratoId(null)
+      setUrl('')
+      setEventos('')
+      setNome('')
+      setEmail('')
+      setTelefone('')
+    } finally {
+      setLoading(null)
+    }
+  }
+
+  async function handleSave() {
+    if (!url.trim() || !eventos.trim()) {
+      setError('Informe a URL de notificação e ao menos um evento.')
+      return
+    }
+    setLoading('save')
+    setError(null)
+    setSuccess(null)
+    const payload = {
+      url: url.trim(),
+      eventos: eventos.split(',').map((item) => item.trim()).filter(Boolean),
+      nomeResponsavel: nome.trim(),
+      email: email.trim(),
+      telefone: telefone.trim(),
+    }
+    try {
+      if (contratoId) {
+        await atualizarWebhookBoletoSicredi(token, companyId, contratoId, payload)
+        setSuccess('Webhook Sicredi atualizado com sucesso.')
+      } else {
+        const res = await criarWebhookBoletoSicredi(token, companyId, payload)
+        setContratoId(res.idContrato ?? null)
+        setSuccess('Webhook Sicredi criado com sucesso.')
+      }
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : `Ocorreu um erro ao ${contratoId ? 'atualizar' : 'criar'} o webhook. Tente novamente mais tarde.`
+      )
+    } finally {
+      setLoading(null)
+    }
+  }
+
+  return (
+    <div className="rounded-xl bg-[var(--page)] p-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h4 className="flex items-center gap-1.5 text-[12.5px] font-bold text-[var(--ink)]">
+          <LinkIcon className="h-3.5 w-3.5" /> Webhook Boleto
+        </h4>
+        <button
+          type="button"
+          onClick={handleConsult}
+          disabled={loading !== null}
+          className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-[11.5px] font-bold text-[var(--ink-soft)] hover:text-[var(--ink)] disabled:opacity-60"
+        >
+          {loading === 'consult' ? 'Consultando…' : 'Consultar atual'}
+        </button>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="sm:col-span-2 xl:col-span-2">
+          <TextField
+            label="URL de notificação"
+            icon={<LinkIcon className="h-4 w-4" />}
+            placeholder="https://sua-api.com/webhook"
+            value={url}
+            onChange={(event) => setUrl(event.target.value)}
+          />
+        </div>
+        <TextField
+          label="Eventos (ex: LIQUIDACAO)"
+          icon={<TagIcon className="h-4 w-4" />}
+          placeholder="LIQUIDACAO,BAIXA"
+          value={eventos}
+          onChange={(event) => setEventos(event.target.value)}
+        />
+        <TextField
+          label="Responsável"
+          icon={<TagIcon className="h-4 w-4" />}
+          value={nome}
+          onChange={(event) => setNome(event.target.value)}
+        />
+        <TextField
+          label="E-mail"
+          icon={<MailIcon className="h-4 w-4" />}
+          type="email"
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+        />
+        <TextField
+          label="Telefone"
+          icon={<TagIcon className="h-4 w-4" />}
+          value={telefone}
+          onChange={(event) => setTelefone(event.target.value)}
+        />
+      </div>
+
+      <button
+        type="button"
+        onClick={handleSave}
+        disabled={loading !== null}
+        className="mt-3 w-full rounded-lg bg-[var(--blue-500)] px-3 py-2 text-[12px] font-bold text-white hover:bg-[var(--blue-700)] disabled:opacity-60"
+      >
+        {loading === 'save' ? 'Enviando…' : contratoId ? 'Atualizar webhook' : 'Criar novo webhook'}
+      </button>
+
+      {error && <p className="mt-2 text-[12px] font-medium text-[var(--red-500)]">{error}</p>}
+      {success && !error && <p className="mt-2 text-[12px] font-medium text-[var(--green-600)]">{success}</p>}
     </div>
   )
 }
@@ -206,11 +367,7 @@ export function IntegracoesSection({ value, onChange, config, session, company }
             </div>
           </div>
 
-          <SicrediWebhookCard
-            title="Webhook PIX"
-            onConsult={() => consultarWebhookPixSicredi(token, company.id)}
-            onSave={() => configurarWebhookPixSicredi(token, company.id, {})}
-          />
+          <SicrediPixWebhookCard token={token} companyId={company.id} />
         </div>
       </SectionCard>
 
@@ -412,11 +569,7 @@ export function IntegracoesSection({ value, onChange, config, session, company }
             </div>
           </div>
 
-          <SicrediWebhookCard
-            title="Webhook Boleto"
-            onConsult={() => consultarWebhookBoletoSicredi(token, company.id)}
-            onSave={() => criarWebhookBoletoSicredi(token, company.id, {})}
-          />
+          <SicrediBoletoWebhookCard token={token} companyId={company.id} />
         </div>
       </SectionCard>
     </div>

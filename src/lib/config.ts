@@ -373,9 +373,11 @@ export function updateConfig(token: string, id: string, payload: ConfigPayload) 
 }
 
 export interface SicrediWebhookResult {
+  idContrato?: string
   url?: string
+  webhookUrl?: string
   eventos?: string[]
-  nome?: string
+  nomeResponsavel?: string
   email?: string
   telefone?: string
   [key: string]: unknown
