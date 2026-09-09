@@ -113,7 +113,15 @@ export const FUEL_TYPES = ['FLEX', 'GASOLINA', 'ALCOOL', 'DIESEL', 'GNV', 'ELETR
 export function fetchVehicles(
   token: string,
   companyId: string,
-  options: { search?: string; page?: number; limit?: number; role?: number; status?: number } = {}
+  options: {
+    search?: string
+    page?: number
+    limit?: number
+    role?: number
+    status?: number
+    excludeActiveRentals?: boolean
+    excludeRentalSaleId?: string
+  } = {}
 ) {
   return apiGet<Paginated<VehicleRecord>>(
     '/vehicle',
@@ -124,6 +132,8 @@ export function fetchVehicles(
       limit: options.limit ? String(options.limit) : '10',
       role: options.role !== undefined ? String(options.role) : undefined,
       status: options.status !== undefined ? `{${options.status}}` : undefined,
+      excludeActiveRentals: options.excludeActiveRentals ? 'true' : undefined,
+      excludeRentalSaleId: options.excludeRentalSaleId,
       orderBy: 'license_plate',
       sortedBy: 'asc',
     },

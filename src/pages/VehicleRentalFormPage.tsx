@@ -220,9 +220,19 @@ export function VehicleRentalFormPage({ session, company, saleId, onBack, onSave
     (query: string) => fetchPeople(session.token.token, company.id, { search: query, limit: 8 }).then((res) => res.data),
     [session.token.token, company.id]
   )
+  // Esconde da busca veículos que já estão alugados em outro contrato ainda
+  // não devolvido — não faz sentido oferecer pra alugar de novo. Editando um
+  // aluguel existente, `excludeRentalSaleId` evita que o próprio contrato
+  // que está sendo editado "bloqueie" o veículo dele mesmo.
   const searchVehicles = useCallback(
-    (query: string) => fetchVehicles(session.token.token, company.id, { search: query, limit: 8 }).then((res) => res.data),
-    [session.token.token, company.id]
+    (query: string) =>
+      fetchVehicles(session.token.token, company.id, {
+        search: query,
+        limit: 8,
+        excludeActiveRentals: true,
+        excludeRentalSaleId: saleId,
+      }).then((res) => res.data),
+    [session.token.token, company.id, saleId]
   )
 
   // Ao escolher o veículo num aluguel novo, sugere o KM a partir do último

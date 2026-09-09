@@ -165,6 +165,10 @@ export interface SalePayload {
   vehicleRentalContract?: VehicleRentalContractPayload
   vehicleSaleContract?: VehicleSaleContractPayload
   plots?: SalePlotPayload[]
+  // Preenchido só pelo fluxo de "Renovar aluguel": deixa o backend não
+  // barrar o veículo por conta do contrato original, que ainda não foi
+  // devolvido mas está sendo continuado, não duplicado.
+  renewingFromSaleId?: string
 }
 
 export interface VehicleRentalOperationPayload {

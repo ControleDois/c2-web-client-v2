@@ -130,6 +130,7 @@ export function RenewRentalModal({ open, session, company, sale, onClose, onSucc
         status: 3,
         net_total: previewTotal,
         note: `Renovação do aluguel #${detail.internal_code ?? detail.code}`,
+        renewingFromSaleId: detail.id,
         vehicleRentalContract: {
           vehicleId: contract.vehicle?.id,
           renterPeopleId: contract.renter?.id,
