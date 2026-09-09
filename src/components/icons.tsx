@@ -508,3 +508,16 @@ export function KeyIcon(props: SVGProps<SVGSVGElement>) {
     </svg>
   )
 }
+
+export function RefreshIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" {...props}>
+      <path
+        d="M16 10a6 6 0 0 1-10.9 3.5M4 10a6 6 0 0 1 10.9-3.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M4 4v4h4M16 16v-4h-4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}

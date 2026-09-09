@@ -12,7 +12,7 @@ import { ApiError } from '../lib/api'
 import { getCached, setCached } from '../lib/cache'
 import { fetchConfig } from '../lib/config'
 import { useRowSelection } from '../hooks/useRowSelection'
-import { SearchIcon, PlusIcon, PencilIcon, TrashIcon, PrinterIcon, TruckIcon, WhatsappIcon, RouteIcon } from '../components/icons'
+import { SearchIcon, PlusIcon, PencilIcon, TrashIcon, PrinterIcon, TruckIcon, WhatsappIcon, RouteIcon, RefreshIcon } from '../components/icons'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { RowActionsMenu, type RowAction } from '../components/RowActionsMenu'
 import { SaleContractPreviewModal } from '../components/SaleContractPreviewModal'
@@ -20,6 +20,7 @@ import { SaleSendContractModal } from '../components/SaleSendContractModal'
 import { SaleQuitacaoPreviewModal } from '../components/SaleQuitacaoPreviewModal'
 import { ListEntityDateFilters, type EntityPick } from '../components/ListEntityDateFilters'
 import { RentalOperationModal, type OperationMode } from '../components/RentalOperationModal'
+import { RenewRentalModal } from '../components/RenewRentalModal'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
 function periodOverlaps(startDate: string | null | undefined, endDate: string | null | undefined, from: string, to: string): boolean {
@@ -144,6 +145,7 @@ export function VehicleRentalsPage({ session, company, onCreate, onEdit }: Vehic
   const [contractSale, setContractSale] = useState<SaleRecord | null>(null)
   const [sendContractSale, setSendContractSale] = useState<SaleRecord | null>(null)
   const [quitacaoSale, setQuitacaoSale] = useState<SaleRecord | null>(null)
+  const [renewSale, setRenewSale] = useState<SaleRecord | null>(null)
   const [feedback, setFeedback] = useState<{ tone: 'success' | 'error'; message: string } | null>(null)
 
   useEffect(() => {
@@ -307,6 +309,17 @@ export function VehicleRentalsPage({ session, company, onCreate, onEdit }: Vehic
             },
           ]
         : []
+    const renewAction: RowAction[] =
+      (status === 1 || status === 2) && !sale.vehicleRentalContract?.purchaseOption
+        ? [
+            {
+              key: 'renew',
+              label: 'Renovar',
+              icon: <RefreshIcon className="h-4 w-4" />,
+              onClick: () => setRenewSale(sale),
+            },
+          ]
+        : []
     return [
       {
         key: 'edit',
@@ -315,6 +328,7 @@ export function VehicleRentalsPage({ session, company, onCreate, onEdit }: Vehic
         onClick: () => onEdit(sale),
       },
       ...operationAction,
+      ...renewAction,
       {
         key: 'contract',
         label: 'Visualizar contrato',
@@ -747,6 +761,19 @@ export function VehicleRentalsPage({ session, company, onCreate, onEdit }: Vehic
         session={session}
         sale={quitacaoSale}
         onClose={() => setQuitacaoSale(null)}
+      />
+
+      <RenewRentalModal
+        open={Boolean(renewSale)}
+        session={session}
+        company={company}
+        sale={renewSale}
+        onClose={() => setRenewSale(null)}
+        onSuccess={(message) => {
+          setRenewSale(null)
+          reload()
+          setFeedback({ tone: 'success', message })
+        }}
       />
 
       {operationTarget && (

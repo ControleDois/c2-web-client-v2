@@ -26,6 +26,8 @@ export interface VehicleRentalContractRecord {
   vehicleOwnerType: number
   startDate?: string | null
   endDate?: string | null
+  startTime?: string | null
+  endTime?: string | null
   billingDay?: number | null
   rentalFrequency: string
   monthlyValue: number
@@ -112,6 +114,8 @@ export interface VehicleRentalContractPayload {
   vehicleOwnerType?: number
   startDate?: string
   endDate?: string
+  startTime?: string
+  endTime?: string
   billingDay?: number
   rentalFrequency?: string
   monthlyValue?: number

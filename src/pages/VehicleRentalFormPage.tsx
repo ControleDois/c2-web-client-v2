@@ -15,6 +15,7 @@ import { fetchVehicles, type VehicleRecord } from '../lib/vehicles'
 import { fetchBills, FORM_PAYMENT_LABELS } from '../lib/bills'
 import { fetchCategories, type CategoryRecord } from '../lib/categories'
 import { fetchRentalTypes, type RentalTypeRecord } from '../lib/rentalTypes'
+import { computeRentalUnits, rentalUnitsLabel, nextDueDate, buildPeriodPlots } from '../lib/rentalPlots'
 import { formatDocument } from '../lib/formatDocument'
 import { formatCurrency } from '../lib/format'
 import { ApiError } from '../lib/api'
@@ -55,29 +56,6 @@ function parseAmount(value: string): number {
   return Number.isNaN(num) ? 0 : num
 }
 
-// Mesma lógica de VehicleRentalsPage.tsx (rentalUnits) — quantas diárias/
-// semanas/meses cabem entre início e fim, pra multiplicar pelo valor por
-// período e chegar no total real da locação.
-function rentalUnitsLabel(frequency: string, units: number): string {
-  if (frequency === 'daily') return `${units} ${units === 1 ? 'diária' : 'diárias'}`
-  if (frequency === 'weekly') return `${units} ${units === 1 ? 'semana' : 'semanas'}`
-  return `${units} ${units === 1 ? 'mês' : 'meses'}`
-}
-
-function computeRentalUnits(frequency: string, startDateStr: string, endDateStr: string): number {
-  const start = new Date(startDateStr)
-  const end = new Date(endDateStr)
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) return 1
-
-  const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
-
-  if (frequency === 'daily') return Math.max(1, diffDays)
-  if (frequency === 'weekly') return Math.max(1, Math.ceil(diffDays / 7))
-  let months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth())
-  if (end.getDate() < start.getDate()) months -= 1
-  return Math.max(1, months)
-}
-
 export function VehicleRentalFormPage({ session, company, saleId, onBack, onSaved }: VehicleRentalFormPageProps) {
   const [loading, setLoading] = useState(Boolean(saleId))
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -96,6 +74,8 @@ export function VehicleRentalFormPage({ session, company, saleId, onBack, onSave
   const [rentalFrequency, setRentalFrequency] = useState('monthly')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
+  const [startTimeInput, setStartTimeInput] = useState('')
+  const [endTimeInput, setEndTimeInput] = useState('')
   const [billingDay, setBillingDay] = useState('')
   const [monthlyValue, setMonthlyValue] = useState('')
   const [securityDeposit, setSecurityDeposit] = useState('')
@@ -180,6 +160,8 @@ export function VehicleRentalFormPage({ session, company, saleId, onBack, onSave
         setRentalFrequency(contract?.rentalFrequency ?? 'monthly')
         setStartDate(contract?.startDate ? contract.startDate.slice(0, 10) : '')
         setEndDate(contract?.endDate ? contract.endDate.slice(0, 10) : '')
+        setStartTimeInput(contract?.startTime ? contract.startTime.slice(0, 5) : '')
+        setEndTimeInput(contract?.endTime ? contract.endTime.slice(0, 5) : '')
         setBillingDay(contract?.billingDay ? String(contract.billingDay) : '')
         setMonthlyValue(contract?.monthlyValue ? String(contract.monthlyValue) : '')
         setSecurityDeposit(contract?.securityDeposit ? String(contract.securityDeposit) : '')
@@ -300,36 +282,17 @@ export function VehicleRentalFormPage({ session, company, saleId, onBack, onSave
     return { units, rate, total: units * rate }
   }, [purchaseOption, rentalDayCount, monthlyValue, rentalFrequency, startDate, endDate])
 
-  function addMonthsToDate(dateStr: string, months: number): string {
-    const date = new Date(dateStr)
-    date.setMonth(date.getMonth() + months)
-    return date.toISOString().slice(0, 10)
-  }
-
-  function addDaysToDate(dateStr: string, days: number): string {
-    const date = new Date(dateStr)
-    date.setDate(date.getDate() + days)
-    return date.toISOString().slice(0, 10)
-  }
-
-  function nextDueDate(baseDate: string, index: number): string {
-    if (rentalFrequency === 'daily') return addDaysToDate(baseDate, index)
-    if (rentalFrequency === 'weekly') return addDaysToDate(baseDate, index * 7)
-    return addMonthsToDate(baseDate, index)
-  }
-
   // Uma conta por período (diária/semanal/mensal, conforme rentalFrequency) — a
   // 1ª vence na própria data de início (índice 0-based), diferente do fluxo de
   // financiamento acima (handleGeneratePlots), que só cobra a 1ª parcela um
   // período depois.
-  function buildPeriodPlots(): PlotEntry[] {
+  function buildFormPeriodPlots(): PlotEntry[] {
     const rate = parseAmount(monthlyValue)
-    const units = computeRentalUnits(rentalFrequency, startDate, endDate)
-    return Array.from({ length: units }).map((_, index) => ({
-      tempId: `plot-${Date.now()}-${index}`,
-      portion: index + 1,
-      dateDue: nextDueDate(startDate, index),
-      amount: rate ? rate.toFixed(2) : '',
+    return buildPeriodPlots(rentalFrequency, startDate, endDate, rate).map((plot) => ({
+      tempId: `plot-${Date.now()}-${plot.portion}`,
+      portion: plot.portion,
+      dateDue: plot.dateDue,
+      amount: rate ? plot.amount.toFixed(2) : '',
       status: 0,
     }))
   }
@@ -363,7 +326,7 @@ export function VehicleRentalFormPage({ session, company, saleId, onBack, onSave
       return {
         tempId: `plot-${Date.now()}-${index}`,
         portion,
-        dateDue: nextDueDate(startDate, portion - 1),
+        dateDue: nextDueDate(rentalFrequency, startDate, portion - 1),
         amount: rate.toFixed(2),
         status: 0,
       }
@@ -391,7 +354,7 @@ export function VehicleRentalFormPage({ session, company, saleId, onBack, onSave
   useEffect(() => {
     if (saleId || purchaseOption) return
     if (!startDate || !endDate || !parseAmount(monthlyValue)) return
-    setPlots(buildPeriodPlots())
+    setPlots(buildFormPeriodPlots())
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [saleId, purchaseOption, startDate, endDate, rentalFrequency, monthlyValue])
 
@@ -406,7 +369,7 @@ export function VehicleRentalFormPage({ session, company, saleId, onBack, onSave
     const generated: PlotEntry[] = Array.from({ length: count }).map((_, index) => ({
       tempId: `plot-${Date.now()}-${index}`,
       portion: index + 1,
-      dateDue: nextDueDate(baseDate, index + 1),
+      dateDue: nextDueDate(rentalFrequency, baseDate, index + 1),
       amount: perInstallment ? String(perInstallment.toFixed(2)) : '',
       status: 0,
     }))
@@ -420,7 +383,7 @@ export function VehicleRentalFormPage({ session, company, saleId, onBack, onSave
       {
         tempId: `plot-${Date.now()}-${prev.length}`,
         portion: prev.length + 1,
-        dateDue: last ? nextDueDate(last.dateDue, 1) : startDate || new Date().toISOString().slice(0, 10),
+        dateDue: last ? nextDueDate(rentalFrequency, last.dateDue, 1) : startDate || new Date().toISOString().slice(0, 10),
         amount: '',
         status: 0,
       },
@@ -533,6 +496,8 @@ export function VehicleRentalFormPage({ session, company, saleId, onBack, onSave
         vehicleOwnerType,
         startDate: startDate || undefined,
         endDate: endDate || undefined,
+        startTime: startTimeInput || undefined,
+        endTime: endTimeInput || undefined,
         billingDay: billingDay ? Number(billingDay) : undefined,
         rentalFrequency,
         monthlyValue: periodValue,
@@ -722,11 +687,29 @@ export function VehicleRentalFormPage({ session, company, saleId, onBack, onSave
                 />
               </label>
               <label className="flex flex-col gap-1.5">
+                <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Hora de início (opcional)</span>
+                <input
+                  type="time"
+                  value={startTimeInput}
+                  onChange={(event) => setStartTimeInput(event.target.value)}
+                  className="min-w-0 w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
+                />
+              </label>
+              <label className="flex flex-col gap-1.5">
                 <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Data de término</span>
                 <input
                   type="date"
                   value={endDate}
                   onChange={(event) => setEndDate(event.target.value)}
+                  className="min-w-0 w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
+                />
+              </label>
+              <label className="flex flex-col gap-1.5">
+                <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Hora de término (opcional)</span>
+                <input
+                  type="time"
+                  value={endTimeInput}
+                  onChange={(event) => setEndTimeInput(event.target.value)}
                   className="min-w-0 w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
                 />
               </label>
