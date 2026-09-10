@@ -1,4 +1,11 @@
-import type { NfeTaxationRuleProfile } from '../lib/nfeTaxations'
+import {
+  NFE_ICMS_SITUACAO_OPTIONS,
+  NFE_ICMS_BASE_MODE_OPTIONS,
+  NFE_ICMS_ST_BASE_MODE_OPTIONS,
+  NFE_PIS_COFINS_SITUACAO_OPTIONS,
+  NFE_IPI_SITUACAO_OPTIONS,
+  type NfeTaxationRuleProfile,
+} from '../lib/nfeTaxations'
 
 interface NfeTaxationRuleProfileFieldsProps {
   value: NfeTaxationRuleProfile
@@ -28,27 +35,38 @@ function NumberInput({
   )
 }
 
-function TextInput({
+function SelectInput<T extends string | number>({
   label,
   value,
+  options,
   onChange,
-  placeholder,
 }: {
   label: string
-  value: string | null | undefined
-  onChange: (value: string) => void
-  placeholder?: string
+  value: T | null | undefined
+  options: { value: T; label: string }[]
+  onChange: (value: T) => void
 }) {
   return (
     <label className="flex flex-col gap-1">
       <span className="text-[11px] font-semibold text-[var(--ink-soft)]">{label}</span>
-      <input
-        type="text"
+      <select
         value={value ?? ''}
-        placeholder={placeholder}
-        onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-lg bg-[var(--page)] px-3 py-2 text-[13px] text-[var(--ink)] ring-1 ring-transparent transition placeholder:text-[var(--muted)] focus:outline-none focus:ring-[var(--blue-300)]"
-      />
+        onChange={(event) => {
+          const raw = event.target.value
+          const isNumeric = typeof options[0]?.value === 'number'
+          onChange((isNumeric ? Number(raw) : raw) as T)
+        }}
+        className="w-full rounded-lg bg-[var(--page)] px-3 py-2 text-[13px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
+      >
+        <option value="" disabled>
+          Selecione
+        </option>
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
     </label>
   )
 }
@@ -84,15 +102,16 @@ export function NfeTaxationRuleProfileFields({ value, onChange }: NfeTaxationRul
       <div>
         <h4 className="mb-2 text-[12px] font-bold uppercase tracking-wide text-[var(--ink-soft)]">ICMS</h4>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <TextInput
+          <SelectInput
             label="Situação tributária (CST/CSOSN)"
-            placeholder="Ex: 00, 102, 500"
             value={value.icms_situacao_tributaria}
+            options={NFE_ICMS_SITUACAO_OPTIONS}
             onChange={(v) => onChange({ icms_situacao_tributaria: v })}
           />
-          <NumberInput
+          <SelectInput
             label="Modalidade base de cálculo"
             value={value.icms_modalidade_base_calculo}
+            options={NFE_ICMS_BASE_MODE_OPTIONS}
             onChange={(v) => onChange({ icms_modalidade_base_calculo: v })}
           />
           <NumberInput
@@ -106,9 +125,10 @@ export function NfeTaxationRuleProfileFields({ value, onChange }: NfeTaxationRul
             value={value.icms_percentual_diferimento}
             onChange={(v) => onChange({ icms_percentual_diferimento: v })}
           />
-          <NumberInput
+          <SelectInput
             label="Modalidade base de cálculo ST"
             value={value.icms_modalidade_base_calculo_st}
+            options={NFE_ICMS_ST_BASE_MODE_OPTIONS}
             onChange={(v) => onChange({ icms_modalidade_base_calculo_st: v })}
           />
           <NumberInput
@@ -142,10 +162,10 @@ export function NfeTaxationRuleProfileFields({ value, onChange }: NfeTaxationRul
       <div>
         <h4 className="mb-2 text-[12px] font-bold uppercase tracking-wide text-[var(--ink-soft)]">PIS</h4>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <TextInput
+          <SelectInput
             label="Situação tributária"
-            placeholder="Ex: 01, 07, 49"
             value={value.pis_situacao_tributaria}
+            options={NFE_PIS_COFINS_SITUACAO_OPTIONS}
             onChange={(v) => onChange({ pis_situacao_tributaria: v })}
           />
           <NumberInput
@@ -169,10 +189,10 @@ export function NfeTaxationRuleProfileFields({ value, onChange }: NfeTaxationRul
       <div>
         <h4 className="mb-2 text-[12px] font-bold uppercase tracking-wide text-[var(--ink-soft)]">COFINS</h4>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <TextInput
+          <SelectInput
             label="Situação tributária"
-            placeholder="Ex: 01, 07, 49"
             value={value.cofins_situacao_tributaria}
+            options={NFE_PIS_COFINS_SITUACAO_OPTIONS}
             onChange={(v) => onChange({ cofins_situacao_tributaria: v })}
           />
           <NumberInput
@@ -198,10 +218,10 @@ export function NfeTaxationRuleProfileFields({ value, onChange }: NfeTaxationRul
           IPI <span className="font-normal normal-case text-[var(--muted)]">(ignorado em NFC-e)</span>
         </h4>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <TextInput
+          <SelectInput
             label="Situação tributária"
-            placeholder="Ex: 50, 99"
             value={value.ipi_situacao_tributaria}
+            options={NFE_IPI_SITUACAO_OPTIONS}
             onChange={(v) => onChange({ ipi_situacao_tributaria: v })}
           />
           <NumberInput label="Alíquota (%)" value={value.ipi_aliquota} onChange={(v) => onChange({ ipi_aliquota: v })} />
@@ -220,11 +240,15 @@ export function NfeTaxationRuleProfileFields({ value, onChange }: NfeTaxationRul
       <div>
         <h4 className="mb-2 text-[12px] font-bold uppercase tracking-wide text-[var(--ink-soft)]">Outros</h4>
         <div className="grid gap-3 sm:grid-cols-2">
-          <TextInput
-            label="Informações adicionais da NFe"
-            value={value.informacoes_nfe}
-            onChange={(v) => onChange({ informacoes_nfe: v })}
-          />
+          <label className="flex flex-col gap-1">
+            <span className="text-[11px] font-semibold text-[var(--ink-soft)]">Informações adicionais da NFe</span>
+            <input
+              type="text"
+              value={value.informacoes_nfe ?? ''}
+              onChange={(event) => onChange({ informacoes_nfe: event.target.value })}
+              className="w-full rounded-lg bg-[var(--page)] px-3 py-2 text-[13px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
+            />
+          </label>
           <div className="flex items-end pb-2">
             <CheckboxInput
               label="Exibir informações do IBPT no DANFE"

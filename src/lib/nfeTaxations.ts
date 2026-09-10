@@ -38,6 +38,78 @@ export interface NfeTaxationRuleProfile {
   informacoes_ibpt?: boolean
 }
 
+// Listas oficiais de CST/CSOSN e modalidades de base de cálculo — mesmas
+// opções usadas no formulário antigo (Angular), pra manter o cadastro
+// consistente com o que já foi ensinado ao usuário.
+export const NFE_ICMS_SITUACAO_OPTIONS: { value: string; label: string }[] = [
+  { value: '00', label: '00 - Tributada integralmente' },
+  { value: '10', label: '10 - Tribut. com ICMS ST' },
+  { value: '20', label: '20 - Redução de base' },
+  { value: '30', label: '30 - Isenta/não tributada com ST' },
+  { value: '40', label: '40 - Isenta' },
+  { value: '41', label: '41 - Não tributada' },
+  { value: '50', label: '50 - Suspensão' },
+  { value: '51', label: '51 - Diferimento' },
+  { value: '60', label: '60 - ICMS cobrado anteriormente' },
+  { value: '70', label: '70 - Redução de base com ST' },
+  { value: '90', label: '90 - Outras' },
+  { value: '101', label: '101 - Simples com crédito' },
+  { value: '102', label: '102 - Simples sem crédito' },
+  { value: '201', label: '201 - Simples com crédito e ST' },
+  { value: '202', label: '202 - Simples sem crédito e ST' },
+  { value: '400', label: '400 - Não tributada pelo Simples' },
+  { value: '500', label: '500 - ICMS ST/antecipação' },
+  { value: '900', label: '900 - Outras Simples' },
+]
+
+export const NFE_ICMS_BASE_MODE_OPTIONS: { value: number; label: string }[] = [
+  { value: 0, label: '0 - Margem de valor agregado' },
+  { value: 1, label: '1 - Pauta' },
+  { value: 2, label: '2 - Preço tabelado máximo' },
+  { value: 3, label: '3 - Valor da operação' },
+]
+
+export const NFE_ICMS_ST_BASE_MODE_OPTIONS: { value: number; label: string }[] = [
+  { value: 0, label: '0 - Preço tabelado ou máximo sugerido' },
+  { value: 1, label: '1 - Lista negativa' },
+  { value: 2, label: '2 - Lista positiva' },
+  { value: 3, label: '3 - Lista neutra' },
+  { value: 4, label: '4 - Margem de valor agregado' },
+  { value: 5, label: '5 - Pauta' },
+  { value: 6, label: '6 - Valor da operação' },
+]
+
+export const NFE_PIS_COFINS_SITUACAO_OPTIONS: { value: string; label: string }[] = [
+  { value: '01', label: '01 - Tributável alíquota normal' },
+  { value: '02', label: '02 - Tributável alíquota diferenciada' },
+  { value: '03', label: '03 - Tributável por quantidade' },
+  { value: '04', label: '04 - Monofásica alíquota zero' },
+  { value: '05', label: '05 - Substituição tributária' },
+  { value: '06', label: '06 - Alíquota zero' },
+  { value: '07', label: '07 - Isenta' },
+  { value: '08', label: '08 - Sem incidência' },
+  { value: '09', label: '09 - Suspensão' },
+  { value: '49', label: '49 - Outras saídas' },
+  { value: '98', label: '98 - Outras entradas' },
+  { value: '99', label: '99 - Outras operações' },
+]
+
+export const NFE_IPI_SITUACAO_OPTIONS: { value: string; label: string }[] = [
+  { value: '50', label: '50 - Saída tributada' },
+  { value: '51', label: '51 - Saída tributada alíquota zero' },
+  { value: '52', label: '52 - Saída isenta' },
+  { value: '53', label: '53 - Saída não tributada' },
+  { value: '54', label: '54 - Saída imune' },
+  { value: '55', label: '55 - Saída com suspensão' },
+  { value: '99', label: '99 - Outras saídas' },
+]
+
+export const NFE_ALL_STATES = [
+  'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO',
+  'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI',
+  'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
+]
+
 export function emptyTaxationRuleProfile(): NfeTaxationRuleProfile {
   return {
     icms_situacao_tributaria: '',
@@ -154,4 +226,8 @@ export function createNfeTaxationRule(token: string, payload: NfeTaxationRulePay
 
 export function updateNfeTaxationRule(token: string, id: string, payload: NfeTaxationRulePayload) {
   return apiPut<NfeTaxationRuleRecord>(`/nfe-taxation-rule/${id}`, payload, token)
+}
+
+export function deleteNfeTaxationRule(token: string, id: string) {
+  return apiDelete<void>(`/nfe-taxation-rule/${id}`, token)
 }
