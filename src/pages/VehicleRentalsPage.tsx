@@ -21,6 +21,7 @@ import { SaleQuitacaoPreviewModal } from '../components/SaleQuitacaoPreviewModal
 import { ListEntityDateFilters, type EntityPick } from '../components/ListEntityDateFilters'
 import { RentalOperationModal, type OperationMode } from '../components/RentalOperationModal'
 import { RenewRentalModal } from '../components/RenewRentalModal'
+import { SortableTh } from '../components/SortableTh'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
 function periodOverlaps(startDate: string | null | undefined, endDate: string | null | undefined, from: string, to: string): boolean {
@@ -30,6 +31,24 @@ function periodOverlaps(startDate: string | null | undefined, endDate: string | 
   if (to && start && start > to) return false
   return true
 }
+
+function dateInRange(dateStr: string | null | undefined, from: string, to: string): boolean {
+  if (!dateStr) return false
+  const date = dateStr.slice(0, 10)
+  if (from && date < from) return false
+  if (to && date > to) return false
+  return true
+}
+
+type RentalDateType = 'period' | 'pickup' | 'return'
+
+const DATE_TYPE_OPTIONS: { value: RentalDateType; label: string }[] = [
+  { value: 'period', label: 'Período de locação' },
+  { value: 'pickup', label: 'Data de retirada' },
+  { value: 'return', label: 'Data de devolução' },
+]
+
+type SortField = 'code' | 'period' | 'value' | 'total' | 'status'
 
 interface VehicleRentalsPageProps {
   session: AuthSession
@@ -132,6 +151,9 @@ export function VehicleRentalsPage({ session, company, onCreate, onEdit }: Vehic
   const [personFilter, setPersonFilter] = useState<EntityPick | null>(null)
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
+  const [dateType, setDateType] = useState<RentalDateType>('period')
+  const [sortField, setSortField] = useState<SortField>('code')
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
   const [page, setPage] = useState(1)
   const [sales, setSales] = useState<SaleRecord[]>([])
   const [loading, setLoading] = useState(true)
@@ -205,7 +227,7 @@ export function VehicleRentalsPage({ session, company, onCreate, onEdit }: Vehic
 
   useEffect(() => {
     setPage(1)
-  }, [search, statusFilter, vehicleFilter, personFilter, dateFrom, dateTo])
+  }, [search, statusFilter, vehicleFilter, personFilter, dateFrom, dateTo, dateType, sortField, sortDirection])
 
   function reload() {
     fetchSales(session.token.token, company.id, { limit: 5000 })
@@ -249,7 +271,15 @@ export function VehicleRentalsPage({ session, company, onCreate, onEdit }: Vehic
       if (statusFilter !== 'total' && statusFilter !== 'active' && status !== Number(statusFilter)) return false
       if (vehicleFilter && sale.vehicle?.id !== vehicleFilter.id) return false
       if (personFilter && contract?.renter?.id !== personFilter.id) return false
-      if ((dateFrom || dateTo) && !periodOverlaps(contract?.startDate, contract?.endDate, dateFrom, dateTo)) return false
+      if (dateFrom || dateTo) {
+        if (dateType === 'pickup') {
+          if (!dateInRange(contract?.pickupDate, dateFrom, dateTo)) return false
+        } else if (dateType === 'return') {
+          if (!dateInRange(contract?.returnDate, dateFrom, dateTo)) return false
+        } else if (!periodOverlaps(contract?.startDate, contract?.endDate, dateFrom, dateTo)) {
+          return false
+        }
+      }
       if (!term) return true
       return (
         String(sale.internal_code ?? sale.code).includes(term) ||
@@ -257,10 +287,59 @@ export function VehicleRentalsPage({ session, company, onCreate, onEdit }: Vehic
         (sale.vehicle?.license_plate ?? '').toLowerCase().includes(term)
       )
     })
-  }, [sales, search, statusFilter, vehicleFilter, personFilter, dateFrom, dateTo])
+  }, [sales, search, statusFilter, vehicleFilter, personFilter, dateFrom, dateTo, dateType])
+
+  // Padrão vem dos últimos aluguéis primeiro (por código, o nº sequencial) —
+  // as colunas clicáveis na tabela deixam reordenar por período/valor/status.
+  const sorted = useMemo(() => {
+    const items = [...filtered]
+    const direction = sortDirection === 'asc' ? 1 : -1
+    items.sort((a, b) => {
+      const contractA = a.vehicleRentalContract
+      const contractB = b.vehicleRentalContract
+      switch (sortField) {
+        case 'period': {
+          const aTime = contractA?.startDate ? new Date(contractA.startDate).getTime() : 0
+          const bTime = contractB?.startDate ? new Date(contractB.startDate).getTime() : 0
+          return (aTime - bTime) * direction
+        }
+        case 'value': {
+          const aValue = contractA ? rentalPeriodValue(contractA) ?? 0 : 0
+          const bValue = contractB ? rentalPeriodValue(contractB) ?? 0 : 0
+          return (aValue - bValue) * direction
+        }
+        case 'total': {
+          const aValue = contractA ? rentalTotalValue(contractA) ?? 0 : 0
+          const bValue = contractB ? rentalTotalValue(contractB) ?? 0 : 0
+          return (aValue - bValue) * direction
+        }
+        case 'status': {
+          const aStatus = Number(contractA?.status ?? 0)
+          const bStatus = Number(contractB?.status ?? 0)
+          return (aStatus - bStatus) * direction
+        }
+        case 'code':
+        default: {
+          const aCode = Number(a.internal_code ?? a.code ?? 0)
+          const bCode = Number(b.internal_code ?? b.code ?? 0)
+          return (aCode - bCode) * direction
+        }
+      }
+    })
+    return items
+  }, [filtered, sortField, sortDirection])
+
+  function handleSort(field: SortField) {
+    if (sortField === field) {
+      setSortDirection((current) => (current === 'desc' ? 'asc' : 'desc'))
+    } else {
+      setSortField(field)
+      setSortDirection('desc')
+    }
+  }
 
   const lastPage = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
-  const visible = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  const visible = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   async function handleConfirmDelete() {
     if (!deleteTarget) return
@@ -463,6 +542,9 @@ export function VehicleRentalsPage({ session, company, onCreate, onEdit }: Vehic
         onDateFromChange={setDateFrom}
         dateTo={dateTo}
         onDateToChange={setDateTo}
+        dateTypeOptions={DATE_TYPE_OPTIONS}
+        dateType={dateType}
+        onDateTypeChange={(value) => setDateType(value as RentalDateType)}
       />
 
       {selected.size > 0 && (
@@ -590,10 +672,40 @@ export function VehicleRentalsPage({ session, company, onCreate, onEdit }: Vehic
                       />
                     </th>
                     <th className="w-[32%] px-2 pb-2.5">Locatário / Veículo</th>
-                    <th className="w-[18%] px-2 pb-2.5">Período</th>
-                    <th className="w-[13%] px-2 pb-2.5 text-right">Valor</th>
-                    <th className="w-[13%] px-2 pb-2.5 text-right">Valor total</th>
-                    <th className="w-[11%] px-2 pb-2.5">Status</th>
+                    <SortableTh
+                      label="Período"
+                      field="period"
+                      className="w-[18%] px-2 pb-2.5"
+                      activeField={sortField}
+                      direction={sortDirection}
+                      onSort={handleSort}
+                    />
+                    <SortableTh
+                      label="Valor"
+                      field="value"
+                      align="right"
+                      className="w-[13%] px-2 pb-2.5 text-right"
+                      activeField={sortField}
+                      direction={sortDirection}
+                      onSort={handleSort}
+                    />
+                    <SortableTh
+                      label="Valor total"
+                      field="total"
+                      align="right"
+                      className="w-[13%] px-2 pb-2.5 text-right"
+                      activeField={sortField}
+                      direction={sortDirection}
+                      onSort={handleSort}
+                    />
+                    <SortableTh
+                      label="Status"
+                      field="status"
+                      className="w-[11%] px-2 pb-2.5"
+                      activeField={sortField}
+                      direction={sortDirection}
+                      onSort={handleSort}
+                    />
                     <th className="w-10 pb-2.5 pr-3 text-right">Ações</th>
                   </tr>
                 </thead>

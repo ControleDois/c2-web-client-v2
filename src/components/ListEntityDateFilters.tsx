@@ -11,6 +11,11 @@ export interface EntityPick {
   sub?: string
 }
 
+interface DateTypeOption {
+  value: string
+  label: string
+}
+
 interface ListEntityDateFiltersProps {
   session: AuthSession
   company: AuthCompany
@@ -23,6 +28,11 @@ interface ListEntityDateFiltersProps {
   onDateFromChange: (value: string) => void
   dateTo: string
   onDateToChange: (value: string) => void
+  // Opcional: deixa escolher QUAL data usar no filtro De/Até (ex: período de
+  // locação vs. data de retirada/devolução) — só aparece quando informado.
+  dateTypeOptions?: DateTypeOption[]
+  dateType?: string
+  onDateTypeChange?: (value: string) => void
 }
 
 export function ListEntityDateFilters({
@@ -37,6 +47,9 @@ export function ListEntityDateFilters({
   onDateFromChange,
   dateTo,
   onDateToChange,
+  dateTypeOptions,
+  dateType,
+  onDateTypeChange,
 }: ListEntityDateFiltersProps) {
   const searchPeople = useCallback(
     (query: string) => fetchPeople(session.token.token, company.id, { search: query, limit: 8 }).then((res) => res.data),
@@ -81,6 +94,22 @@ export function ListEntityDateFilters({
           onClear={() => onPersonChange(null)}
         />
       </div>
+      {dateTypeOptions && dateTypeOptions.length > 0 && (
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Filtrar por</span>
+          <select
+            value={dateType}
+            onChange={(event) => onDateTypeChange?.(event.target.value)}
+            className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2.5 text-[13.5px] text-[var(--ink)] focus:outline-none"
+          >
+            {dateTypeOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       <label className="flex flex-col gap-1.5">
         <span className="text-[12px] font-semibold text-[var(--ink-soft)]">De</span>
         <input

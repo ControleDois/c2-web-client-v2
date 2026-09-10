@@ -123,6 +123,8 @@ export function billStatusLabel(status: number, role: number): string {
   return 'Pendente'
 }
 
+export type BillsOrderByField = 'code' | 'name' | 'date_due' | 'date_received' | 'status' | 'amount' | 'created_at'
+
 interface BillsFilterOptions {
   search?: string
   page?: number
@@ -138,6 +140,8 @@ interface BillsFilterOptions {
   categoryId?: string
   bankAccountId?: string
   formPaymentType?: number
+  orderBy?: BillsOrderByField
+  sortedBy?: 'asc' | 'desc'
 }
 
 function billsFilterParams(companyId: string, options: BillsFilterOptions) {
@@ -165,8 +169,8 @@ export function fetchBills(token: string, companyId: string, options: BillsFilte
       ...billsFilterParams(companyId, options),
       page: options.page ? String(options.page) : '1',
       limit: options.limit ? String(options.limit) : '10',
-      orderBy: 'date_due',
-      sortedBy: 'asc',
+      orderBy: options.orderBy || 'date_due',
+      sortedBy: options.sortedBy || 'asc',
     },
     token
   )

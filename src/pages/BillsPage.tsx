@@ -42,6 +42,8 @@ import { SendBillWhatsappModal } from '../components/SendBillWhatsappModal'
 import { GroupBillsModal } from '../components/GroupBillsModal'
 import { GroupDetailsModal } from '../components/GroupDetailsModal'
 import { RowActionsMenu, type RowAction } from '../components/RowActionsMenu'
+import { SortableTh } from '../components/SortableTh'
+import type { BillsOrderByField } from '../lib/bills'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
 interface BillsPageProps {
@@ -84,6 +86,16 @@ function getPeriodRange(key: PeriodKey): { start?: string; end?: string } {
   return {}
 }
 
+type BillsDateType = 'date_due' | 'date_received' | 'created_at'
+
+function dateTypeOptions(role: 0 | 1): { value: BillsDateType; label: string }[] {
+  return [
+    { value: 'date_due', label: 'Vencimento' },
+    { value: 'date_received', label: role === 1 ? 'Recebimento' : 'Pagamento' },
+    { value: 'created_at', label: 'Criação' },
+  ]
+}
+
 function statusTone(status: number): string {
   if (status === 1) return 'bg-[var(--green-100)] text-[var(--green-600)]'
   if (status === 2) return 'bg-[var(--blue-100)] text-[var(--blue-700)]'
@@ -96,6 +108,9 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
   const [period, setPeriod] = useState<PeriodKey>('month')
   const [search, setSearch] = useState('')
   const [statusType, setStatusType] = useState('')
+  const [dateType, setDateType] = useState<BillsDateType>('date_due')
+  const [sortField, setSortField] = useState<BillsOrderByField>('date_due')
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
   const [page, setPage] = useState(1)
   const [bills, setBills] = useState<BillRecord[]>([])
   const [meta, setMeta] = useState({ total: 0, lastPage: 1 })
@@ -137,6 +152,15 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
     else setStatusType('')
   }
 
+  function handleSort(field: BillsOrderByField) {
+    if (sortField === field) {
+      setSortDirection((current) => (current === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortField(field)
+      setSortDirection('asc')
+    }
+  }
+
   const PRINT_COLUMNS: PrintColumn[] = [
     { key: 'code', label: 'Código' },
     { key: 'name', label: 'Descrição' },
@@ -157,7 +181,7 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
     return { start, end }
   }
 
-  const filtersKey = `${statusType}:${summaryFilter}:${moreFilters.peopleId ?? ''}:${moreFilters.categoryId ?? ''}:${moreFilters.bankAccountId ?? ''}`
+  const filtersKey = `${statusType}:${summaryFilter}:${moreFilters.peopleId ?? ''}:${moreFilters.categoryId ?? ''}:${moreFilters.bankAccountId ?? ''}:${dateType}:${sortField}:${sortDirection}`
 
   useEffect(() => {
     let cancelled = false
@@ -184,6 +208,9 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
           statusType: statusType === '' ? undefined : Number(statusType),
           dateStart: start,
           dateEnd: end,
+          dateType,
+          orderBy: sortField,
+          sortedBy: sortDirection,
           peopleId: moreFilters.peopleId,
           categoryId: moreFilters.categoryId,
           bankAccountId: moreFilters.bankAccountId,
@@ -230,6 +257,9 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
       statusType: statusType === '' ? undefined : Number(statusType),
       dateStart: start,
       dateEnd: end,
+      dateType,
+      orderBy: sortField,
+      sortedBy: sortDirection,
       peopleId: moreFilters.peopleId,
       categoryId: moreFilters.categoryId,
       bankAccountId: moreFilters.bankAccountId,
@@ -616,6 +646,20 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
           </select>
           <ChevronDownIcon className="pointer-events-none h-3.5 w-3.5 flex-none text-[var(--muted)]" />
         </div>
+        <div className="relative flex w-[200px] flex-none items-center rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2.5">
+          <select
+            value={dateType}
+            onChange={(event) => setDateType(event.target.value as BillsDateType)}
+            className="w-full appearance-none bg-transparent text-[13.5px] text-[var(--ink)] focus:outline-none"
+          >
+            {dateTypeOptions(role).map((option) => (
+              <option key={option.value} value={option.value}>
+                Data de {option.label.toLowerCase()}
+              </option>
+            ))}
+          </select>
+          <ChevronDownIcon className="pointer-events-none h-3.5 w-3.5 flex-none text-[var(--muted)]" />
+        </div>
       </div>
 
       <BillsMoreFiltersPanel session={session} company={company} role={role} filters={moreFilters} onChange={setMoreFilters} />
@@ -765,13 +809,28 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
                         aria-label="Selecionar todos"
                       />
                     </th>
-                    <th className="pb-2.5">Código</th>
-                    <th className="pb-2.5">Descrição</th>
+                    <SortableTh label="Código" field="code" className="pb-2.5" activeField={sortField} direction={sortDirection} onSort={handleSort} />
+                    <SortableTh label="Descrição" field="name" className="pb-2.5" activeField={sortField} direction={sortDirection} onSort={handleSort} />
                     <th className="pb-2.5">{personLabel}</th>
                     <th className="pb-2.5">Categoria</th>
-                    <th className="pb-2.5">Vencimento</th>
-                    <th className="pb-2.5">Status</th>
-                    <th className="pb-2.5 text-right">Valor</th>
+                    <SortableTh
+                      label="Vencimento"
+                      field="date_due"
+                      className="pb-2.5"
+                      activeField={sortField}
+                      direction={sortDirection}
+                      onSort={handleSort}
+                    />
+                    <SortableTh label="Status" field="status" className="pb-2.5" activeField={sortField} direction={sortDirection} onSort={handleSort} />
+                    <SortableTh
+                      label="Valor"
+                      field="amount"
+                      align="right"
+                      className="pb-2.5 text-right"
+                      activeField={sortField}
+                      direction={sortDirection}
+                      onSort={handleSort}
+                    />
                     <th className="pb-2.5 pr-3 text-right">Ações</th>
                   </tr>
                 </thead>

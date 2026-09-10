@@ -8,7 +8,8 @@ import {
 import { formatCurrency, formatDate } from '../lib/format'
 import { ApiError } from '../lib/api'
 import { useRowSelection } from '../hooks/useRowSelection'
-import { SearchIcon, PlusIcon, PencilIcon, TrashIcon, TruckIcon, PrinterIcon, ChevronDownIcon } from '../components/icons'
+import { SearchIcon, PlusIcon, PencilIcon, TrashIcon, TruckIcon, PrinterIcon } from '../components/icons'
+import { SortableTh } from '../components/SortableTh'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { RowActionsMenu, type RowAction } from '../components/RowActionsMenu'
 import { ListEntityDateFilters, type EntityPick } from '../components/ListEntityDateFilters'
@@ -60,41 +61,6 @@ function orderServiceTotal(orderService: OrderServiceRecord): number {
   return (orderService.items ?? []).reduce((sum, item) => sum + Number(item.total || 0), 0)
 }
 
-function SortableTh({
-  label,
-  field,
-  align,
-  className,
-  activeField,
-  direction,
-  onSort,
-}: {
-  label: string
-  field: SortField
-  align?: 'right'
-  className?: string
-  activeField: SortField
-  direction: 'asc' | 'desc'
-  onSort: (field: SortField) => void
-}) {
-  const isActive = activeField === field
-  return (
-    <th className={className}>
-      <button
-        type="button"
-        onClick={() => onSort(field)}
-        className={`flex items-center gap-1 hover:text-[var(--ink)] ${align === 'right' ? 'ml-auto flex-row-reverse' : ''}`}
-      >
-        {label}
-        <ChevronDownIcon
-          className={`h-3 w-3 flex-none transition-transform ${isActive ? 'text-[var(--ink)]' : 'opacity-30'} ${
-            isActive && direction === 'asc' ? 'rotate-180' : ''
-          }`}
-        />
-      </button>
-    </th>
-  )
-}
 
 export function OrderServicesPage({ session, company, onCreate, onEdit }: OrderServicesPageProps) {
   const [search, setSearch] = useState('')
