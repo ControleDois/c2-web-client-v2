@@ -55,6 +55,22 @@ export interface ConfigRecord {
   // Gestão de Compras
   purchase_management_enabled?: boolean
 
+  // Fiscal / NFe (Focus NFe)
+  nfe_module_enabled?: boolean
+  focus_nfe_token_homologacao?: string | null
+  focus_nfe_token_producao?: string | null
+  focus_nfe_api_homologacao?: string | null
+  focus_nfe_api_producao?: string | null
+  nfe_ambiente?: number | null
+  nfe_serie?: number | null
+  nfe_numero?: number | null
+  nfe_homologacao_serie?: number | null
+  nfe_homologacao_numero?: number | null
+  nfe_nature_operation_id?: string | null
+  // Relação carregada no GET /config (preload 'natureOperation' no Config model) —
+  // note que o nome do relacionamento não é "nfe_nature_operation".
+  nature_operation?: { id: string; description: string } | null
+
   // Cobranças — regras genéricas de multa/juros/desconto (movidas da aba Vendas)
   multa_modalidade?: number | null
   multa_valor?: number | null
@@ -174,6 +190,22 @@ export interface ConfigPayload {
   vehicle_inspection_detailed_required?: boolean
 
   purchase_management_enabled?: boolean
+
+  // Fiscal / NFe (Focus NFe) — atenção: o validator do backend espera
+  // "nfeNatureOperationId" em camelCase aqui (corpo da requisição), mas o
+  // GET devolve "nfe_nature_operation_id" em ConfigRecord (serialização
+  // padrão do Lucid) — são chaves diferentes de propósito.
+  nfe_module_enabled?: boolean
+  focus_nfe_token_homologacao?: string
+  focus_nfe_token_producao?: string
+  focus_nfe_api_homologacao?: string
+  focus_nfe_api_producao?: string
+  nfe_ambiente?: number
+  nfe_serie?: number
+  nfe_numero?: number
+  nfe_homologacao_serie?: number
+  nfe_homologacao_numero?: number
+  nfeNatureOperationId?: string
 
   multa_modalidade?: number
   multa_valor?: number

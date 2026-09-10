@@ -22,6 +22,7 @@ import {
   CoinIcon as SaleIcon,
   WrenchIcon,
   BadgeIcon,
+  FileTextIcon,
 } from '../icons'
 import { getCompanyName, type AuthCompany, type AuthSession } from '../../lib/auth'
 import { isLocacaoVeiculos, isEmprestimo } from '../../lib/systemTypes'
@@ -58,6 +59,9 @@ export type AppPage =
   | 'loan-customer-verifications'
   | 'purchase-management'
   | 'purchase-requests'
+  | 'nfes'
+  | 'nfe-nature-operations'
+  | 'nfe-taxations'
 
 interface AppShellProps {
   session: AuthSession
@@ -67,12 +71,17 @@ interface AppShellProps {
   onSwitchCompany: () => void
   onLogout: () => void
   purchaseManagementEnabled?: boolean
+  nfeModuleEnabled?: boolean
   children: ReactNode
 }
 
 type NavGroup = { title: string; items: { page: AppPage; label: string; icon: typeof GridIcon }[] }
 
-function buildNavGroups(systemType?: number, purchaseManagementEnabled?: boolean): NavGroup[] {
+function buildNavGroups(
+  systemType?: number,
+  purchaseManagementEnabled?: boolean,
+  nfeModuleEnabled?: boolean
+): NavGroup[] {
   const emprestimo = isEmprestimo(systemType)
 
   const principalItems = emprestimo
@@ -144,6 +153,17 @@ function buildNavGroups(systemType?: number, purchaseManagementEnabled?: boolean
     })
   }
 
+  if (nfeModuleEnabled) {
+    groups.push({
+      title: 'Fiscal',
+      items: [
+        { page: 'nfes', label: 'Notas Fiscais', icon: FileTextIcon },
+        { page: 'nfe-nature-operations', label: 'Natureza de Operação', icon: TagIcon },
+        { page: 'nfe-taxations', label: 'Tributação', icon: TargetIcon },
+      ],
+    })
+  }
+
   groups.push({
     title: 'Relatórios',
     items: [{ page: 'towing-billing-report', label: 'Faturamento', icon: TrendUpIcon }],
@@ -160,10 +180,11 @@ export function AppShell({
   onSwitchCompany,
   onLogout,
   purchaseManagementEnabled,
+  nfeModuleEnabled,
   children,
 }: AppShellProps) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
-  const navGroups = buildNavGroups(company.system_type, purchaseManagementEnabled)
+  const navGroups = buildNavGroups(company.system_type, purchaseManagementEnabled, nfeModuleEnabled)
 
   function handleNavigate(page: AppPage) {
     onNavigate(page)

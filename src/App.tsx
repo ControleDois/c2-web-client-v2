@@ -39,6 +39,12 @@ import { ContractTemplatesPage } from './pages/ContractTemplatesPage'
 import { ContractTemplateFormPage } from './pages/ContractTemplateFormPage'
 import { RentalTypesPage } from './pages/RentalTypesPage'
 import { RentalTypeFormPage } from './pages/RentalTypeFormPage'
+import { NfesPage } from './pages/NfesPage'
+import { NfeFormPage } from './pages/NfeFormPage'
+import { NfeNatureOperationsPage } from './pages/NfeNatureOperationsPage'
+import { NfeNatureOperationFormPage } from './pages/NfeNatureOperationFormPage'
+import { NfeTaxationsPage } from './pages/NfeTaxationsPage'
+import { NfeTaxationFormPage } from './pages/NfeTaxationFormPage'
 import { RolesPage } from './pages/RolesPage'
 import { RoleFormPage } from './pages/RoleFormPage'
 import { PermissionsPage } from './pages/PermissionsPage'
@@ -79,20 +85,28 @@ function App() {
   const [page, setPage] = useState<AppPage>('dashboard')
   const [switchingCompany, setSwitchingCompany] = useState(false)
   const [purchaseManagementEnabled, setPurchaseManagementEnabled] = useState(false)
+  const [nfeModuleEnabled, setNfeModuleEnabled] = useState(false)
   const [configVersion, setConfigVersion] = useState(0)
 
   useEffect(() => {
     if (!session || !activeCompany) {
       setPurchaseManagementEnabled(false)
+      setNfeModuleEnabled(false)
       return
     }
     let cancelled = false
     fetchConfig(session.token.token, activeCompany.id)
       .then((config) => {
-        if (!cancelled) setPurchaseManagementEnabled(Boolean(config.purchase_management_enabled))
+        if (!cancelled) {
+          setPurchaseManagementEnabled(Boolean(config.purchase_management_enabled))
+          setNfeModuleEnabled(Boolean(config.nfe_module_enabled))
+        }
       })
       .catch(() => {
-        if (!cancelled) setPurchaseManagementEnabled(false)
+        if (!cancelled) {
+          setPurchaseManagementEnabled(false)
+          setNfeModuleEnabled(false)
+        }
       })
     return () => {
       cancelled = true
@@ -118,6 +132,9 @@ function App() {
   const rolesView = useEntityView()
   const permissionsView = useEntityView()
   const companyGroupsView = useEntityView()
+  const nfesView = useEntityView()
+  const nfeNatureOperationsView = useEntityView()
+  const nfeTaxationsView = useEntityView()
 
   const entityViews = {
     people: peopleView,
@@ -139,6 +156,9 @@ function App() {
     roles: rolesView,
     permissions: permissionsView,
     'company-groups': companyGroupsView,
+    nfes: nfesView,
+    'nfe-nature-operations': nfeNatureOperationsView,
+    'nfe-taxations': nfeTaxationsView,
   } as const
 
   function handleLoginSuccess(newSession: AuthSession) {
@@ -562,6 +582,55 @@ function App() {
             onEdit={(group) => companyGroupsView.edit(group.id)}
           />
         )
+    } else if (page === 'nfes') {
+      pageContent =
+        nfesView.view.mode === 'form' ? (
+          <NfeFormPage
+            session={session}
+            company={activeCompany}
+            nfeId={nfesView.view.id}
+            onBack={nfesView.reset}
+            onSaved={nfesView.reset}
+          />
+        ) : (
+          <NfesPage session={session} company={activeCompany} onCreate={nfesView.create} onEdit={(nfe) => nfesView.edit(nfe.id)} />
+        )
+    } else if (page === 'nfe-nature-operations') {
+      pageContent =
+        nfeNatureOperationsView.view.mode === 'form' ? (
+          <NfeNatureOperationFormPage
+            session={session}
+            company={activeCompany}
+            natureOperationId={nfeNatureOperationsView.view.id}
+            onBack={nfeNatureOperationsView.reset}
+            onSaved={nfeNatureOperationsView.reset}
+          />
+        ) : (
+          <NfeNatureOperationsPage
+            session={session}
+            company={activeCompany}
+            onCreate={nfeNatureOperationsView.create}
+            onEdit={(item) => nfeNatureOperationsView.edit(item.id)}
+          />
+        )
+    } else if (page === 'nfe-taxations') {
+      pageContent =
+        nfeTaxationsView.view.mode === 'form' ? (
+          <NfeTaxationFormPage
+            session={session}
+            company={activeCompany}
+            taxationId={nfeTaxationsView.view.id}
+            onBack={nfeTaxationsView.reset}
+            onSaved={nfeTaxationsView.reset}
+          />
+        ) : (
+          <NfeTaxationsPage
+            session={session}
+            company={activeCompany}
+            onCreate={nfeTaxationsView.create}
+            onEdit={(item) => nfeTaxationsView.edit(item.id)}
+          />
+        )
     } else if (page === 'audit-logs') {
       pageContent = <AuditLogsPage session={session} company={activeCompany} />
     } else if (page === 'vehicle-inspections') {
@@ -621,6 +690,7 @@ function App() {
         onSwitchCompany={handleSwitchCompany}
         onLogout={handleLogout}
         purchaseManagementEnabled={purchaseManagementEnabled}
+        nfeModuleEnabled={nfeModuleEnabled}
       >
         {pageContent}
       </AppShell>

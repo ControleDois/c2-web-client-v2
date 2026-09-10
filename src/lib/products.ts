@@ -18,6 +18,13 @@ export interface ProductRecord {
   barcode?: string | null
   unit?: string | null
   categories?: ProductCategoryRef[]
+  // Dados fiscais (NFe)
+  ncm_id?: string | null
+  nfe_taxation_id?: string | null
+  icms_origin?: number | null
+  code_cest?: string | null
+  ncm?: { id: string; code: string; description: string } | null
+  taxation?: { id: string; name: string } | null
 }
 
 export interface ProductPayload {
@@ -30,6 +37,11 @@ export interface ProductPayload {
   barcode?: string
   unit?: string
   categories?: { id?: string; name?: string }[]
+  // Dados fiscais (NFe)
+  ncm_id?: string
+  nfe_taxation_id?: string
+  icms_origin?: number
+  code_cest?: string
 }
 
 interface Paginated<T> {
@@ -45,6 +57,18 @@ interface Paginated<T> {
 export const PRODUCT_ROLE_LABELS: Record<number, string> = {
   0: 'Produto',
   1: 'Serviço',
+}
+
+export const ICMS_ORIGIN_LABELS: Record<number, string> = {
+  0: '0 - Nacional',
+  1: '1 - Estrangeira - Importação direta',
+  2: '2 - Estrangeira - Adquirida no mercado interno',
+  3: '3 - Nacional - Conteúdo de importação > 40%',
+  4: '4 - Nacional - Produção em conformidade com processos produtivos básicos',
+  5: '5 - Nacional - Conteúdo de importação ≤ 40%',
+  6: '6 - Estrangeira - Importação direta, sem similar nacional',
+  7: '7 - Estrangeira - Adquirida no mercado interno, sem similar nacional',
+  8: '8 - Nacional - Conteúdo de importação > 70%',
 }
 
 export const PRODUCT_UNIT_OPTIONS: { value: string; label: string }[] = [

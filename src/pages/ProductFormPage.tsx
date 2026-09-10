@@ -1,17 +1,22 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import {
   createProduct,
   fetchProduct,
   updateProduct,
   PRODUCT_ROLE_LABELS,
   PRODUCT_UNIT_OPTIONS,
+  ICMS_ORIGIN_LABELS,
   type ProductRecord,
   type ProductCategoryRef,
 } from '../lib/products'
 import { fetchCategoryProducts, type CategoryProductRecord } from '../lib/categoryProducts'
+import { fetchNcms, type NcmRecord } from '../lib/ncm'
+import { fetchNfeTaxations, type NfeTaxationRecord } from '../lib/nfeTaxations'
 import { ApiError } from '../lib/api'
 import { TextField } from '../components/form/TextField'
 import { SelectField } from '../components/form/SelectField'
+import { SearchSelectField } from '../components/form/SearchSelectField'
+import { SectionCard } from '../components/SectionCard'
 import { BoxIcon, DollarSignIcon, TagIcon, FileTextIcon, ChevronLeftIcon, PlusIcon, CloseIcon } from '../components/icons'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
@@ -43,7 +48,22 @@ export function ProductFormPage({ session, company, productId, onBack, onSaved }
   const [showCategoryPicker, setShowCategoryPicker] = useState(false)
   const [categorySearch, setCategorySearch] = useState('')
 
+  // Dados fiscais (NFe)
+  const [ncm, setNcm] = useState<{ id: string; label: string } | null>(null)
+  const [nfeTaxation, setNfeTaxation] = useState<{ id: string; label: string } | null>(null)
+  const [icmsOrigin, setIcmsOrigin] = useState('')
+  const [codeCest, setCodeCest] = useState('')
+
   const isProduct = role === 0
+
+  const searchNcms = useCallback(
+    (query: string) => fetchNcms(session.token.token, { search: query, limit: 8 }).then((res) => res.data),
+    [session.token.token]
+  )
+  const searchNfeTaxations = useCallback(
+    (query: string) => fetchNfeTaxations(session.token.token, company.id, { search: query, limit: 8 }).then((res) => res.data),
+    [session.token.token, company.id]
+  )
 
   useEffect(() => {
     let cancelled = false
@@ -74,6 +94,10 @@ export function ProductFormPage({ session, company, productId, onBack, onSaved }
         setBarcode(product.barcode ?? '')
         setDescription(product.description ?? '')
         setSelectedCategories(product.categories ?? [])
+        setNcm(product.ncm ? { id: product.ncm.id, label: `${product.ncm.code} - ${product.ncm.description}` } : null)
+        setNfeTaxation(product.taxation ? { id: product.taxation.id, label: product.taxation.name } : null)
+        setIcmsOrigin(product.icms_origin !== null && product.icms_origin !== undefined ? String(product.icms_origin) : '')
+        setCodeCest(product.code_cest ?? '')
       })
       .catch((err) => {
         if (cancelled) return
@@ -107,6 +131,10 @@ export function ProductFormPage({ session, company, productId, onBack, onSaved }
       barcode: isProduct && barcode.trim() ? barcode.trim() : undefined,
       description: isProduct && description.trim() ? description.trim() : undefined,
       categories: isProduct ? selectedCategories.map((category) => ({ id: category.id })) : undefined,
+      ncm_id: isProduct ? ncm?.id : undefined,
+      nfe_taxation_id: isProduct ? nfeTaxation?.id : undefined,
+      icms_origin: isProduct && icmsOrigin !== '' ? Number(icmsOrigin) : undefined,
+      code_cest: isProduct && codeCest.trim() ? codeCest.trim() : undefined,
     }
 
     setSubmitting(true)
@@ -300,6 +328,50 @@ export function ProductFormPage({ session, company, productId, onBack, onSaved }
               </div>
             )}
           </div>
+
+          {isProduct && (
+            <SectionCard title="Dados fiscais" subtitle="Necessários para emitir NFe com este item">
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                <SearchSelectField
+                  label="NCM"
+                  placeholder="Buscar por código ou descrição"
+                  selectedLabel={ncm?.label ?? null}
+                  onSearch={searchNcms}
+                  getOptionLabel={(item: NcmRecord) => `${item.code} - ${item.description}`}
+                  onSelect={(item: NcmRecord) => setNcm({ id: item.id, label: `${item.code} - ${item.description}` })}
+                  onClear={() => setNcm(null)}
+                />
+                <SearchSelectField
+                  label="Tributação"
+                  placeholder="Buscar tributação"
+                  selectedLabel={nfeTaxation?.label ?? null}
+                  onSearch={searchNfeTaxations}
+                  getOptionLabel={(item: NfeTaxationRecord) => item.name}
+                  onSelect={(item: NfeTaxationRecord) => setNfeTaxation({ id: item.id, label: item.name })}
+                  onClear={() => setNfeTaxation(null)}
+                />
+                <SelectField
+                  label="Origem da mercadoria (ICMS)"
+                  value={icmsOrigin}
+                  onChange={(event) => setIcmsOrigin(event.target.value)}
+                >
+                  <option value="">Selecione</option>
+                  {Object.entries(ICMS_ORIGIN_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </SelectField>
+                <TextField
+                  label="Código CEST"
+                  icon={<TagIcon className="h-4 w-4" />}
+                  placeholder="Opcional"
+                  value={codeCest}
+                  onChange={(event) => setCodeCest(event.target.value)}
+                />
+              </div>
+            </SectionCard>
+          )}
 
           {error && (
             <p className="rounded-xl bg-[var(--red-100)] px-4 py-3 text-[13.5px] font-medium text-[var(--red-500)]">

@@ -12,6 +12,7 @@ import { ProtecaoVeicularSection } from './config/ProtecaoVeicularSection'
 import { IntegracoesSection } from './config/IntegracoesSection'
 import { LojaOnlineSection } from './config/LojaOnlineSection'
 import { ComprasSection } from './config/ComprasSection'
+import { FiscalSection } from './config/FiscalSection'
 import { CategoriasProdutoSection } from './config/CategoriasProdutoSection'
 import { CheckCircleIcon } from '../components/icons'
 import type { AuthSession, AuthCompany } from '../lib/auth'
@@ -36,6 +37,7 @@ type ConfigTab =
   | 'loja-online'
   | 'compras'
   | 'categorias-produto'
+  | 'fiscal'
 
 interface TabDefinition {
   key: ConfigTab
@@ -54,6 +56,18 @@ function buildConfigPayload(companyId: string, config: ConfigRecord | null): Con
 
     vehicle_inspection_detailed_required: config?.vehicle_inspection_detailed_required ?? false,
     purchase_management_enabled: config?.purchase_management_enabled ?? false,
+
+    nfe_module_enabled: config?.nfe_module_enabled ?? false,
+    focus_nfe_token_producao: config?.focus_nfe_token_producao ?? undefined,
+    focus_nfe_token_homologacao: config?.focus_nfe_token_homologacao ?? undefined,
+    focus_nfe_api_producao: config?.focus_nfe_api_producao ?? undefined,
+    focus_nfe_api_homologacao: config?.focus_nfe_api_homologacao ?? undefined,
+    nfe_ambiente: config?.nfe_ambiente ?? undefined,
+    nfe_serie: config?.nfe_serie ?? undefined,
+    nfe_numero: config?.nfe_numero ?? undefined,
+    nfe_homologacao_serie: config?.nfe_homologacao_serie ?? undefined,
+    nfe_homologacao_numero: config?.nfe_homologacao_numero ?? undefined,
+    nfeNatureOperationId: config?.nfe_nature_operation_id ?? undefined,
 
     multa_modalidade: config?.multa_modalidade ?? undefined,
     multa_valor: config?.multa_valor ?? undefined,
@@ -175,6 +189,7 @@ export function ConfigPage({ session, company, onNavigate, onSaved }: ConfigPage
       { key: 'loja-online', label: 'Loja Online', visible: isLojaOnline(systemType) },
       { key: 'compras', label: 'Compras', visible: true },
       { key: 'categorias-produto', label: 'Categorias de Produto', visible: true },
+      { key: 'fiscal', label: 'Fiscal', visible: true },
     ],
     [systemType]
   )
@@ -346,6 +361,9 @@ export function ConfigPage({ session, company, onNavigate, onSaved }: ConfigPage
               )}
               {activeTab === 'categorias-produto' && (
                 <CategoriasProdutoSection session={session} company={company} />
+              )}
+              {activeTab === 'fiscal' && (
+                <FiscalSection value={formState} onChange={handleChange} config={config} session={session} company={company} />
               )}
             </div>
           )}

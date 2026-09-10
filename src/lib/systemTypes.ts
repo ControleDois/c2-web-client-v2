@@ -13,6 +13,7 @@ export const SYSTEM_TYPE_LABELS: Record<number, string> = {
   11: 'CRM / Gestão de Leads',
   12: 'Sorveteria',
   13: 'Grupo Clube',
+  14: 'Pizzaria',
 }
 
 export const SYSTEM_TYPE_PROTECAO_VEICULAR = 1
