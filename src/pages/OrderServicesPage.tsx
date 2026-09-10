@@ -8,7 +8,7 @@ import {
 import { formatCurrency, formatDate } from '../lib/format'
 import { ApiError } from '../lib/api'
 import { useRowSelection } from '../hooks/useRowSelection'
-import { SearchIcon, PlusIcon, PencilIcon, TrashIcon, TruckIcon, PrinterIcon } from '../components/icons'
+import { SearchIcon, PlusIcon, PencilIcon, TrashIcon, TruckIcon, PrinterIcon, ChevronDownIcon } from '../components/icons'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { RowActionsMenu, type RowAction } from '../components/RowActionsMenu'
 import { ListEntityDateFilters, type EntityPick } from '../components/ListEntityDateFilters'
@@ -40,6 +40,8 @@ interface OrderServicesPageProps {
 
 const PAGE_SIZE = 10
 
+type SortField = 'code' | 'date_start' | 'total' | 'status'
+
 function statusTone(status: number): string {
   if (status >= 6) return 'bg-[var(--green-100)] text-[var(--green-600)]'
   if (status >= 4) return 'bg-[var(--blue-100)] text-[var(--blue-700)]'
@@ -58,6 +60,42 @@ function orderServiceTotal(orderService: OrderServiceRecord): number {
   return (orderService.items ?? []).reduce((sum, item) => sum + Number(item.total || 0), 0)
 }
 
+function SortableTh({
+  label,
+  field,
+  align,
+  className,
+  activeField,
+  direction,
+  onSort,
+}: {
+  label: string
+  field: SortField
+  align?: 'right'
+  className?: string
+  activeField: SortField
+  direction: 'asc' | 'desc'
+  onSort: (field: SortField) => void
+}) {
+  const isActive = activeField === field
+  return (
+    <th className={className}>
+      <button
+        type="button"
+        onClick={() => onSort(field)}
+        className={`flex items-center gap-1 hover:text-[var(--ink)] ${align === 'right' ? 'ml-auto flex-row-reverse' : ''}`}
+      >
+        {label}
+        <ChevronDownIcon
+          className={`h-3 w-3 flex-none transition-transform ${isActive ? 'text-[var(--ink)]' : 'opacity-30'} ${
+            isActive && direction === 'asc' ? 'rotate-180' : ''
+          }`}
+        />
+      </button>
+    </th>
+  )
+}
+
 export function OrderServicesPage({ session, company, onCreate, onEdit }: OrderServicesPageProps) {
   const [search, setSearch] = useState('')
   const [dateFrom, setDateFrom] = useState('')
@@ -65,6 +103,8 @@ export function OrderServicesPage({ session, company, onCreate, onEdit }: OrderS
   const [vehicleFilter, setVehicleFilter] = useState<EntityPick | null>(null)
   const [personFilter, setPersonFilter] = useState<EntityPick | null>(null)
   const [statusFilter, setStatusFilter] = useState('total')
+  const [sortField, setSortField] = useState<SortField>('code')
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
   const [page, setPage] = useState(1)
   const [orderServices, setOrderServices] = useState<OrderServiceRecord[]>([])
   const [loading, setLoading] = useState(true)
@@ -113,7 +153,7 @@ export function OrderServicesPage({ session, company, onCreate, onEdit }: OrderS
 
   useEffect(() => {
     setPage(1)
-  }, [search, statusFilter, dateFrom, dateTo, vehicleFilter, personFilter])
+  }, [search, statusFilter, dateFrom, dateTo, vehicleFilter, personFilter, sortField, sortDirection])
 
   function reload() {
     fetchOrderServices(session.token.token, company.id, fetchOptions)
@@ -145,8 +185,43 @@ export function OrderServicesPage({ session, company, onCreate, onEdit }: OrderS
     })
   }, [orderServices, search, statusFilter])
 
+  // Padrão pede as últimas OS primeiro — ordena por código (nº sequencial
+  // por empresa), que reflete a ordem real de criação melhor que a data de
+  // início, editável pelo usuário. As colunas clicáveis na tabela deixam
+  // reordenar por data/total/status também.
+  const sorted = useMemo(() => {
+    const items = [...filtered]
+    const direction = sortDirection === 'asc' ? 1 : -1
+    items.sort((a, b) => {
+      switch (sortField) {
+        case 'date_start': {
+          const aTime = a.date_start ? new Date(a.date_start).getTime() : 0
+          const bTime = b.date_start ? new Date(b.date_start).getTime() : 0
+          return (aTime - bTime) * direction
+        }
+        case 'total':
+          return (orderServiceTotal(a) - orderServiceTotal(b)) * direction
+        case 'status':
+          return (a.status - b.status) * direction
+        case 'code':
+        default:
+          return ((a.code ?? 0) - (b.code ?? 0)) * direction
+      }
+    })
+    return items
+  }, [filtered, sortField, sortDirection])
+
+  function handleSort(field: SortField) {
+    if (sortField === field) {
+      setSortDirection((current) => (current === 'desc' ? 'asc' : 'desc'))
+    } else {
+      setSortField(field)
+      setSortDirection('desc')
+    }
+  }
+
   const lastPage = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
-  const visible = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  const visible = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const printRows = useMemo(() => {
     if (!printTarget) return []
@@ -451,9 +526,31 @@ export function OrderServicesPage({ session, company, onCreate, onEdit }: OrderS
                       />
                     </th>
                     <th className="w-[34%] px-2 pb-2.5">Cliente / Veículo</th>
-                    <th className="w-[16%] px-2 pb-2.5">Data de início</th>
-                    <th className="w-[16%] px-2 pb-2.5 text-right">Total</th>
-                    <th className="w-[18%] px-2 pb-2.5">Status</th>
+                    <SortableTh
+                      label="Data de início"
+                      field="date_start"
+                      className="w-[16%] px-2 pb-2.5"
+                      activeField={sortField}
+                      direction={sortDirection}
+                      onSort={handleSort}
+                    />
+                    <SortableTh
+                      label="Total"
+                      field="total"
+                      align="right"
+                      className="w-[16%] px-2 pb-2.5 text-right"
+                      activeField={sortField}
+                      direction={sortDirection}
+                      onSort={handleSort}
+                    />
+                    <SortableTh
+                      label="Status"
+                      field="status"
+                      className="w-[18%] px-2 pb-2.5"
+                      activeField={sortField}
+                      direction={sortDirection}
+                      onSort={handleSort}
+                    />
                     <th className="w-10 pb-2.5 pr-3 text-right">Ações</th>
                   </tr>
                 </thead>
