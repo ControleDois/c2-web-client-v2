@@ -42,7 +42,7 @@ export function FiscalSection({ value, onChange, config, session, company }: Fis
   const [natureOperationLabel, setNatureOperationLabel] = useState<string | null>(null)
 
   useEffect(() => {
-    setNatureOperationLabel(config?.nature_operation?.description ?? null)
+    setNatureOperationLabel(config?.natureOperation?.description ?? null)
   }, [config])
 
   return (

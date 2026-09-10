@@ -67,9 +67,11 @@ export interface ConfigRecord {
   nfe_homologacao_serie?: number | null
   nfe_homologacao_numero?: number | null
   nfe_nature_operation_id?: string | null
-  // Relação carregada no GET /config (preload 'natureOperation' no Config model) —
-  // note que o nome do relacionamento não é "nfe_nature_operation".
-  nature_operation?: { id: string; description: string } | null
+  // Relação carregada no GET /config (preload 'natureOperation' no Config model).
+  // Lucid só converte @column pra snake_case — relations (@belongsTo) mantêm o
+  // nome literal da propriedade, por isso essa chave fica em camelCase mesmo
+  // com o resto da resposta em snake_case (confirmado direto na API).
+  natureOperation?: { id: string; description: string } | null
 
   // Cobranças — regras genéricas de multa/juros/desconto (movidas da aba Vendas)
   multa_modalidade?: number | null

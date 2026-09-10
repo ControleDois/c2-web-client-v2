@@ -50,10 +50,17 @@ export interface NfeItemRecord {
   product_id: string
   descricao?: string
   codigo_produto?: string
+  cfop?: string
   quantidade_comercial: number
   valor_unitario_comercial: number
   valor_bruto?: number
   product?: { id: string; name: string; code?: number }
+  // Override de natureza de operação por item (CFOP diferente por categoria
+  // de produto dentro da mesma NF-e — ex: refeição x bebida com ST). Chave em
+  // camelCase mesmo com o resto em snake_case — relations do Lucid não são
+  // convertidas pela naming strategy, só @column (confirmado direto na API).
+  nfe_nature_operation_id?: string | null
+  natureOperation?: { id: string; description: string } | null
 }
 
 export interface NfePaymentRecord {
@@ -92,7 +99,7 @@ export interface NfeRecord {
   presenca_comprador?: number
   indicador_intermediario?: number
   people?: { id: string; name: string; document?: string }
-  nature_operation?: { id: string; description: string }
+  natureOperation?: { id: string; description: string }
   itens?: NfeItemRecord[]
   pagamentos?: NfePaymentRecord[]
 }
@@ -102,6 +109,9 @@ export interface NfeProductInput {
   amount: number
   cost_value: number
   description?: string
+  // Override de natureza de operação (CFOP) só para este item — quando
+  // omitido, usa a natureza principal da NF-e.
+  nfe_nature_operation_id?: string
 }
 
 export interface NfePaymentInput {

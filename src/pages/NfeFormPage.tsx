@@ -19,7 +19,7 @@ import { ApiError } from '../lib/api'
 import { SelectField } from '../components/form/SelectField'
 import { SearchSelectField } from '../components/form/SearchSelectField'
 import { SectionCard } from '../components/SectionCard'
-import { TrashIcon, ChevronLeftIcon, PlusIcon } from '../components/icons'
+import { TrashIcon, ChevronLeftIcon, PlusIcon, ChevronDownIcon } from '../components/icons'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
 interface NfeFormPageProps {
@@ -42,6 +42,9 @@ interface ProductEntry {
   label: string
   amount: string
   costValue: string
+  natureOperationId?: string
+  natureOperationLabel?: string
+  expanded: boolean
 }
 
 interface PaymentEntry {
@@ -102,7 +105,7 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
         setStatus(nfe.status)
         setCustomer(nfe.people ? { id: nfe.people.id, label: nfe.people.name, sub: nfe.people.document } : null)
         setNatureOperation(
-          nfe.nature_operation ? { id: nfe.nature_operation.id, label: nfe.nature_operation.description } : null
+          nfe.natureOperation ? { id: nfe.natureOperation.id, label: nfe.natureOperation.description } : null
         )
         setPresencaComprador(nfe.presenca_comprador ?? 1)
         setValorFrete(nfe.valor_frete ? String(nfe.valor_frete) : '')
@@ -116,6 +119,9 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
             label: item.product?.name || item.descricao || 'Produto',
             amount: String(item.quantidade_comercial ?? 1),
             costValue: String(item.valor_unitario_comercial ?? 0),
+            natureOperationId: item.nfe_nature_operation_id ?? undefined,
+            natureOperationLabel: item.natureOperation?.description,
+            expanded: false,
           }))
         )
         setPayments(
@@ -172,6 +178,7 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
         label: product.name,
         amount: '1',
         costValue: product.sale_value ? String(product.sale_value) : '',
+        expanded: false,
       },
     ])
   }
@@ -239,6 +246,7 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
         product_id: item.productId,
         amount: parseAmount(item.amount) || 1,
         cost_value: parseAmount(item.costValue),
+        nfe_nature_operation_id: item.natureOperationId || undefined,
       })),
       payments: payments.map((payment) => ({
         indicador_pagamento: payment.indicadorPagamento,
@@ -370,39 +378,75 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
             ) : (
               <div className="flex flex-col gap-2">
                 {products.map((item) => (
-                  <div key={item.tempId} className="flex flex-wrap items-center gap-2 rounded-xl bg-[var(--page)] px-3.5 py-2.5">
-                    <span className="min-w-[140px] flex-1 truncate text-[13px] font-semibold text-[var(--ink)]" title={item.label}>
-                      {item.label}
-                    </span>
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      placeholder="Qtd."
-                      title="Quantidade"
-                      value={item.amount}
-                      onChange={(event) => handleUpdateProduct(item.tempId, { amount: event.target.value.replace(/[^\d.,]/g, '') })}
-                      className="w-16 flex-none rounded-lg bg-[var(--surface)] px-3 py-2 text-right text-[13px] text-[var(--ink)] ring-1 ring-transparent focus:outline-none focus:ring-[var(--blue-300)]"
-                    />
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      placeholder="Vl. unit."
-                      title="Valor unitário"
-                      value={item.costValue}
-                      onChange={(event) => handleUpdateProduct(item.tempId, { costValue: event.target.value.replace(/[^\d.,]/g, '') })}
-                      className="w-24 flex-none rounded-lg bg-[var(--surface)] px-3 py-2 text-right text-[13px] text-[var(--ink)] ring-1 ring-transparent focus:outline-none focus:ring-[var(--blue-300)]"
-                    />
-                    <span className="w-24 flex-none text-right text-[13px] font-bold text-[var(--ink)]">
-                      {formatCurrency(productTotal(item))}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveProduct(item.tempId)}
-                      className="flex-none rounded-lg p-2 text-[var(--muted)] hover:bg-[var(--red-100)] hover:text-[var(--red-500)]"
-                      aria-label="Remover produto"
-                    >
-                      <TrashIcon className="h-3.5 w-3.5" />
-                    </button>
+                  <div key={item.tempId} className="rounded-xl bg-[var(--page)] px-3.5 py-2.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="min-w-[140px] flex-1 truncate text-[13px] font-semibold text-[var(--ink)]" title={item.label}>
+                        {item.label}
+                      </span>
+                      {item.natureOperationLabel && (
+                        <span className="flex-none rounded-full bg-[var(--blue-100)] px-2 py-0.5 text-[10.5px] font-bold text-[var(--blue-700)]">
+                          {item.natureOperationLabel}
+                        </span>
+                      )}
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="Qtd."
+                        title="Quantidade"
+                        value={item.amount}
+                        onChange={(event) => handleUpdateProduct(item.tempId, { amount: event.target.value.replace(/[^\d.,]/g, '') })}
+                        className="w-16 flex-none rounded-lg bg-[var(--surface)] px-3 py-2 text-right text-[13px] text-[var(--ink)] ring-1 ring-transparent focus:outline-none focus:ring-[var(--blue-300)]"
+                      />
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="Vl. unit."
+                        title="Valor unitário"
+                        value={item.costValue}
+                        onChange={(event) => handleUpdateProduct(item.tempId, { costValue: event.target.value.replace(/[^\d.,]/g, '') })}
+                        className="w-24 flex-none rounded-lg bg-[var(--surface)] px-3 py-2 text-right text-[13px] text-[var(--ink)] ring-1 ring-transparent focus:outline-none focus:ring-[var(--blue-300)]"
+                      />
+                      <span className="w-24 flex-none text-right text-[13px] font-bold text-[var(--ink)]">
+                        {formatCurrency(productTotal(item))}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateProduct(item.tempId, { expanded: !item.expanded })}
+                        className="flex-none rounded-lg p-2 text-[var(--muted)] hover:bg-[var(--surface)] hover:text-[var(--ink)]"
+                        aria-label="Natureza de operação deste item"
+                        title="Natureza de operação (CFOP) deste item"
+                      >
+                        <ChevronDownIcon className={`h-3.5 w-3.5 transition-transform duration-200 ${item.expanded ? 'rotate-180' : ''}`} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveProduct(item.tempId)}
+                        className="flex-none rounded-lg p-2 text-[var(--muted)] hover:bg-[var(--red-100)] hover:text-[var(--red-500)]"
+                        aria-label="Remover produto"
+                      >
+                        <TrashIcon className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+
+                    {item.expanded && (
+                      <div className="mt-2.5 border-t border-[var(--border)] pt-2.5">
+                        <SearchSelectField
+                          label="Natureza de operação deste item (opcional)"
+                          placeholder="Padrão da nota — buscar para trocar o CFOP só deste item"
+                          variant="surface"
+                          selectedLabel={item.natureOperationLabel ?? null}
+                          onSearch={searchNatureOperations}
+                          getOptionLabel={(nature: NfeNatureOperationRecord) => nature.description}
+                          onSelect={(nature: NfeNatureOperationRecord) =>
+                            handleUpdateProduct(item.tempId, {
+                              natureOperationId: nature.id,
+                              natureOperationLabel: nature.description,
+                            })
+                          }
+                          onClear={() => handleUpdateProduct(item.tempId, { natureOperationId: undefined, natureOperationLabel: undefined })}
+                        />
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
