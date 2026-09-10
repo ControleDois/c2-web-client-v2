@@ -98,6 +98,8 @@ export interface NfeRecord {
   valor_total?: number
   presenca_comprador?: number
   indicador_intermediario?: number
+  // Texto livre impresso em "Informações Complementares" no DANFE.
+  informacoes_adicionais_contribuinte?: string | null
   people?: { id: string; name: string; document?: string }
   natureOperation?: { id: string; description: string }
   itens?: NfeItemRecord[]
@@ -132,6 +134,7 @@ export interface NfeDraftPayload {
   valor_seguro?: number
   valor_desconto?: number
   valor_outras_despesas?: number
+  informacoes_complementares?: string
   products: NfeProductInput[]
   payments: NfePaymentInput[]
 }

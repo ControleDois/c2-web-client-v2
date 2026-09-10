@@ -91,6 +91,7 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
 
   const [products, setProducts] = useState<ProductEntry[]>([])
   const [payments, setPayments] = useState<PaymentEntry[]>([])
+  const [observacoes, setObservacoes] = useState('')
 
   useEffect(() => {
     if (!nfeId) return
@@ -112,6 +113,7 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
         setValorSeguro(nfe.valor_seguro ? String(nfe.valor_seguro) : '')
         setValorDesconto(nfe.valor_desconto ? String(nfe.valor_desconto) : '')
         setValorOutrasDespesas(nfe.valor_outras_despesas ? String(nfe.valor_outras_despesas) : '')
+        setObservacoes(nfe.informacoes_adicionais_contribuinte ?? '')
         setProducts(
           (nfe.itens ?? []).map((item, index) => ({
             tempId: `item-${index}`,
@@ -242,6 +244,7 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
       valor_seguro: parseAmount(valorSeguro),
       valor_desconto: parseAmount(valorDesconto),
       valor_outras_despesas: parseAmount(valorOutrasDespesas),
+      informacoes_complementares: observacoes.trim() || undefined,
       products: products.map((item) => ({
         product_id: item.productId,
         amount: parseAmount(item.amount) || 1,
@@ -500,6 +503,16 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
                 />
               </label>
             </div>
+          </SectionCard>
+
+          <SectionCard title="Observações" subtitle="Aparece em Informações Complementares no DANFE">
+            <textarea
+              value={observacoes}
+              onChange={(event) => setObservacoes(event.target.value)}
+              rows={3}
+              placeholder="Ex: Nota fiscal referente ao evento realizado em..."
+              className="w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition placeholder:text-[var(--muted)] focus:outline-none focus:ring-[var(--blue-300)]"
+            />
           </SectionCard>
 
           <SectionCard
