@@ -61,36 +61,58 @@ export function FiscalSection({ value, onChange, config, session, company }: Fis
 
           {value.nfe_module_enabled && (
             <>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <TextField
-                  label="Token Focus NFe (produção)"
-                  icon={<KeyIcon className="h-4 w-4" />}
-                  type="password"
-                  value={value.focus_nfe_token_producao ?? ''}
-                  onChange={(event) => onChange({ focus_nfe_token_producao: event.target.value })}
-                />
-                <TextField
-                  label="Token Focus NFe (homologação)"
-                  icon={<KeyIcon className="h-4 w-4" />}
-                  type="password"
-                  value={value.focus_nfe_token_homologacao ?? ''}
-                  onChange={(event) => onChange({ focus_nfe_token_homologacao: event.target.value })}
-                />
-                <TextField
-                  label="URL da API (produção)"
-                  icon={<LinkIcon className="h-4 w-4" />}
-                  placeholder="https://api.focusnfe.com.br"
-                  value={value.focus_nfe_api_producao ?? ''}
-                  onChange={(event) => onChange({ focus_nfe_api_producao: event.target.value })}
-                />
-                <TextField
-                  label="URL da API (homologação)"
-                  icon={<LinkIcon className="h-4 w-4" />}
-                  placeholder="https://homologacao.focusnfe.com.br"
-                  value={value.focus_nfe_api_homologacao ?? ''}
-                  onChange={(event) => onChange({ focus_nfe_api_homologacao: event.target.value })}
-                />
-              </div>
+              <SelectField
+                label="Provedor de emissão"
+                value={value.nfe_provider ?? 'focus'}
+                onChange={(event) => onChange({ nfe_provider: event.target.value })}
+              >
+                <option value="focus">Focus NFe</option>
+                <option value="delphi">Servidor próprio</option>
+              </SelectField>
+              {value.nfe_provider === 'delphi' ? (
+                <p className="text-[12px] text-[var(--muted)]">
+                  A prévia de DANFE (sem enviar pra SEFAZ) só funciona com o servidor próprio — é a única opção que
+                  gera o PDF sem autorizar a nota.
+                </p>
+              ) : (
+                <p className="text-[12px] text-[var(--muted)]">
+                  A Focus NFe não expõe prévia de DANFE sem autorização — pra usar o botão "Pré-visualizar" nas
+                  Notas Fiscais, troque pra Servidor próprio.
+                </p>
+              )}
+
+              {value.nfe_provider !== 'delphi' && (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <TextField
+                    label="Token Focus NFe (produção)"
+                    icon={<KeyIcon className="h-4 w-4" />}
+                    type="password"
+                    value={value.focus_nfe_token_producao ?? ''}
+                    onChange={(event) => onChange({ focus_nfe_token_producao: event.target.value })}
+                  />
+                  <TextField
+                    label="Token Focus NFe (homologação)"
+                    icon={<KeyIcon className="h-4 w-4" />}
+                    type="password"
+                    value={value.focus_nfe_token_homologacao ?? ''}
+                    onChange={(event) => onChange({ focus_nfe_token_homologacao: event.target.value })}
+                  />
+                  <TextField
+                    label="URL da API (produção)"
+                    icon={<LinkIcon className="h-4 w-4" />}
+                    placeholder="https://api.focusnfe.com.br"
+                    value={value.focus_nfe_api_producao ?? ''}
+                    onChange={(event) => onChange({ focus_nfe_api_producao: event.target.value })}
+                  />
+                  <TextField
+                    label="URL da API (homologação)"
+                    icon={<LinkIcon className="h-4 w-4" />}
+                    placeholder="https://homologacao.focusnfe.com.br"
+                    value={value.focus_nfe_api_homologacao ?? ''}
+                    onChange={(event) => onChange({ focus_nfe_api_homologacao: event.target.value })}
+                  />
+                </div>
+              )}
 
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 <SelectField

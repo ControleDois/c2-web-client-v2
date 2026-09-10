@@ -58,6 +58,7 @@ function buildConfigPayload(companyId: string, config: ConfigRecord | null): Con
     purchase_management_enabled: config?.purchase_management_enabled ?? false,
 
     nfe_module_enabled: config?.nfe_module_enabled ?? false,
+    nfe_provider: config?.nfe_provider ?? 'focus',
     focus_nfe_token_producao: config?.focus_nfe_token_producao ?? undefined,
     focus_nfe_token_homologacao: config?.focus_nfe_token_homologacao ?? undefined,
     focus_nfe_api_producao: config?.focus_nfe_api_producao ?? undefined,

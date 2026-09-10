@@ -8,6 +8,7 @@ import {
   skipNfeNumber,
   fetchNfeLogs,
   fetchNfeFileUrl,
+  fetchNfePreviewDanfeUrl,
   NFE_STATUS_LABELS,
   type NfeRecord,
   type NfeSendLogRecord,
@@ -26,11 +27,13 @@ import {
   AlertTriangleIcon,
   ClipboardCheckIcon,
   ArrowUpCircleIcon,
+  EyeIcon,
 } from '../components/icons'
 import { SortableTh } from '../components/SortableTh'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { RowActionsMenu, type RowAction } from '../components/RowActionsMenu'
 import { SearchSelectField } from '../components/form/SearchSelectField'
+import { DocumentViewerModal } from '../components/DocumentViewerModal'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
 interface NfesPageProps {
@@ -80,6 +83,9 @@ export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) 
   const [logsTarget, setLogsTarget] = useState<NfeRecord | null>(null)
   const [logs, setLogs] = useState<NfeSendLogRecord[]>([])
   const [logsLoading, setLogsLoading] = useState(false)
+
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [previewTarget, setPreviewTarget] = useState<NfeRecord | null>(null)
 
   function reload() {
     setLoading(true)
@@ -220,6 +226,22 @@ export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) 
     }
   }
 
+  // Pede a prévia do DANFE pro servidor próprio (Delphi) — assina localmente
+  // pra ter chave/QR-code coerentes, mas nunca transmite pra SEFAZ.
+  async function handlePreview(nfe: NfeRecord) {
+    setBusyId(nfe.id)
+    setActionError(null)
+    try {
+      const url = await fetchNfePreviewDanfeUrl(session.token.token, nfe.id)
+      setPreviewTarget(nfe)
+      setPreviewUrl(url)
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : 'Não foi possível gerar a prévia do DANFE.')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   async function handleConfirmCancel() {
     if (!cancelTarget) return
     if (cancelReason.trim().length < 15) {
@@ -257,6 +279,15 @@ export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) 
         { key: 'edit', label: 'Editar', icon: <PencilIcon className="h-4 w-4" />, onClick: () => onEdit(nfe) },
         { key: 'send', label: 'Enviar', icon: <ArrowUpCircleIcon className="h-4 w-4" />, onClick: () => handleSend(nfe) }
       )
+    }
+
+    if (nfe.status === 0 || nfe.status === 3) {
+      actions.push({
+        key: 'preview',
+        label: 'Pré-visualizar DANFE',
+        icon: <EyeIcon className="h-4 w-4" />,
+        onClick: () => handlePreview(nfe),
+      })
     }
 
     if (nfe.status === 1 || nfe.status === 3) {
@@ -636,6 +667,27 @@ export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) 
             </button>
           </div>
         </div>
+      )}
+
+      {previewUrl && (
+        <DocumentViewerModal
+          documents={[
+            {
+              title: `Prévia DANFE — NF-e #${previewTarget?.code ?? ''}`,
+              description: 'Assinada localmente para gerar chave/QR-code, mas não enviada à SEFAZ.',
+              url: previewUrl,
+              fileName: `preview-nfe-${previewTarget?.code ?? ''}.pdf`,
+              type: 'pdf',
+            },
+          ]}
+          index={0}
+          onIndexChange={() => {}}
+          onClose={() => {
+            URL.revokeObjectURL(previewUrl)
+            setPreviewUrl(null)
+            setPreviewTarget(null)
+          }}
+        />
       )}
 
       {(actionMessage || actionError) && (

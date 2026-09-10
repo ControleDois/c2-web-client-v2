@@ -230,3 +230,12 @@ export async function fetchNfeFileUrl(token: string, id: string, type: 'xml' | '
   const blob = await apiFetchBlob(`/nfe/${id}/file/${type}`, {}, token)
   return URL.createObjectURL(blob)
 }
+
+// Prévia do DANFE: assina localmente pra ter chave/QR-code coerentes, mas
+// nunca transmite pra SEFAZ (o PDF sai com marca d'água "SEM VALOR FISCAL").
+// Só funciona pra empresas com nfe_provider = 'delphi' (nosso servidor
+// próprio) — a Focus NFe não expõe geração de DANFE sem autorização.
+export async function fetchNfePreviewDanfeUrl(token: string, id: string): Promise<string> {
+  const blob = await apiFetchBlob(`/nfe/${id}/preview-danfe`, {}, token)
+  return URL.createObjectURL(blob)
+}

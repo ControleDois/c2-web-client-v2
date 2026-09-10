@@ -57,6 +57,9 @@ export interface ConfigRecord {
 
   // Fiscal / NFe (Focus NFe)
   nfe_module_enabled?: boolean
+  // 'focus' (padrão, Focus NFe) ou 'delphi' (servidor próprio — único que
+  // permite prévia de DANFE sem transmitir pra SEFAZ).
+  nfe_provider?: string | null
   focus_nfe_token_homologacao?: string | null
   focus_nfe_token_producao?: string | null
   focus_nfe_api_homologacao?: string | null
@@ -198,6 +201,7 @@ export interface ConfigPayload {
   // GET devolve "nfe_nature_operation_id" em ConfigRecord (serialização
   // padrão do Lucid) — são chaves diferentes de propósito.
   nfe_module_enabled?: boolean
+  nfe_provider?: string
   focus_nfe_token_homologacao?: string
   focus_nfe_token_producao?: string
   focus_nfe_api_homologacao?: string
