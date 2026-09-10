@@ -19,6 +19,7 @@ export const SYSTEM_TYPE_LABELS: Record<number, string> = {
 export const SYSTEM_TYPE_PROTECAO_VEICULAR = 1
 export const SYSTEM_TYPE_EMPRESTIMO = 3
 export const SYSTEM_TYPE_LOCACAO_VEICULOS = 6
+export const SYSTEM_TYPE_PIZZARIA = 14
 export const SYSTEM_TYPES_LOJA_ONLINE = [10, 12]
 export const SYSTEM_TYPES_VISTORIAS = [6, 7, 9]
 
@@ -32,6 +33,12 @@ export function isLocacaoVeiculos(systemType?: number): boolean {
 
 export function isEmprestimo(systemType?: number): boolean {
   return systemType === SYSTEM_TYPE_EMPRESTIMO
+}
+
+// Nicho sem veículos: não usa vistoria, busca de veículo nem o relatório de
+// faturamento do guincho — só Dashboard/Pessoas/Produtos/Vendas + Fiscal.
+export function isPizzaria(systemType?: number): boolean {
+  return systemType === SYSTEM_TYPE_PIZZARIA
 }
 
 export function isLojaOnline(systemType?: number): boolean {

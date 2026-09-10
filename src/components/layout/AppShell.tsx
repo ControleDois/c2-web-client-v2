@@ -25,7 +25,7 @@ import {
   FileTextIcon,
 } from '../icons'
 import { getCompanyName, type AuthCompany, type AuthSession } from '../../lib/auth'
-import { isLocacaoVeiculos, isEmprestimo } from '../../lib/systemTypes'
+import { isLocacaoVeiculos, isEmprestimo, isPizzaria } from '../../lib/systemTypes'
 
 export type AppPage =
   | 'dashboard'
@@ -83,6 +83,7 @@ function buildNavGroups(
   nfeModuleEnabled?: boolean
 ): NavGroup[] {
   const emprestimo = isEmprestimo(systemType)
+  const pizzaria = isPizzaria(systemType)
 
   const principalItems = emprestimo
     ? [
@@ -99,12 +100,19 @@ function buildNavGroups(
           { page: 'vehicle-sales' as const, label: 'Venda', icon: SaleIcon },
           { page: 'order-services' as const, label: 'Ordens de Serviço', icon: WrenchIcon },
         ]
-      : [
-          { page: 'dashboard' as const, label: 'Dashboard', icon: GridIcon },
-          { page: 'people' as const, label: 'Pessoas', icon: UserIcon },
-          { page: 'vehicles' as const, label: 'Veículos', icon: TruckIcon },
-          { page: 'towing-sales' as const, label: 'Vendas', icon: CoinIcon },
-        ]
+      : pizzaria
+        ? [
+            { page: 'dashboard' as const, label: 'Dashboard', icon: GridIcon },
+            { page: 'people' as const, label: 'Pessoas', icon: UserIcon },
+            { page: 'products' as const, label: 'Produtos e Serviços', icon: BoxIcon },
+            { page: 'towing-sales' as const, label: 'Vendas', icon: CoinIcon },
+          ]
+        : [
+            { page: 'dashboard' as const, label: 'Dashboard', icon: GridIcon },
+            { page: 'people' as const, label: 'Pessoas', icon: UserIcon },
+            { page: 'vehicles' as const, label: 'Veículos', icon: TruckIcon },
+            { page: 'towing-sales' as const, label: 'Vendas', icon: CoinIcon },
+          ]
 
   const groups: NavGroup[] = [
     { title: 'Principal', items: principalItems },
@@ -120,9 +128,9 @@ function buildNavGroups(
     },
   ]
 
-  // Empréstimo é um nicho à parte, sem veículos/operação de vistoria — só
-  // entra o grupo próprio dele, sem o grupo "Operação" (que é todo sobre
-  // vistoria/busca/entrega de veículo, irrelevante pra esse nicho).
+  // Empréstimo e Pizzaria são nichos sem veículo/vistoria — só entram o
+  // grupo próprio (empréstimo) ou nenhum grupo extra (pizzaria), sem o
+  // grupo "Operação" (que é todo sobre vistoria/busca/entrega de veículo).
   if (emprestimo) {
     groups.push({
       title: 'Empréstimo',
@@ -134,7 +142,7 @@ function buildNavGroups(
         },
       ],
     })
-  } else {
+  } else if (!pizzaria) {
     groups.push({
       title: 'Operação',
       items: [
@@ -164,10 +172,14 @@ function buildNavGroups(
     })
   }
 
-  groups.push({
-    title: 'Relatórios',
-    items: [{ page: 'towing-billing-report', label: 'Faturamento', icon: TrendUpIcon }],
-  })
+  // O relatório de faturamento é específico do fluxo de guincho (TowingSale)
+  // — não se aplica a um nicho sem veículos como a Pizzaria.
+  if (!pizzaria) {
+    groups.push({
+      title: 'Relatórios',
+      items: [{ page: 'towing-billing-report', label: 'Faturamento', icon: TrendUpIcon }],
+    })
+  }
 
   return groups
 }
