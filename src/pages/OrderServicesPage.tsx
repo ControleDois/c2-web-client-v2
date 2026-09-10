@@ -586,8 +586,12 @@ export function OrderServicesPage({ session, company, onCreate, onEdit }: OrderS
             : [
                 { label: 'Veículo', value: vehicleLabel(printTarget) },
                 {
-                  label: 'Data da manutenção',
+                  label: 'Data de início',
                   value: printTarget.date_start ? formatDate(printTarget.date_start) : '—',
+                },
+                {
+                  label: 'Data de término',
+                  value: printTarget.date_finish ? formatDate(printTarget.date_finish) : '—',
                 },
                 {
                   label: 'KM do veículo',
