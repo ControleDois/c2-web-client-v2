@@ -106,6 +106,8 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
   const title = role === 1 ? 'Contas a Receber' : 'Contas a Pagar'
   const personLabel = role === 1 ? 'Cliente' : 'Fornecedor'
   const [period, setPeriod] = useState<PeriodKey>('month')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
   const [search, setSearch] = useState('')
   const [statusType, setStatusType] = useState('')
   const [dateType, setDateType] = useState<BillsDateType>('date_due')
@@ -172,16 +174,20 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
   ]
 
   function buildDateRange(): { start?: string; end?: string } {
-    const { start, end } = getPeriodRange(period)
     if (summaryFilter === 'overdue') {
       const yesterday = new Date()
       yesterday.setDate(yesterday.getDate() - 1)
       return { start: undefined, end: toISODate(yesterday) }
     }
-    return { start, end }
+    // Um período customizado (De/Até) tem prioridade sobre os botões rápidos
+    // (Hoje/7 dias/Mês/Tudo) — os botões continuam existindo como atalho.
+    if (dateFrom || dateTo) {
+      return { start: dateFrom || undefined, end: dateTo || undefined }
+    }
+    return getPeriodRange(period)
   }
 
-  const filtersKey = `${statusType}:${summaryFilter}:${moreFilters.peopleId ?? ''}:${moreFilters.categoryId ?? ''}:${moreFilters.bankAccountId ?? ''}:${dateType}:${sortField}:${sortDirection}`
+  const filtersKey = `${statusType}:${summaryFilter}:${moreFilters.peopleId ?? ''}:${moreFilters.categoryId ?? ''}:${moreFilters.bankAccountId ?? ''}:${dateType}:${sortField}:${sortDirection}:${dateFrom}:${dateTo}`
 
   useEffect(() => {
     let cancelled = false
@@ -240,11 +246,11 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
       clearTimeout(timeout)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, filtersKey, period, page, role, company.id, session.token.token])
+  }, [search, filtersKey, period, dateFrom, dateTo, page, role, company.id, session.token.token])
 
   useEffect(() => {
     setPage(1)
-  }, [search, filtersKey, period, role])
+  }, [search, filtersKey, period, dateFrom, dateTo, role])
 
   function silentReload() {
     const { start, end } = buildDateRange()
@@ -585,9 +591,15 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
               <button
                 key={option.key}
                 type="button"
-                onClick={() => setPeriod(option.key)}
+                onClick={() => {
+                  setPeriod(option.key)
+                  setDateFrom('')
+                  setDateTo('')
+                }}
                 className={`rounded-lg px-3 py-1.5 text-[12.5px] font-semibold transition ${
-                  period === option.key ? 'bg-[var(--blue-500)] text-white' : 'text-[var(--ink-soft)] hover:text-[var(--ink)]'
+                  period === option.key && !dateFrom && !dateTo
+                    ? 'bg-[var(--blue-500)] text-white'
+                    : 'text-[var(--ink-soft)] hover:text-[var(--ink)]'
                 }`}
               >
                 {option.label}
@@ -660,6 +672,36 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
           </select>
           <ChevronDownIcon className="pointer-events-none h-3.5 w-3.5 flex-none text-[var(--muted)]" />
         </div>
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[12px] font-semibold text-[var(--ink-soft)]">De</span>
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(event) => setDateFrom(event.target.value)}
+            className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2.5 text-[13.5px] text-[var(--ink)] focus:outline-none"
+          />
+        </label>
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Até</span>
+          <input
+            type="date"
+            value={dateTo}
+            onChange={(event) => setDateTo(event.target.value)}
+            className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2.5 text-[13.5px] text-[var(--ink)] focus:outline-none"
+          />
+        </label>
+        {(dateFrom || dateTo) && (
+          <button
+            type="button"
+            onClick={() => {
+              setDateFrom('')
+              setDateTo('')
+            }}
+            className="rounded-xl px-3.5 py-2.5 text-[12.5px] font-semibold text-[var(--blue-700)] hover:underline"
+          >
+            Limpar datas
+          </button>
+        )}
       </div>
 
       <BillsMoreFiltersPanel session={session} company={company} role={role} filters={moreFilters} onChange={setMoreFilters} />
