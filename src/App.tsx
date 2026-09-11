@@ -41,6 +41,7 @@ import { RentalTypesPage } from './pages/RentalTypesPage'
 import { RentalTypeFormPage } from './pages/RentalTypeFormPage'
 import { NfesPage } from './pages/NfesPage'
 import { NfeFormPage } from './pages/NfeFormPage'
+import { NfeManifestsPage } from './pages/NfeManifestsPage'
 import { NfeNatureOperationsPage } from './pages/NfeNatureOperationsPage'
 import { NfeNatureOperationFormPage } from './pages/NfeNatureOperationFormPage'
 import { NfeTaxationsPage } from './pages/NfeTaxationsPage'
@@ -595,6 +596,8 @@ function App() {
         ) : (
           <NfesPage session={session} company={activeCompany} onCreate={nfesView.create} onEdit={(nfe) => nfesView.edit(nfe.id)} />
         )
+    } else if (page === 'nfe-manifests') {
+      pageContent = <NfeManifestsPage session={session} company={activeCompany} />
     } else if (page === 'nfe-nature-operations') {
       pageContent =
         nfeNatureOperationsView.view.mode === 'form' ? (

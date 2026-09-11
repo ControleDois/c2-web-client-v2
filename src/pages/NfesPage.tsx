@@ -20,6 +20,7 @@ import {
 } from '../lib/nfes'
 import { fetchPeople, type PersonRecord } from '../lib/people'
 import { formatCurrency, formatDate, formatDateTime } from '../lib/format'
+import { formatLogPayload } from '../lib/logs'
 import { ApiError } from '../lib/api'
 import { useNfeStatusUpdates } from '../hooks/useNfeStatusUpdates'
 import {
@@ -60,17 +61,6 @@ function statusTone(status: number): string {
   if (status === 4) return 'bg-[var(--page)] text-[var(--muted)]'
   if (status === 1) return 'bg-[var(--blue-100)] text-[var(--blue-700)]'
   return 'bg-[var(--amber-100)] text-[var(--amber-500)]'
-}
-
-// O request/response de um log de NFe costuma vir como string JSON — tenta
-// parsear e reformatar com indentação; se não for JSON válido, mostra cru.
-function formatLogPayload(value: string | null | undefined): string {
-  if (!value) return ''
-  try {
-    return JSON.stringify(JSON.parse(value), null, 2)
-  } catch {
-    return value
-  }
 }
 
 export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) {

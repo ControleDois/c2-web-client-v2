@@ -23,9 +23,10 @@ import {
   WrenchIcon,
   BadgeIcon,
   FileTextIcon,
+  MailIcon,
 } from '../icons'
 import { getCompanyName, type AuthCompany, type AuthSession } from '../../lib/auth'
-import { isLocacaoVeiculos, isEmprestimo, isPizzaria } from '../../lib/systemTypes'
+import { isLocacaoVeiculos, isEmprestimo, isPizzaria, isLanchonete } from '../../lib/systemTypes'
 
 export type AppPage =
   | 'dashboard'
@@ -60,6 +61,7 @@ export type AppPage =
   | 'purchase-management'
   | 'purchase-requests'
   | 'nfes'
+  | 'nfe-manifests'
   | 'nfe-nature-operations'
   | 'nfe-taxations'
 
@@ -84,6 +86,8 @@ function buildNavGroups(
 ): NavGroup[] {
   const emprestimo = isEmprestimo(systemType)
   const pizzaria = isPizzaria(systemType)
+  const lanchonete = isLanchonete(systemType)
+  const noVehicleNiche = pizzaria || lanchonete
 
   const principalItems = emprestimo
     ? [
@@ -100,7 +104,7 @@ function buildNavGroups(
           { page: 'vehicle-sales' as const, label: 'Venda', icon: SaleIcon },
           { page: 'order-services' as const, label: 'Ordens de Serviço', icon: WrenchIcon },
         ]
-      : pizzaria
+      : noVehicleNiche
         ? [
             { page: 'dashboard' as const, label: 'Dashboard', icon: GridIcon },
             { page: 'people' as const, label: 'Pessoas', icon: UserIcon },
@@ -128,9 +132,9 @@ function buildNavGroups(
     },
   ]
 
-  // Empréstimo e Pizzaria são nichos sem veículo/vistoria — só entram o
-  // grupo próprio (empréstimo) ou nenhum grupo extra (pizzaria), sem o
-  // grupo "Operação" (que é todo sobre vistoria/busca/entrega de veículo).
+  // Empréstimo e os nichos sem veículo (Pizzaria/Lanchonete) não usam o
+  // grupo "Operação" (que é todo sobre vistoria/busca/entrega de veículo) —
+  // só entram o grupo próprio (empréstimo) ou nenhum grupo extra.
   if (emprestimo) {
     groups.push({
       title: 'Empréstimo',
@@ -142,7 +146,7 @@ function buildNavGroups(
         },
       ],
     })
-  } else if (!pizzaria) {
+  } else if (!noVehicleNiche) {
     groups.push({
       title: 'Operação',
       items: [
@@ -166,6 +170,7 @@ function buildNavGroups(
       title: 'Fiscal',
       items: [
         { page: 'nfes', label: 'Notas Fiscais', icon: FileTextIcon },
+        { page: 'nfe-manifests', label: 'Manifesto NF-e', icon: MailIcon },
         { page: 'nfe-nature-operations', label: 'Natureza de Operação', icon: TagIcon },
         { page: 'nfe-taxations', label: 'Tributação', icon: TargetIcon },
       ],
@@ -173,8 +178,8 @@ function buildNavGroups(
   }
 
   // O relatório de faturamento é específico do fluxo de guincho (TowingSale)
-  // — não se aplica a um nicho sem veículos como a Pizzaria.
-  if (!pizzaria) {
+  // — não se aplica a um nicho sem veículos como Pizzaria/Lanchonete.
+  if (!noVehicleNiche) {
     groups.push({
       title: 'Relatórios',
       items: [{ page: 'towing-billing-report', label: 'Faturamento', icon: TrendUpIcon }],

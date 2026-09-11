@@ -14,12 +14,14 @@ export const SYSTEM_TYPE_LABELS: Record<number, string> = {
   12: 'Sorveteria',
   13: 'Grupo Clube',
   14: 'Pizzaria',
+  15: 'Lanchonete',
 }
 
 export const SYSTEM_TYPE_PROTECAO_VEICULAR = 1
 export const SYSTEM_TYPE_EMPRESTIMO = 3
 export const SYSTEM_TYPE_LOCACAO_VEICULOS = 6
 export const SYSTEM_TYPE_PIZZARIA = 14
+export const SYSTEM_TYPE_LANCHONETE = 15
 export const SYSTEM_TYPES_LOJA_ONLINE = [10, 12]
 export const SYSTEM_TYPES_VISTORIAS = [6, 7, 9]
 
@@ -39,6 +41,16 @@ export function isEmprestimo(systemType?: number): boolean {
 // faturamento do guincho — só Dashboard/Pessoas/Produtos/Vendas + Fiscal.
 export function isPizzaria(systemType?: number): boolean {
   return systemType === SYSTEM_TYPE_PIZZARIA
+}
+
+export function isLanchonete(systemType?: number): boolean {
+  return systemType === SYSTEM_TYPE_LANCHONETE
+}
+
+// Pizzaria e Lanchonete compartilham o mesmo formato de menu hoje (sem
+// veículo) — ficam como nichos distintos porque podem divergir depois.
+export function isNoVehicleNiche(systemType?: number): boolean {
+  return isPizzaria(systemType) || isLanchonete(systemType)
 }
 
 export function isLojaOnline(systemType?: number): boolean {
