@@ -10,6 +10,7 @@ import {
   NFE_TIPO_INTEGRACAO_OPTIONS,
   NFE_BANDEIRA_OPERADORA_OPTIONS,
   NFE_LOCAL_DESTINO_OVERRIDE_OPTIONS,
+  NFE_CONSUMIDOR_FINAL_OVERRIDE_OPTIONS,
   type NfeRecord,
   type NfeDraftPayload,
   type NfePaymentRecord,
@@ -135,6 +136,7 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
   const [natureOperation, setNatureOperation] = useState<EntityPick | null>(null)
   const [presencaComprador, setPresencaComprador] = useState(1)
   const [localDestinoOverride, setLocalDestinoOverride] = useState('')
+  const [consumidorFinalOverride, setConsumidorFinalOverride] = useState('')
 
   const [valorFrete, setValorFrete] = useState('')
   const [valorSeguro, setValorSeguro] = useState('')
@@ -162,6 +164,7 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
         )
         setPresencaComprador(nfe.presenca_comprador ?? 1)
         setLocalDestinoOverride(nfe.local_destino_override ? String(nfe.local_destino_override) : '')
+        setConsumidorFinalOverride(nfe.consumidor_final_override ? String(nfe.consumidor_final_override) : '')
         setValorFrete(nfe.valor_frete ? String(nfe.valor_frete) : '')
         setValorSeguro(nfe.valor_seguro ? String(nfe.valor_seguro) : '')
         setValorDesconto(nfe.valor_desconto ? String(nfe.valor_desconto) : '')
@@ -288,6 +291,7 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
       modelo: 55,
       presenca_comprador: presencaComprador,
       local_destino_override: localDestinoOverride ? Number(localDestinoOverride) : undefined,
+      consumidor_final_override: consumidorFinalOverride ? Number(consumidorFinalOverride) : undefined,
       valor_frete: parseAmount(valorFrete),
       valor_seguro: parseAmount(valorSeguro),
       valor_desconto: parseAmount(valorDesconto),
@@ -422,14 +426,29 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
                   </option>
                 ))}
               </SelectField>
+              <SelectField
+                label="Consumidor final"
+                value={consumidorFinalOverride}
+                onChange={(event) => setConsumidorFinalOverride(event.target.value)}
+              >
+                {NFE_CONSUMIDOR_FINAL_OVERRIDE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </SelectField>
             </div>
-            {localDestinoOverride && (
+            {(localDestinoOverride || consumidorFinalOverride) && (
               <p className="mt-3 flex items-start gap-2 rounded-xl bg-[var(--amber-100)] px-3.5 py-2.5 text-[12.5px] font-medium text-[var(--amber-500)]">
                 <AlertTriangleIcon className="mt-0.5 h-3.5 w-3.5 flex-none" />
-                Você está forçando a classificação da operação em vez de deixar o sistema calcular pela UF do
-                emitente e do destinatário. A SEFAZ pode rejeitar se isso não corresponder à sua situação fiscal
-                real (ex: inscrição estadual de substituto tributário no estado de destino). Use por sua conta e
-                risco.
+                Você está forçando manualmente {localDestinoOverride && consumidorFinalOverride
+                  ? 'a classificação da operação e o consumidor final'
+                  : localDestinoOverride
+                    ? 'a classificação da operação'
+                    : 'o consumidor final'}{' '}
+                em vez de deixar o sistema calcular pelo cadastro do cliente. A SEFAZ pode rejeitar se isso não
+                corresponder à situação fiscal real (ex: inscrição estadual de substituto tributário no estado de
+                destino). Use por sua conta e risco.
               </p>
             )}
           </SectionCard>

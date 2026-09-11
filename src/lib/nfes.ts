@@ -39,6 +39,16 @@ export const NFE_LOCAL_DESTINO_OVERRIDE_OPTIONS: { value: string; label: string 
   { value: '2', label: 'Forçar operação interestadual (CFOP 6xxx)' },
 ]
 
+// Por padrão "consumidor final" vem do indicador de inscrição estadual do
+// cliente (9 = não contribuinte). Este override força a classificação —
+// afeta o perfil de tributação usado (Revenda x Consumidor Final) e o campo
+// indFinal da nota, por conta e risco do emitente.
+export const NFE_CONSUMIDOR_FINAL_OVERRIDE_OPTIONS: { value: string; label: string }[] = [
+  { value: '', label: 'Automático (indicador de IE do cliente)' },
+  { value: '1', label: 'Forçar como consumidor final' },
+  { value: '2', label: 'Forçar como contribuinte (revenda)' },
+]
+
 export const NFE_INDICADOR_PAGAMENTO_OPTIONS: { value: number; label: string }[] = [
   { value: 0, label: 'À vista' },
   { value: 1, label: 'A prazo' },
@@ -139,6 +149,10 @@ export interface NfeRecord {
   local_destino?: number
   // 0/null = automático, 1 = força operação interna, 2 = força interestadual.
   local_destino_override?: number | null
+  consumidor_final?: number
+  // 0/null = automático (indicador de IE do cliente), 1 = força consumidor
+  // final, 2 = força contribuinte/revenda.
+  consumidor_final_override?: number | null
   // Texto livre impresso em "Informações Complementares" no DANFE.
   informacoes_adicionais_contribuinte?: string | null
   people?: { id: string; name: string; document?: string }
@@ -183,6 +197,10 @@ export interface NfeDraftPayload {
   // idDest), por conta e risco do emitente — omitir usa a UF de emitente x
   // destinatário automaticamente.
   local_destino_override?: number
+  // Força consumidor final(1)/contribuinte-revenda(2) — decide o perfil de
+  // tributação usado (Revenda x Consumidor Final) e o campo indFinal —
+  // omitir usa o indicador de IE do cliente automaticamente.
+  consumidor_final_override?: number
   valor_frete?: number
   valor_seguro?: number
   valor_desconto?: number
