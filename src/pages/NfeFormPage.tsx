@@ -611,7 +611,7 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
               disabled={submitting}
               className="rounded-xl bg-[var(--blue-500)] px-6 py-2.5 text-[14px] font-bold text-white transition hover:bg-[var(--blue-700)] disabled:opacity-60"
             >
-              {submitting ? 'Salvando…' : 'Salvar rascunho'}
+              {submitting ? 'Salvando…' : nfeId && status !== 0 ? 'Salvar alterações' : 'Salvar rascunho'}
             </button>
             <button
               type="button"

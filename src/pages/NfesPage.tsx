@@ -319,13 +319,16 @@ export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) 
     }
 
     if (nfe.status === 3) {
-      actions.push({
-        key: 'view-error',
-        label: 'Ver erro',
-        icon: <AlertTriangleIcon className="h-4 w-4" />,
-        tone: 'warning',
-        onClick: () => setErrorTarget(nfe),
-      })
+      actions.push(
+        {
+          key: 'view-error',
+          label: 'Ver erro',
+          icon: <AlertTriangleIcon className="h-4 w-4" />,
+          tone: 'warning',
+          onClick: () => setErrorTarget(nfe),
+        },
+        { key: 'edit', label: 'Editar', icon: <PencilIcon className="h-4 w-4" />, onClick: () => onEdit(nfe) }
+      )
     }
 
     if (nfe.status === 1 || nfe.status === 3) {
