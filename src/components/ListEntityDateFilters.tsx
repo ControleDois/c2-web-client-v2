@@ -3,6 +3,7 @@ import { fetchPeople, type PersonRecord } from '../lib/people'
 import { fetchVehicles, type VehicleRecord } from '../lib/vehicles'
 import { formatDocument } from '../lib/formatDocument'
 import { SearchSelectField } from './form/SearchSelectField'
+import { SelectField } from './form/SelectField'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
 export interface EntityPick {
@@ -95,20 +96,19 @@ export function ListEntityDateFilters({
         />
       </div>
       {dateTypeOptions && dateTypeOptions.length > 0 && (
-        <label className="flex flex-col gap-1.5">
-          <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Filtrar por</span>
-          <select
-            value={dateType}
-            onChange={(event) => onDateTypeChange?.(event.target.value)}
-            className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2.5 text-[13.5px] text-[var(--ink)] focus:outline-none"
-          >
-            {dateTypeOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        <SelectField
+          label="Filtrar por"
+          value={dateType ?? ''}
+          onChange={(event) => onDateTypeChange?.(event.target.value)}
+          variant="surface"
+          className="w-44"
+        >
+          {dateTypeOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </SelectField>
       )}
       <label className="flex flex-col gap-1.5">
         <span className="text-[12px] font-semibold text-[var(--ink-soft)]">De</span>

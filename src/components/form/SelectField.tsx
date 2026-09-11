@@ -1,24 +1,40 @@
-import type { SelectHTMLAttributes, ReactNode } from 'react'
-import { ChevronDownIcon } from '../icons'
+import type { ReactNode } from 'react'
+import { Select } from './Select'
 
-interface SelectFieldProps extends SelectHTMLAttributes<HTMLSelectElement> {
+interface SelectFieldProps {
   label: string
+  value: string | number
+  // Mantém o formato de evento de um <select> nativo (event.target.value)
+  // pra não precisar tocar em nenhum dos ~25 lugares que já usam este
+  // componente — só o popup de opções por baixo dos panos mudou.
+  onChange: (event: { target: { value: string } }) => void
   children: ReactNode
+  disabled?: boolean
+  variant?: 'page' | 'surface'
+  className?: string
 }
 
-export function SelectField({ label, children, ...props }: SelectFieldProps) {
+export function SelectField({
+  label,
+  value,
+  onChange,
+  children,
+  disabled,
+  variant = 'page',
+  className,
+}: SelectFieldProps) {
   return (
     <label className="flex flex-col gap-1.5">
       <span className="text-[12px] font-semibold text-[var(--ink-soft)]">{label}</span>
-      <div className="relative flex items-center rounded-xl bg-[var(--page)] px-3.5 py-2.5 ring-1 ring-transparent transition focus-within:ring-[var(--blue-300)]">
-        <select
-          {...props}
-          className="w-full appearance-none bg-transparent text-[14px] text-[var(--ink)] focus:outline-none"
-        >
-          {children}
-        </select>
-        <ChevronDownIcon className="pointer-events-none h-3.5 w-3.5 flex-none text-[var(--muted)]" />
-      </div>
+      <Select
+        value={value}
+        onChange={(newValue) => onChange({ target: { value: newValue } })}
+        disabled={disabled}
+        variant={variant}
+        className={className}
+      >
+        {children}
+      </Select>
     </label>
   )
 }

@@ -5,6 +5,7 @@ import { ApiError } from '../lib/api'
 import { formatDateTime } from '../lib/format'
 import { CameraIcon, PaperclipIcon, CheckCircleIcon, CloseIcon, TrashIcon } from './icons'
 import { useMyCompanyPerson } from '../hooks/useMyCompanyPerson'
+import { SelectField } from './form/SelectField'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
 export type OperationMode = 'pickup' | 'return'
@@ -450,21 +451,14 @@ export function RentalOperationModal({ session, company, sale, mode, detailedReq
               className="w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
             />
           </label>
-          <label className="flex flex-col gap-1.5">
-            <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Nível de combustível</span>
-            <select
-              value={fuelLevel}
-              onChange={(event) => setFuelLevel(event.target.value)}
-              className="w-full appearance-none rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
-            >
-              <option value="">Selecione</option>
-              {FUEL_LEVEL_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </label>
+          <SelectField label="Nível de combustível" value={fuelLevel} onChange={(event) => setFuelLevel(event.target.value)}>
+            <option value="">Selecione</option>
+            {FUEL_LEVEL_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </SelectField>
           <label className="flex flex-col gap-1.5">
             <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Local</span>
             <input

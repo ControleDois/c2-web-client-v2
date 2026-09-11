@@ -35,6 +35,7 @@ import {
 } from '../components/icons'
 import { RowActionsMenu, type RowAction } from '../components/RowActionsMenu'
 import { DocumentViewerModal } from '../components/DocumentViewerModal'
+import { SelectField } from '../components/form/SelectField'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
 interface NfeManifestsPageProps {
@@ -405,19 +406,18 @@ export function NfeManifestsPage({ session, company }: NfeManifestsPageProps) {
             className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2.5 text-[13.5px] text-[var(--ink)] focus:outline-none"
           />
         </label>
-        <label className="flex flex-col gap-1.5">
-          <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Status</span>
-          <select
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value)}
-            className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2.5 text-[13.5px] text-[var(--ink)] focus:outline-none"
-          >
-            <option value="pending">Pendentes</option>
-            <option value="all">Todas</option>
-            <option value="manifested">Manifestadas</option>
-            <option value="imported">Importadas</option>
-          </select>
-        </label>
+        <SelectField
+          label="Status"
+          value={statusFilter}
+          onChange={(event) => setStatusFilter(event.target.value)}
+          variant="surface"
+          className="w-44"
+        >
+          <option value="pending">Pendentes</option>
+          <option value="all">Todas</option>
+          <option value="manifested">Manifestadas</option>
+          <option value="imported">Importadas</option>
+        </SelectField>
       </div>
 
       {error && (
@@ -527,20 +527,19 @@ export function NfeManifestsPage({ session, company }: NfeManifestsPageProps) {
             <h2 className="text-[15px] font-bold text-[var(--ink)]">Manifestar nota</h2>
             <p className="mt-1 text-[12.5px] text-[var(--muted)]">{manifestTarget.nome_emitente}</p>
 
-            <label className="mt-4 flex flex-col gap-1.5">
-              <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Operação</span>
-              <select
+            <div className="mt-4">
+              <SelectField
+                label="Operação"
                 value={manifestTipo}
                 onChange={(event) => setManifestTipo(event.target.value as NfeManifestTipo)}
-                className="rounded-xl border border-[var(--border)] bg-[var(--page)] px-3.5 py-2.5 text-[13.5px] text-[var(--ink)] focus:outline-none"
               >
                 {NFE_MANIFEST_TIPO_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label} — {option.hint}
                   </option>
                 ))}
-              </select>
-            </label>
+              </SelectField>
+            </div>
 
             {requiresJustificativa && (
               <label className="mt-3 flex flex-col gap-1.5">

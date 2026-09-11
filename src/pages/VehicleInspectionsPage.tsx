@@ -19,7 +19,6 @@ import { formatDateTime } from '../lib/format'
 import { formatPhone } from '../lib/formatPhone'
 import {
   SearchIcon,
-  ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   ClipboardCheckIcon,
@@ -34,6 +33,8 @@ import {
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { RowActionsMenu, type RowAction } from '../components/RowActionsMenu'
 import { SearchSelectField } from '../components/form/SearchSelectField'
+import { Select } from '../components/form/Select'
+import { SelectField } from '../components/form/SelectField'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
 interface VehicleInspectionsPageProps {
@@ -211,23 +212,19 @@ function SendWhatsappModal({ session, company, inspection, onClose, onSent }: Se
 
         <div className="flex flex-col gap-4 px-6 py-5">
           <div>
-            <label className="text-[12px] font-semibold text-[var(--ink-soft)]">Enviar pelo WhatsApp</label>
-            <div className="relative mt-1.5 flex items-center rounded-xl border border-[var(--border)] bg-[var(--page)] px-3.5 py-2.5">
-              <select
-                value={whatsappId}
-                onChange={(event) => setWhatsappId(event.target.value)}
-                disabled={loadingWhatsapps}
-                className="w-full appearance-none bg-transparent text-[13.5px] font-semibold text-[var(--ink)] focus:outline-none"
-              >
-                {whatsapps.length === 0 && <option value="">Nenhum WhatsApp cadastrado</option>}
-                {whatsapps.map((w) => (
-                  <option key={w.id} value={w.id}>
-                    {w.name} · {formatPhone(w.phone)} {w.status === WHATSAPP_STATUS_CONNECTED ? '(conectado)' : '(desconectado)'}
-                  </option>
-                ))}
-              </select>
-              <ChevronDownIcon className="pointer-events-none h-3.5 w-3.5 flex-none text-[var(--muted)]" />
-            </div>
+            <SelectField
+              label="Enviar pelo WhatsApp"
+              value={whatsappId}
+              onChange={(event) => setWhatsappId(event.target.value)}
+              disabled={loadingWhatsapps}
+            >
+              {whatsapps.length === 0 && <option value="">Nenhum WhatsApp cadastrado</option>}
+              {whatsapps.map((w) => (
+                <option key={w.id} value={w.id}>
+                  {w.name} · {formatPhone(w.phone)} {w.status === WHATSAPP_STATUS_CONNECTED ? '(conectado)' : '(desconectado)'}
+                </option>
+              ))}
+            </SelectField>
           </div>
 
           <div>
@@ -263,20 +260,13 @@ function SendWhatsappModal({ session, company, inspection, onClose, onSent }: Se
                 ) : phoneOptions.length === 0 ? (
                   <p className="text-[12.5px] text-[var(--muted)]">Nenhum telefone vinculado ao cliente.</p>
                 ) : (
-                  <div className="relative flex items-center rounded-xl border border-[var(--border)] bg-[var(--page)] px-3.5 py-2.5">
-                    <select
-                      value={selectedPhone}
-                      onChange={(event) => setSelectedPhone(event.target.value)}
-                      className="w-full appearance-none bg-transparent text-[13.5px] text-[var(--ink)] focus:outline-none"
-                    >
-                      {phoneOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                    <ChevronDownIcon className="pointer-events-none h-3.5 w-3.5 flex-none text-[var(--muted)]" />
-                  </div>
+                  <Select value={selectedPhone} onChange={setSelectedPhone} variant="page">
+                    {phoneOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </Select>
                 ))}
 
               {phoneMode === 'manual' && (
@@ -503,22 +493,20 @@ export function VehicleInspectionsPage({ session, company }: VehicleInspectionsP
           />
         </div>
 
-        <div className="relative flex w-full items-center rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2.5 sm:w-56">
-          <select
+        <div className="w-full sm:w-56">
+          <Select
             value={status}
-            onChange={(event) => {
+            onChange={(value) => {
               setPage(1)
-              setStatus(event.target.value)
+              setStatus(value)
             }}
-            className="w-full appearance-none bg-transparent text-[13.5px] font-semibold text-[var(--ink-soft)] focus:outline-none"
           >
             {STATUS_FILTERS.map((option) => (
               <option key={option.label} value={option.value}>
                 {option.label}
               </option>
             ))}
-          </select>
-          <ChevronDownIcon className="pointer-events-none h-3.5 w-3.5 flex-none text-[var(--muted)]" />
+          </Select>
         </div>
       </div>
 

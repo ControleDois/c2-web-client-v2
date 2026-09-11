@@ -5,6 +5,7 @@ import { fetchConfig } from '../lib/config'
 import { FUEL_LEVEL_OPTIONS } from '../lib/sales'
 import { ApiError } from '../lib/api'
 import { SearchSelectField } from '../components/form/SearchSelectField'
+import { SelectField } from '../components/form/SelectField'
 import {
   CameraIcon,
   PaperclipIcon,
@@ -439,21 +440,14 @@ export function StandaloneInspectionPage({ session, company, onBack, onSaved }: 
                 className="w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
               />
             </label>
-            <label className="flex flex-col gap-1.5">
-              <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Nível de combustível</span>
-              <select
-                value={fuelLevel}
-                onChange={(event) => setFuelLevel(event.target.value)}
-                className="w-full appearance-none rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
-              >
-                <option value="">Selecione</option>
-                {FUEL_LEVEL_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <SelectField label="Nível de combustível" value={fuelLevel} onChange={(event) => setFuelLevel(event.target.value)}>
+              <option value="">Selecione</option>
+              {FUEL_LEVEL_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </SelectField>
             <label className="flex flex-col gap-1.5">
               <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Local</span>
               <input

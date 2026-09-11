@@ -11,7 +11,8 @@ import { formatCurrency, formatDate, formatPercent } from '../lib/format'
 import { MultiSeriesBarChart } from '../components/charts/MultiSeriesBarChart'
 import { DocumentViewerModal } from '../components/DocumentViewerModal'
 import { SearchSelectField } from '../components/form/SearchSelectField'
-import { PrinterIcon, TrendUpIcon, TruckIcon, CoinIcon, RouteIcon, ChevronDownIcon } from '../components/icons'
+import { Select } from '../components/form/Select'
+import { PrinterIcon, TrendUpIcon, TruckIcon, CoinIcon, RouteIcon } from '../components/icons'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
 interface TowingBillingReportPageProps {
@@ -210,19 +211,14 @@ export function TowingBillingReportPage({ session, company }: TowingBillingRepor
             className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-[13px] text-[var(--ink)] focus:outline-none"
           />
         </div>
-        <div className="relative flex items-center rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2">
-          <select
-            value={status}
-            onChange={(event) => setStatus(event.target.value as TowingRevenueStatusFilter)}
-            className="appearance-none bg-transparent pr-5 text-[13px] font-semibold text-[var(--ink-soft)] focus:outline-none"
-          >
+        <div className="w-44">
+          <Select value={status} onChange={(value) => setStatus(value as TowingRevenueStatusFilter)}>
             {STATUS_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
             ))}
-          </select>
-          <ChevronDownIcon className="pointer-events-none absolute right-2.5 h-3.5 w-3.5 text-[var(--muted)]" />
+          </Select>
         </div>
 
         <div className="w-full sm:w-56">

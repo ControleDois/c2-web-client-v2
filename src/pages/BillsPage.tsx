@@ -20,7 +20,6 @@ import {
   SearchIcon,
   PlusIcon,
   PencilIcon,
-  ChevronDownIcon,
   TrashIcon,
   PrinterIcon,
   CheckCircleIcon,
@@ -38,6 +37,7 @@ import { BillBoletoPreviewModal } from '../components/BillBoletoPreviewModal'
 import { BillsSummaryCards, type BillsSummaryFilter } from '../components/BillsSummaryCards'
 import { BillsMoreFiltersPanel, type BillsMoreFilters } from '../components/BillsMoreFiltersPanel'
 import { BatchReceiveBillsModal } from '../components/BatchReceiveBillsModal'
+import { Select } from '../components/form/Select'
 import { SendBillWhatsappModal } from '../components/SendBillWhatsappModal'
 import { GroupBillsModal } from '../components/GroupBillsModal'
 import { GroupDetailsModal } from '../components/GroupDetailsModal'
@@ -643,34 +643,27 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
             className="w-full bg-transparent text-[13.5px] text-[var(--ink)] placeholder:text-[var(--muted)] focus:outline-none"
           />
         </div>
-        <div className="relative flex w-[200px] flex-none items-center rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2.5">
-          <select
+        <div className="w-[200px] flex-none">
+          <Select
             value={statusType}
-            onChange={(event) => {
-              setStatusType(event.target.value)
+            onChange={(value) => {
+              setStatusType(value)
               setSummaryFilter(null)
             }}
-            className="w-full appearance-none bg-transparent text-[13.5px] text-[var(--ink)] focus:outline-none"
           >
             <option value="">Todos os status</option>
             <option value="0">Pendente</option>
             <option value="1">{role === 1 ? 'Recebido' : 'Pago'}</option>
-          </select>
-          <ChevronDownIcon className="pointer-events-none h-3.5 w-3.5 flex-none text-[var(--muted)]" />
+          </Select>
         </div>
-        <div className="relative flex w-[200px] flex-none items-center rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2.5">
-          <select
-            value={dateType}
-            onChange={(event) => setDateType(event.target.value as BillsDateType)}
-            className="w-full appearance-none bg-transparent text-[13.5px] text-[var(--ink)] focus:outline-none"
-          >
+        <div className="w-[200px] flex-none">
+          <Select value={dateType} onChange={(value) => setDateType(value as BillsDateType)}>
             {dateTypeOptions(role).map((option) => (
               <option key={option.value} value={option.value}>
                 Data de {option.label.toLowerCase()}
               </option>
             ))}
-          </select>
-          <ChevronDownIcon className="pointer-events-none h-3.5 w-3.5 flex-none text-[var(--muted)]" />
+          </Select>
         </div>
         <label className="flex flex-col gap-1.5">
           <span className="text-[12px] font-semibold text-[var(--ink-soft)]">De</span>

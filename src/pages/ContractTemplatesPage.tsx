@@ -8,9 +8,10 @@ import {
 } from '../lib/contractTemplates'
 import { ApiError } from '../lib/api'
 import { getCached, setCached } from '../lib/cache'
-import { SearchIcon, PlusIcon, PencilIcon, TrashIcon, CopyIcon, ChevronDownIcon } from '../components/icons'
+import { SearchIcon, PlusIcon, PencilIcon, TrashIcon, CopyIcon } from '../components/icons'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { RowActionsMenu, type RowAction } from '../components/RowActionsMenu'
+import { Select } from '../components/form/Select'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
 interface ContractTemplatesPageProps {
@@ -179,22 +180,20 @@ export function ContractTemplatesPage({ session, company, onCreate, onEdit }: Co
           />
         </div>
 
-        <div className="relative flex w-full items-center rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2.5 sm:w-56">
-          <select
+        <div className="w-full sm:w-56">
+          <Select
             value={targetType ?? ''}
-            onChange={(event) => {
+            onChange={(value) => {
               setPage(1)
-              setTargetType(event.target.value || undefined)
+              setTargetType(value || undefined)
             }}
-            className="w-full appearance-none bg-transparent text-[13.5px] font-semibold text-[var(--ink-soft)] focus:outline-none"
           >
             {TARGET_TYPE_FILTERS.map((option) => (
               <option key={option.label} value={option.value ?? ''}>
                 {option.label}
               </option>
             ))}
-          </select>
-          <ChevronDownIcon className="pointer-events-none h-3.5 w-3.5 flex-none text-[var(--muted)]" />
+          </Select>
         </div>
       </div>
 

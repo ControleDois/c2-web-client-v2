@@ -10,8 +10,9 @@ import { ApiError } from '../lib/api'
 import { formatDateTime } from '../lib/format'
 import { formatPhone } from '../lib/formatPhone'
 import { isImageUrl, isPdfUrl } from '../lib/download'
-import { SearchIcon, ChevronDownIcon, CloseIcon, BadgeIcon, CheckCircleIcon, XCircleIcon, FileTextIcon } from '../components/icons'
+import { SearchIcon, CloseIcon, BadgeIcon, CheckCircleIcon, XCircleIcon, FileTextIcon } from '../components/icons'
 import { DocumentViewerModal, type DocumentViewerItem } from '../components/DocumentViewerModal'
+import { Select } from '../components/form/Select'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
 interface LoanCustomerVerificationsPageProps {
@@ -170,22 +171,20 @@ export function LoanCustomerVerificationsPage({ session, company }: LoanCustomer
           />
         </div>
 
-        <div className="relative flex w-full items-center rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2.5 sm:w-56">
-          <select
+        <div className="w-full sm:w-56">
+          <Select
             value={status}
-            onChange={(event) => {
+            onChange={(value) => {
               setPage(1)
-              setStatus(event.target.value as LoanCustomerVerificationStatus | '')
+              setStatus(value as LoanCustomerVerificationStatus | '')
             }}
-            className="w-full appearance-none bg-transparent text-[13.5px] font-semibold text-[var(--ink-soft)] focus:outline-none"
           >
             {STATUS_FILTERS.map((option) => (
               <option key={option.label} value={option.value}>
                 {option.label}
               </option>
             ))}
-          </select>
-          <ChevronDownIcon className="pointer-events-none h-3.5 w-3.5 flex-none text-[var(--muted)]" />
+          </Select>
         </div>
       </div>
 

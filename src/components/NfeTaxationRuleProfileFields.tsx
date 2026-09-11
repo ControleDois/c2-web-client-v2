@@ -6,6 +6,7 @@ import {
   NFE_IPI_SITUACAO_OPTIONS,
   type NfeTaxationRuleProfile,
 } from '../lib/nfeTaxations'
+import { Select } from './form/Select'
 
 interface NfeTaxationRuleProfileFieldsProps {
   value: NfeTaxationRuleProfile
@@ -49,14 +50,13 @@ function SelectInput<T extends string | number>({
   return (
     <label className="flex flex-col gap-1">
       <span className="text-[11px] font-semibold text-[var(--ink-soft)]">{label}</span>
-      <select
+      <Select
         value={value ?? ''}
-        onChange={(event) => {
-          const raw = event.target.value
+        onChange={(raw) => {
           const isNumeric = typeof options[0]?.value === 'number'
           onChange((isNumeric ? Number(raw) : raw) as T)
         }}
-        className="w-full rounded-lg bg-[var(--page)] px-3 py-2 text-[13px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
+        variant="page"
       >
         <option value="" disabled>
           Selecione
@@ -66,7 +66,7 @@ function SelectInput<T extends string | number>({
             {option.label}
           </option>
         ))}
-      </select>
+      </Select>
     </label>
   )
 }

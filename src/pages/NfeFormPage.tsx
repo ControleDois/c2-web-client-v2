@@ -656,36 +656,32 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
                       </div>
 
                       <div className="grid gap-3.5 sm:grid-cols-2 xl:grid-cols-4">
-                        <label className="flex flex-col gap-1.5">
-                          <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Indicador de pagamento</span>
-                          <select
-                            value={payment.indicadorPagamento}
-                            onChange={(event) =>
-                              handleUpdatePayment(payment.tempId, { indicadorPagamento: Number(event.target.value) })
-                            }
-                            className="rounded-xl bg-[var(--surface)] px-3.5 py-2.5 text-[13.5px] text-[var(--ink)] ring-1 ring-transparent focus:outline-none focus:ring-[var(--blue-300)]"
-                          >
-                            {NFE_INDICADOR_PAGAMENTO_OPTIONS.map((option) => (
-                              <option key={option.value} value={option.value}>
-                                {option.label}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                        <label className="flex flex-col gap-1.5">
-                          <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Forma de pagamento</span>
-                          <select
-                            value={payment.formaPagamento}
-                            onChange={(event) => handleUpdatePayment(payment.tempId, { formaPagamento: event.target.value })}
-                            className="rounded-xl bg-[var(--surface)] px-3.5 py-2.5 text-[13.5px] text-[var(--ink)] ring-1 ring-transparent focus:outline-none focus:ring-[var(--blue-300)]"
-                          >
-                            {NFE_FORMA_PAGAMENTO_OPTIONS.map((option) => (
-                              <option key={option.value} value={option.value}>
-                                {option.label}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
+                        <SelectField
+                          label="Indicador de pagamento"
+                          value={payment.indicadorPagamento}
+                          onChange={(event) =>
+                            handleUpdatePayment(payment.tempId, { indicadorPagamento: Number(event.target.value) })
+                          }
+                          variant="surface"
+                        >
+                          {NFE_INDICADOR_PAGAMENTO_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </SelectField>
+                        <SelectField
+                          label="Forma de pagamento"
+                          value={payment.formaPagamento}
+                          onChange={(event) => handleUpdatePayment(payment.tempId, { formaPagamento: event.target.value })}
+                          variant="surface"
+                        >
+                          {NFE_FORMA_PAGAMENTO_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </SelectField>
                         <label className="flex flex-col gap-1.5">
                           <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Data do pagamento</span>
                           <input
@@ -731,35 +727,31 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
                       </div>
 
                       <div className="mt-3.5 grid gap-3.5 sm:grid-cols-2 xl:grid-cols-3">
-                        <label className="flex flex-col gap-1.5">
-                          <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Tipo de integração</span>
-                          <select
-                            value={payment.tipoIntegracao}
-                            onChange={(event) => handleUpdatePayment(payment.tempId, { tipoIntegracao: event.target.value })}
-                            className="rounded-xl bg-[var(--surface)] px-3.5 py-2.5 text-[13.5px] text-[var(--ink)] ring-1 ring-transparent focus:outline-none focus:ring-[var(--blue-300)]"
-                          >
-                            <option value="">Não se aplica</option>
-                            {NFE_TIPO_INTEGRACAO_OPTIONS.map((option) => (
-                              <option key={option.value} value={option.value}>
-                                {option.label}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                        <label className="flex flex-col gap-1.5">
-                          <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Bandeira da operadora</span>
-                          <select
-                            value={payment.bandeiraOperadora}
-                            onChange={(event) => handleUpdatePayment(payment.tempId, { bandeiraOperadora: event.target.value })}
-                            className="rounded-xl bg-[var(--surface)] px-3.5 py-2.5 text-[13.5px] text-[var(--ink)] ring-1 ring-transparent focus:outline-none focus:ring-[var(--blue-300)]"
-                          >
-                            {NFE_BANDEIRA_OPERADORA_OPTIONS.map((option) => (
-                              <option key={option.value} value={option.value}>
-                                {option.label}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
+                        <SelectField
+                          label="Tipo de integração"
+                          value={payment.tipoIntegracao}
+                          onChange={(event) => handleUpdatePayment(payment.tempId, { tipoIntegracao: event.target.value })}
+                          variant="surface"
+                        >
+                          <option value="">Não se aplica</option>
+                          {NFE_TIPO_INTEGRACAO_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </SelectField>
+                        <SelectField
+                          label="Bandeira da operadora"
+                          value={payment.bandeiraOperadora}
+                          onChange={(event) => handleUpdatePayment(payment.tempId, { bandeiraOperadora: event.target.value })}
+                          variant="surface"
+                        >
+                          {NFE_BANDEIRA_OPERADORA_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </SelectField>
                         <label className="flex flex-col gap-1.5">
                           <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Número de autorização</span>
                           <input

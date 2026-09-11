@@ -41,6 +41,7 @@ import { SortableTh } from '../components/SortableTh'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { RowActionsMenu, type RowAction } from '../components/RowActionsMenu'
 import { SearchSelectField } from '../components/form/SearchSelectField'
+import { SelectField } from '../components/form/SelectField'
 import { DocumentViewerModal } from '../components/DocumentViewerModal'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
@@ -444,21 +445,14 @@ export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) 
             className="w-full bg-transparent text-[13.5px] text-[var(--ink)] placeholder:text-[var(--muted)] focus:outline-none"
           />
         </div>
-        <label className="flex flex-col gap-1.5">
-          <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Status</span>
-          <select
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value)}
-            className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2.5 text-[13.5px] text-[var(--ink)] focus:outline-none"
-          >
-            <option value="all">Todos</option>
-            {Object.entries(NFE_STATUS_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
+        <SelectField label="Status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} variant="surface" className="w-44">
+          <option value="all">Todos</option>
+          {Object.entries(NFE_STATUS_LABELS).map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </SelectField>
         <div className="min-w-[220px] flex-1">
           <SearchSelectField
             label="Cliente"

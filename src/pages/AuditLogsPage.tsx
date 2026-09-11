@@ -3,6 +3,7 @@ import { fetchAuditLogs, auditActionLabel, AUDIT_ACTION_LABELS, type AuditLogRec
 import { formatDateTime } from '../lib/format'
 import { ApiError } from '../lib/api'
 import { SearchIcon, ChevronDownIcon, RouteIcon } from '../components/icons'
+import { Select } from '../components/form/Select'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
 interface AuditLogsPageProps {
@@ -124,14 +125,13 @@ export function AuditLogsPage({ session, company }: AuditLogsPageProps) {
           }}
           className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2.5 text-[13px] text-[var(--ink-soft)] focus:outline-none"
         />
-        <div className="relative flex w-full items-center rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2.5 sm:w-56">
-          <select
+        <div className="w-full sm:w-56">
+          <Select
             value={action}
-            onChange={(event) => {
+            onChange={(value) => {
               setPage(1)
-              setAction(event.target.value)
+              setAction(value)
             }}
-            className="w-full appearance-none bg-transparent text-[13.5px] font-semibold text-[var(--ink-soft)] focus:outline-none"
           >
             <option value="">Todas ações</option>
             {Object.entries(AUDIT_ACTION_LABELS).map(([value, label]) => (
@@ -139,8 +139,7 @@ export function AuditLogsPage({ session, company }: AuditLogsPageProps) {
                 {label}
               </option>
             ))}
-          </select>
-          <ChevronDownIcon className="pointer-events-none h-3.5 w-3.5 flex-none text-[var(--muted)]" />
+          </Select>
         </div>
       </div>
 
