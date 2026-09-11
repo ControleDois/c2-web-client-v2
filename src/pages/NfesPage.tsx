@@ -10,6 +10,7 @@ import {
   fetchNfeFileUrl,
   fetchNfePreviewDanfeUrl,
   formatNfeProviderError,
+  formatNfeMensagemSefaz,
   NFE_STATUS_LABELS,
   NFE_LOG_PHASE_LABELS,
   NFE_LOG_ACTION_LABELS,
@@ -19,6 +20,7 @@ import {
 import { fetchPeople, type PersonRecord } from '../lib/people'
 import { formatCurrency, formatDate, formatDateTime } from '../lib/format'
 import { ApiError } from '../lib/api'
+import { useNfeStatusUpdates } from '../hooks/useNfeStatusUpdates'
 import {
   SearchIcon,
   PlusIcon,
@@ -31,6 +33,7 @@ import {
   ClipboardCheckIcon,
   ArrowUpCircleIcon,
   EyeIcon,
+  CopyIcon,
 } from '../components/icons'
 import { SortableTh } from '../components/SortableTh'
 import { ConfirmDialog } from '../components/ConfirmDialog'
@@ -101,6 +104,8 @@ export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) 
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [previewTarget, setPreviewTarget] = useState<NfeRecord | null>(null)
 
+  const [errorTarget, setErrorTarget] = useState<NfeRecord | null>(null)
+
   function reload() {
     setLoading(true)
     setError(null)
@@ -123,6 +128,15 @@ export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) 
   useEffect(() => {
     setPage(1)
   }, [search, statusFilter, dateFrom, dateTo, personFilter, sortField, sortDirection])
+
+  // O envio/consulta roda em segundo plano no backend — sem isso, o status
+  // final (autorizada/erro) só aparece depois de recarregar a página na mão.
+  useNfeStatusUpdates(company.id, (updated) => {
+    const updatedId = updated.id as string | undefined
+    if (!updatedId) return
+    setNfes((prev) => prev.map((nfe) => (nfe.id === updatedId ? { ...nfe, ...updated } : nfe)))
+    setErrorTarget((prev) => (prev && prev.id === updatedId ? { ...prev, ...updated } : prev))
+  })
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase()
@@ -301,6 +315,16 @@ export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) 
         label: 'Pré-visualizar DANFE',
         icon: <EyeIcon className="h-4 w-4" />,
         onClick: () => handlePreview(nfe),
+      })
+    }
+
+    if (nfe.status === 3) {
+      actions.push({
+        key: 'view-error',
+        label: 'Ver erro',
+        icon: <AlertTriangleIcon className="h-4 w-4" />,
+        tone: 'warning',
+        onClick: () => setErrorTarget(nfe),
       })
     }
 
@@ -636,6 +660,83 @@ export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) 
                 className="rounded-xl px-4 py-2.5 text-[13.5px] font-semibold text-[var(--ink-soft)] hover:text-[var(--ink)]"
               >
                 Voltar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {errorTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setErrorTarget(null)}>
+          <div
+            className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-[var(--surface)] shadow-[var(--card-shadow)]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 border-b border-[var(--border)] p-5">
+              <div className="flex items-start gap-2.5">
+                <span className="mt-0.5 flex h-8 w-8 flex-none items-center justify-center rounded-full bg-[var(--amber-100)] text-[var(--amber-500)]">
+                  <AlertTriangleIcon className="h-4 w-4" />
+                </span>
+                <div>
+                  <h2 className="text-[15px] font-bold text-[var(--ink)]">Retorno da NF-e #{errorTarget.code}</h2>
+                  <p className="text-[12px] text-[var(--muted)]">{errorTarget.people?.name}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setErrorTarget(null)}
+                className="rounded-lg p-1.5 text-[var(--muted)] hover:bg-[var(--page)] hover:text-[var(--ink)]"
+                aria-label="Fechar"
+              >
+                <XCircleIcon className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-5">
+              <div className="mb-4 grid grid-cols-3 gap-2.5">
+                <div className="rounded-xl border border-[var(--border)] p-3">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--muted)]">Status</p>
+                  <p className="mt-1 text-[13px] font-semibold text-[var(--amber-500)]">Erro no envio</p>
+                </div>
+                <div className="rounded-xl border border-[var(--border)] p-3">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--muted)]">Série</p>
+                  <p className="mt-1 text-[13px] font-semibold text-[var(--ink)]">{errorTarget.serie ?? '—'}</p>
+                </div>
+                <div className="rounded-xl border border-[var(--border)] p-3">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--muted)]">Valor</p>
+                  <p className="mt-1 text-[13px] font-semibold text-[var(--ink)]">
+                    {formatCurrency(errorTarget.valor_total ?? 0)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="overflow-hidden rounded-xl bg-[var(--amber-100)]">
+                <div className="flex items-center justify-between gap-3 px-4 py-2.5">
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-[var(--amber-500)]">
+                    Mensagem retornada
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => navigator.clipboard?.writeText(formatNfeMensagemSefaz(errorTarget.mensagem_sefaz))}
+                    className="flex items-center gap-1.5 rounded-lg bg-[var(--surface)] px-2.5 py-1.5 text-[11.5px] font-bold text-[var(--amber-500)] hover:bg-white"
+                  >
+                    <CopyIcon className="h-3.5 w-3.5" />
+                    Copiar
+                  </button>
+                </div>
+                <pre className="max-h-[45vh] overflow-auto whitespace-pre-wrap break-words px-4 py-3 text-[12.5px] leading-6 text-[var(--ink)]">
+                  {formatNfeMensagemSefaz(errorTarget.mensagem_sefaz)}
+                </pre>
+              </div>
+            </div>
+
+            <div className="border-t border-[var(--border)] p-4">
+              <button
+                type="button"
+                onClick={() => setErrorTarget(null)}
+                className="w-full rounded-xl bg-[var(--blue-500)] px-4 py-2.5 text-[13.5px] font-bold text-white hover:bg-[var(--blue-700)] sm:w-auto"
+              >
+                Fechar
               </button>
             </div>
           </div>

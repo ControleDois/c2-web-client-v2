@@ -282,6 +282,43 @@ export function formatNfeProviderError(err: unknown, fallback: string): string {
   return err instanceof ApiError ? err.message : fallback
 }
 
+// Formata a mensagem_sefaz já persistida na NF-e (não um erro de requisição
+// recém-feita) — mesma lógica de erros estruturados (erros/campo/mensagem),
+// mas lendo a string já salva no registro em vez do corpo de um ApiError.
+export function formatNfeMensagemSefaz(value: string | number | null | undefined): string {
+  if (value === null || value === undefined) return 'Sem mensagem de retorno.'
+  if (typeof value !== 'string') return String(value)
+
+  const trimmed = value.trim()
+  if (!trimmed) return 'Sem mensagem de retorno.'
+
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(trimmed)
+  } catch {
+    return trimmed
+  }
+
+  if (parsed && typeof parsed === 'object') {
+    const record = parsed as Record<string, unknown>
+    const providerErrors = record.erros ?? record.erros_schema ?? record.errors
+    if (Array.isArray(providerErrors) && providerErrors.length) {
+      const messages = providerErrors.map((item) => formatNfeProviderErrorItem(item)).filter(Boolean)
+      const mainMessage = record.mensagem ?? record.message
+      if (typeof mainMessage === 'string' && mainMessage && !messages.includes(mainMessage)) {
+        messages.unshift(mainMessage)
+      }
+      if (messages.length) return messages.join('\n')
+    }
+  }
+
+  try {
+    return JSON.stringify(parsed, null, 2)
+  } catch {
+    return trimmed
+  }
+}
+
 function formatNfeProviderErrorItem(item: unknown): string {
   if (!item) return ''
   if (typeof item === 'string') return item
