@@ -7,8 +7,11 @@ import {
   NFE_PRESENCA_COMPRADOR_OPTIONS,
   NFE_INDICADOR_PAGAMENTO_OPTIONS,
   NFE_FORMA_PAGAMENTO_OPTIONS,
+  NFE_TIPO_INTEGRACAO_OPTIONS,
+  NFE_BANDEIRA_OPERADORA_OPTIONS,
   type NfeRecord,
   type NfeDraftPayload,
+  type NfePaymentRecord,
 } from '../lib/nfes'
 import { fetchPeople, type PersonRecord } from '../lib/people'
 import { fetchNfeNatureOperations, type NfeNatureOperationRecord } from '../lib/nfeNatureOperations'
@@ -53,6 +56,53 @@ interface PaymentEntry {
   formaPagamento: string
   valorPagamento: string
   dataPagamento: string
+  descricaoPagamento: string
+  tipoIntegracao: string
+  cnpjTransacional: string
+  ufTransacional: string
+  bandeiraOperadora: string
+  numeroAutorizacao: string
+  cnpjCredenciadora: string
+  cnpjBeneficiario: string
+  idTerminalPagamento: string
+}
+
+function emptyPaymentEntry(tempId: string): PaymentEntry {
+  return {
+    tempId,
+    indicadorPagamento: 0,
+    formaPagamento: '01',
+    valorPagamento: '',
+    dataPagamento: today(),
+    descricaoPagamento: '',
+    tipoIntegracao: '',
+    cnpjTransacional: '',
+    ufTransacional: '',
+    bandeiraOperadora: '',
+    numeroAutorizacao: '',
+    cnpjCredenciadora: '',
+    cnpjBeneficiario: '',
+    idTerminalPagamento: '',
+  }
+}
+
+function paymentEntryFromRecord(payment: NfePaymentRecord, index: number): PaymentEntry {
+  return {
+    tempId: `payment-${index}`,
+    indicadorPagamento: payment.indicador_pagamento ?? 0,
+    formaPagamento: payment.forma_pagamento ?? '01',
+    valorPagamento: String(payment.valor_pagamento ?? 0),
+    dataPagamento: payment.data_pagamento ? payment.data_pagamento.slice(0, 10) : today(),
+    descricaoPagamento: payment.descricao_pagamento ?? '',
+    tipoIntegracao: payment.tipo_integracao ? String(payment.tipo_integracao) : '',
+    cnpjTransacional: payment.cnpj_transacional ?? '',
+    ufTransacional: payment.uf_transacional ?? '',
+    bandeiraOperadora: payment.bandeira_operadora ?? '',
+    numeroAutorizacao: payment.numero_autorizacao ?? '',
+    cnpjCredenciadora: payment.cnpj_credenciadora ?? '',
+    cnpjBeneficiario: payment.cnpj_beneficiario ?? '',
+    idTerminalPagamento: payment.id_terminal_pagamento ?? '',
+  }
 }
 
 function parseAmount(value: string): number {
@@ -126,15 +176,7 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
             expanded: false,
           }))
         )
-        setPayments(
-          (nfe.pagamentos ?? []).map((payment, index) => ({
-            tempId: `payment-${index}`,
-            indicadorPagamento: payment.indicador_pagamento ?? 0,
-            formaPagamento: payment.forma_pagamento ?? '01',
-            valorPagamento: String(payment.valor_pagamento ?? 0),
-            dataPagamento: payment.data_pagamento ? payment.data_pagamento.slice(0, 10) : today(),
-          }))
-        )
+        setPayments((nfe.pagamentos ?? []).map((payment, index) => paymentEntryFromRecord(payment, index)))
       })
       .catch((err) => {
         if (cancelled) return
@@ -194,16 +236,7 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
   }
 
   function handleAddPayment() {
-    setPayments((prev) => [
-      ...prev,
-      {
-        tempId: `payment-${Date.now()}-${prev.length}`,
-        indicadorPagamento: 0,
-        formaPagamento: '01',
-        valorPagamento: '',
-        dataPagamento: today(),
-      },
-    ])
+    setPayments((prev) => [...prev, emptyPaymentEntry(`payment-${Date.now()}-${prev.length}`)])
   }
 
   function handleUpdatePayment(tempId: string, patch: Partial<PaymentEntry>) {
@@ -234,6 +267,17 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
       setError(['Adicione pelo menos uma forma de pagamento.'])
       return
     }
+    const missingDescricao = payments
+      .map((payment, index) => ({ payment, index }))
+      .filter(({ payment }) => payment.formaPagamento === '99' && !payment.descricaoPagamento.trim())
+    if (missingDescricao.length > 0) {
+      setError(
+        missingDescricao.map(
+          ({ index }) => `Pagamento ${index + 1}: descreva a forma de pagamento (obrigatório para "Outros").`
+        )
+      )
+      return
+    }
 
     const payload: NfeDraftPayload = {
       peopleId: customer.id,
@@ -256,6 +300,15 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
         forma_pagamento: payment.formaPagamento,
         valor_pagamento: parseAmount(payment.valorPagamento),
         data_pagamento: payment.dataPagamento,
+        descricao_pagamento: payment.descricaoPagamento.trim() || undefined,
+        tipo_integracao: payment.tipoIntegracao ? Number(payment.tipoIntegracao) : undefined,
+        cnpj_transacional: payment.cnpjTransacional.trim() || undefined,
+        uf_transacional: payment.ufTransacional.trim() || undefined,
+        bandeira_operadora: payment.bandeiraOperadora || undefined,
+        numero_autorizacao: payment.numeroAutorizacao.trim() || undefined,
+        cnpj_credenciadora: payment.cnpjCredenciadora.trim() || undefined,
+        cnpj_beneficiario: payment.cnpjBeneficiario.trim() || undefined,
+        id_terminal_pagamento: payment.idTerminalPagamento.trim() || undefined,
       })),
     }
 
@@ -542,55 +595,198 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
                 Nenhum pagamento adicionado ainda.
               </p>
             ) : (
-              <div className="flex flex-col gap-2">
-                {payments.map((payment) => (
-                  <div key={payment.tempId} className="flex flex-wrap items-center gap-2 rounded-xl bg-[var(--page)] px-3.5 py-2.5">
-                    <select
-                      value={payment.indicadorPagamento}
-                      onChange={(event) => handleUpdatePayment(payment.tempId, { indicadorPagamento: Number(event.target.value) })}
-                      className="rounded-lg bg-[var(--surface)] px-3 py-2 text-[13px] text-[var(--ink)] ring-1 ring-transparent focus:outline-none focus:ring-[var(--blue-300)]"
-                    >
-                      {NFE_INDICADOR_PAGAMENTO_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                    <select
-                      value={payment.formaPagamento}
-                      onChange={(event) => handleUpdatePayment(payment.tempId, { formaPagamento: event.target.value })}
-                      className="min-w-[160px] flex-1 rounded-lg bg-[var(--surface)] px-3 py-2 text-[13px] text-[var(--ink)] ring-1 ring-transparent focus:outline-none focus:ring-[var(--blue-300)]"
-                    >
-                      {NFE_FORMA_PAGAMENTO_OPTIONS.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                    <input
-                      type="date"
-                      value={payment.dataPagamento}
-                      onChange={(event) => handleUpdatePayment(payment.tempId, { dataPagamento: event.target.value })}
-                      className="rounded-lg bg-[var(--surface)] px-3 py-2 text-[13px] text-[var(--ink)] ring-1 ring-transparent focus:outline-none focus:ring-[var(--blue-300)]"
-                    />
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      placeholder="Valor"
-                      value={payment.valorPagamento}
-                      onChange={(event) => handleUpdatePayment(payment.tempId, { valorPagamento: event.target.value.replace(/[^\d.,]/g, '') })}
-                      className="w-28 flex-none rounded-lg bg-[var(--surface)] px-3 py-2 text-right text-[13px] text-[var(--ink)] ring-1 ring-transparent focus:outline-none focus:ring-[var(--blue-300)]"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleRemovePayment(payment.tempId)}
-                      className="flex-none rounded-lg p-2 text-[var(--muted)] hover:bg-[var(--red-100)] hover:text-[var(--red-500)]"
-                      aria-label="Remover pagamento"
-                    >
-                      <TrashIcon className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                ))}
+              <div className="flex flex-col gap-4">
+                {payments.map((payment, index) => {
+                  const needsDescricao = payment.formaPagamento === '99'
+                  return (
+                    <div key={payment.tempId} className="rounded-xl border border-[var(--border)] bg-[var(--page)] p-4">
+                      <div className="mb-3 flex items-center justify-between">
+                        <span className="text-[13px] font-bold text-[var(--ink)]">Pagamento {index + 1}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemovePayment(payment.tempId)}
+                          className="flex-none rounded-lg p-1.5 text-[var(--muted)] hover:bg-[var(--red-100)] hover:text-[var(--red-500)]"
+                          aria-label="Remover pagamento"
+                        >
+                          <TrashIcon className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+
+                      <div className="grid gap-3.5 sm:grid-cols-2 xl:grid-cols-4">
+                        <label className="flex flex-col gap-1.5">
+                          <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Indicador de pagamento</span>
+                          <select
+                            value={payment.indicadorPagamento}
+                            onChange={(event) =>
+                              handleUpdatePayment(payment.tempId, { indicadorPagamento: Number(event.target.value) })
+                            }
+                            className="rounded-xl bg-[var(--surface)] px-3.5 py-2.5 text-[13.5px] text-[var(--ink)] ring-1 ring-transparent focus:outline-none focus:ring-[var(--blue-300)]"
+                          >
+                            {NFE_INDICADOR_PAGAMENTO_OPTIONS.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="flex flex-col gap-1.5">
+                          <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Forma de pagamento</span>
+                          <select
+                            value={payment.formaPagamento}
+                            onChange={(event) => handleUpdatePayment(payment.tempId, { formaPagamento: event.target.value })}
+                            className="rounded-xl bg-[var(--surface)] px-3.5 py-2.5 text-[13.5px] text-[var(--ink)] ring-1 ring-transparent focus:outline-none focus:ring-[var(--blue-300)]"
+                          >
+                            {NFE_FORMA_PAGAMENTO_OPTIONS.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="flex flex-col gap-1.5">
+                          <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Data do pagamento</span>
+                          <input
+                            type="date"
+                            value={payment.dataPagamento}
+                            onChange={(event) => handleUpdatePayment(payment.tempId, { dataPagamento: event.target.value })}
+                            className="rounded-xl bg-[var(--surface)] px-3.5 py-2.5 text-[13.5px] text-[var(--ink)] ring-1 ring-transparent focus:outline-none focus:ring-[var(--blue-300)]"
+                          />
+                        </label>
+                        <label className="flex flex-col gap-1.5">
+                          <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Valor do pagamento</span>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            placeholder="0,00"
+                            value={payment.valorPagamento}
+                            onChange={(event) =>
+                              handleUpdatePayment(payment.tempId, { valorPagamento: event.target.value.replace(/[^\d.,]/g, '') })
+                            }
+                            className="rounded-xl bg-[var(--surface)] px-3.5 py-2.5 text-right text-[13.5px] text-[var(--ink)] ring-1 ring-transparent focus:outline-none focus:ring-[var(--blue-300)]"
+                          />
+                        </label>
+                      </div>
+
+                      <div className="mt-3.5">
+                        <label className="flex flex-col gap-1.5">
+                          <span className="text-[12px] font-semibold text-[var(--ink-soft)]">
+                            Descrição do pagamento
+                            {needsDescricao && <span className="text-[var(--red-500)]"> (obrigatório para "Outros")</span>}
+                          </span>
+                          <input
+                            type="text"
+                            placeholder='Ex: Vale-refeição, transferência PIX manual...'
+                            value={payment.descricaoPagamento}
+                            onChange={(event) => handleUpdatePayment(payment.tempId, { descricaoPagamento: event.target.value })}
+                            className={`rounded-xl bg-[var(--surface)] px-3.5 py-2.5 text-[13.5px] text-[var(--ink)] ring-1 transition focus:outline-none focus:ring-[var(--blue-300)] ${
+                              needsDescricao && !payment.descricaoPagamento.trim()
+                                ? 'ring-[var(--red-500)]'
+                                : 'ring-transparent'
+                            }`}
+                          />
+                        </label>
+                      </div>
+
+                      <div className="mt-3.5 grid gap-3.5 sm:grid-cols-2 xl:grid-cols-3">
+                        <label className="flex flex-col gap-1.5">
+                          <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Tipo de integração</span>
+                          <select
+                            value={payment.tipoIntegracao}
+                            onChange={(event) => handleUpdatePayment(payment.tempId, { tipoIntegracao: event.target.value })}
+                            className="rounded-xl bg-[var(--surface)] px-3.5 py-2.5 text-[13.5px] text-[var(--ink)] ring-1 ring-transparent focus:outline-none focus:ring-[var(--blue-300)]"
+                          >
+                            <option value="">Não se aplica</option>
+                            {NFE_TIPO_INTEGRACAO_OPTIONS.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="flex flex-col gap-1.5">
+                          <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Bandeira da operadora</span>
+                          <select
+                            value={payment.bandeiraOperadora}
+                            onChange={(event) => handleUpdatePayment(payment.tempId, { bandeiraOperadora: event.target.value })}
+                            className="rounded-xl bg-[var(--surface)] px-3.5 py-2.5 text-[13.5px] text-[var(--ink)] ring-1 ring-transparent focus:outline-none focus:ring-[var(--blue-300)]"
+                          >
+                            {NFE_BANDEIRA_OPERADORA_OPTIONS.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label className="flex flex-col gap-1.5">
+                          <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Número de autorização</span>
+                          <input
+                            type="text"
+                            placeholder="Opcional"
+                            value={payment.numeroAutorizacao}
+                            onChange={(event) => handleUpdatePayment(payment.tempId, { numeroAutorizacao: event.target.value })}
+                            className="rounded-xl bg-[var(--surface)] px-3.5 py-2.5 text-[13.5px] text-[var(--ink)] ring-1 ring-transparent focus:outline-none focus:ring-[var(--blue-300)]"
+                          />
+                        </label>
+                      </div>
+
+                      <div className="mt-3.5 grid gap-3.5 sm:grid-cols-2 xl:grid-cols-3">
+                        <label className="flex flex-col gap-1.5">
+                          <span className="text-[12px] font-semibold text-[var(--ink-soft)]">CNPJ transacional</span>
+                          <input
+                            type="text"
+                            placeholder="Opcional"
+                            value={payment.cnpjTransacional}
+                            onChange={(event) => handleUpdatePayment(payment.tempId, { cnpjTransacional: event.target.value })}
+                            className="rounded-xl bg-[var(--surface)] px-3.5 py-2.5 text-[13.5px] text-[var(--ink)] ring-1 ring-transparent focus:outline-none focus:ring-[var(--blue-300)]"
+                          />
+                        </label>
+                        <label className="flex flex-col gap-1.5">
+                          <span className="text-[12px] font-semibold text-[var(--ink-soft)]">UF transacional</span>
+                          <input
+                            type="text"
+                            maxLength={2}
+                            placeholder="Opcional"
+                            value={payment.ufTransacional}
+                            onChange={(event) =>
+                              handleUpdatePayment(payment.tempId, { ufTransacional: event.target.value.toUpperCase() })
+                            }
+                            className="rounded-xl bg-[var(--surface)] px-3.5 py-2.5 text-[13.5px] uppercase text-[var(--ink)] ring-1 ring-transparent focus:outline-none focus:ring-[var(--blue-300)]"
+                          />
+                        </label>
+                        <label className="flex flex-col gap-1.5">
+                          <span className="text-[12px] font-semibold text-[var(--ink-soft)]">CNPJ credenciadora</span>
+                          <input
+                            type="text"
+                            placeholder="Opcional"
+                            value={payment.cnpjCredenciadora}
+                            onChange={(event) => handleUpdatePayment(payment.tempId, { cnpjCredenciadora: event.target.value })}
+                            className="rounded-xl bg-[var(--surface)] px-3.5 py-2.5 text-[13.5px] text-[var(--ink)] ring-1 ring-transparent focus:outline-none focus:ring-[var(--blue-300)]"
+                          />
+                        </label>
+                        <label className="flex flex-col gap-1.5">
+                          <span className="text-[12px] font-semibold text-[var(--ink-soft)]">CNPJ beneficiário</span>
+                          <input
+                            type="text"
+                            placeholder="Opcional"
+                            value={payment.cnpjBeneficiario}
+                            onChange={(event) => handleUpdatePayment(payment.tempId, { cnpjBeneficiario: event.target.value })}
+                            className="rounded-xl bg-[var(--surface)] px-3.5 py-2.5 text-[13.5px] text-[var(--ink)] ring-1 ring-transparent focus:outline-none focus:ring-[var(--blue-300)]"
+                          />
+                        </label>
+                        <label className="flex flex-col gap-1.5">
+                          <span className="text-[12px] font-semibold text-[var(--ink-soft)]">ID do terminal de pagamento</span>
+                          <input
+                            type="text"
+                            placeholder="Opcional"
+                            value={payment.idTerminalPagamento}
+                            onChange={(event) => handleUpdatePayment(payment.tempId, { idTerminalPagamento: event.target.value })}
+                            className="rounded-xl bg-[var(--surface)] px-3.5 py-2.5 text-[13.5px] text-[var(--ink)] ring-1 ring-transparent focus:outline-none focus:ring-[var(--blue-300)]"
+                          />
+                        </label>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             )}
           </SectionCard>

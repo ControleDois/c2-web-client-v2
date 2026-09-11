@@ -45,6 +45,25 @@ export const NFE_FORMA_PAGAMENTO_OPTIONS: { value: string; label: string }[] = [
   { value: '99', label: '99 - Outros' },
 ]
 
+export const NFE_TIPO_INTEGRACAO_OPTIONS: { value: number; label: string }[] = [
+  { value: 1, label: 'Pagamento integrado (TEF/POS)' },
+  { value: 2, label: 'Pagamento não integrado' },
+]
+
+export const NFE_BANDEIRA_OPERADORA_OPTIONS: { value: string; label: string }[] = [
+  { value: '', label: 'Não se aplica' },
+  { value: '01', label: '01 - Visa' },
+  { value: '02', label: '02 - Mastercard' },
+  { value: '03', label: '03 - American Express' },
+  { value: '04', label: '04 - Sorocred' },
+  { value: '05', label: '05 - Diners Club' },
+  { value: '06', label: '06 - Elo' },
+  { value: '07', label: '07 - Hipercard' },
+  { value: '08', label: '08 - Aura' },
+  { value: '09', label: '09 - Cabal' },
+  { value: '99', label: '99 - Outros' },
+]
+
 export interface NfeItemRecord {
   id?: number
   product_id: string
@@ -70,6 +89,14 @@ export interface NfePaymentRecord {
   descricao_pagamento?: string | null
   valor_pagamento: number
   data_pagamento: string
+  tipo_integracao?: number | null
+  cnpj_transacional?: string | null
+  uf_transacional?: string | null
+  bandeira_operadora?: string | null
+  numero_autorizacao?: string | null
+  cnpj_credenciadora?: string | null
+  cnpj_beneficiario?: string | null
+  id_terminal_pagamento?: string | null
 }
 
 export interface NfeRecord {
@@ -122,6 +149,14 @@ export interface NfePaymentInput {
   valor_pagamento: number
   data_pagamento: string
   descricao_pagamento?: string
+  tipo_integracao?: number
+  cnpj_transacional?: string
+  uf_transacional?: string
+  bandeira_operadora?: string
+  numero_autorizacao?: string
+  cnpj_credenciadora?: string
+  cnpj_beneficiario?: string
+  id_terminal_pagamento?: string
 }
 
 export interface NfeDraftPayload {
