@@ -39,6 +39,11 @@ export interface ConfigRecord {
   id: string
   companyId: string
 
+  // Token de acesso à API por empresa (gerado automaticamente, somente
+  // leitura) - usado por integrações externas (ex: siace-erp) pra
+  // autenticar sem depender de login de usuário.
+  token?: string
+
   // Conf. de Venda
   sale_people_default_id?: string | null
   sale_category_default_id?: string | null
