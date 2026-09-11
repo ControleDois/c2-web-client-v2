@@ -2,10 +2,15 @@ export const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:33
 
 export class ApiError extends Error {
   status: number
+  // Corpo bruto (já parseado) da resposta de erro, quando veio JSON — usado
+  // por telas que precisam de mais detalhe do que a mensagem genérica, como
+  // os erros estruturados que a Focus/SEFAZ devolvem no envio de NFe.
+  body?: unknown
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, body?: unknown) {
     super(message)
     this.status = status
+    this.body = body
   }
 }
 
@@ -69,7 +74,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   const data = await response.json().catch(() => null)
 
   if (!response.ok) {
-    throw new ApiError(resolveErrorMessage(response.status, data), response.status)
+    throw new ApiError(resolveErrorMessage(response.status, data), response.status, data)
   }
 
   return data as T
@@ -129,7 +134,7 @@ export async function apiFetchBlob(
 
   if (!response.ok) {
     const data = await response.json().catch(() => null)
-    throw new ApiError(resolveErrorMessage(response.status, data), response.status)
+    throw new ApiError(resolveErrorMessage(response.status, data), response.status, data)
   }
 
   return response.blob()

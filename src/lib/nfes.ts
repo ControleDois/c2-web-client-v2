@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiPut, apiDelete, apiFetchBlob } from './api'
+import { apiGet, apiPost, apiPut, apiDelete, apiFetchBlob, ApiError } from './api'
 
 interface Paginated<T> {
   data: T[]
@@ -222,7 +222,82 @@ export interface NfeSendLogRecord {
   status?: number | null
   http_status?: number | null
   error_message?: string | null
+  request_payload?: string | null
   response_payload?: string | null
+}
+
+export const NFE_LOG_PHASE_LABELS: Record<string, string> = {
+  send: 'Envio',
+  consult: 'Consulta',
+}
+
+export const NFE_LOG_ACTION_LABELS: Record<string, string> = {
+  enqueue_created: 'Job criado',
+  enqueue_existing: 'Job reaproveitado',
+  force_replaced_job: 'Job substituído',
+  force_enqueue_created: 'Reenvio forçado',
+  job_started: 'Job iniciado',
+  focus_request: 'Requisição Focus',
+  focus_response: 'Resposta Focus',
+  focus_error: 'Erro Focus',
+  focus_request_already_processed: 'Requisição Focus (já processada)',
+  focus_response_already_processed: 'Resposta Focus (já processada)',
+  focus_response_already_processed_without_data: 'Resposta Focus (sem dados)',
+  focus_error_already_processed: 'Erro Focus (já processada)',
+  delphi_request: 'Requisição servidor próprio',
+  delphi_response: 'Resposta servidor próprio',
+  delphi_error: 'Erro servidor próprio',
+  job_waiting_consult: 'Aguardando consulta',
+  job_keep_consulting: 'Continuar consultando',
+  job_already_processed: 'Já processada',
+  job_error: 'Job com erro',
+  job_done: 'Job finalizado',
+}
+
+// Tenta extrair uma mensagem de erro estruturada (como a Focus/SEFAZ devolve
+// em "erros"/"errors", geralmente com {campo, mensagem} por item) do corpo
+// bruto de um ApiError — a mensagem genérica sozinha costuma esconder qual
+// campo/item da nota causou a rejeição.
+export function formatNfeProviderError(err: unknown, fallback: string): string {
+  const body = err instanceof ApiError ? err.body : null
+  if (!body || typeof body !== 'object') {
+    return err instanceof ApiError ? err.message : fallback
+  }
+
+  const record = body as Record<string, unknown>
+  const providerErrors = record.erros ?? record.erros_schema ?? record.errors
+  if (Array.isArray(providerErrors) && providerErrors.length) {
+    const messages = providerErrors.map((item) => formatNfeProviderErrorItem(item)).filter(Boolean)
+    const mainMessage = record.mensagem ?? record.message ?? record.mensagem_sefaz
+    if (typeof mainMessage === 'string' && mainMessage && !messages.includes(mainMessage)) {
+      messages.unshift(mainMessage)
+    }
+    if (messages.length) return messages.join('\n')
+  }
+
+  if (typeof record.mensagem === 'string') return record.mensagem
+  if (typeof record.message === 'string') return record.message
+  if (typeof record.mensagem_sefaz === 'string') return record.mensagem_sefaz
+
+  return err instanceof ApiError ? err.message : fallback
+}
+
+function formatNfeProviderErrorItem(item: unknown): string {
+  if (!item) return ''
+  if (typeof item === 'string') return item
+
+  const record = item as Record<string, unknown>
+  const field = record.campo ?? record.field
+  const message = record.mensagem ?? record.message ?? record.erro ?? record.error
+
+  if (field && message) return `${field}: ${message}`
+  if (typeof message === 'string') return message
+  if (typeof field === 'string') return field
+  try {
+    return JSON.stringify(item)
+  } catch {
+    return ''
+  }
 }
 
 export function fetchNfeLogs(token: string, id: string) {
