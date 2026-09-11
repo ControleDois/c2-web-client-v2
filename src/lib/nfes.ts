@@ -266,6 +266,13 @@ export function skipNfeNumber(token: string, id: string) {
   return apiPost<NfeRecord>(`/nfe/skip-number/${id}`, {}, token)
 }
 
+// Cria um rascunho novo com os mesmos dados (cliente, itens, pagamentos,
+// observações) mas numeração nova — usado pra recomeçar uma nota cancelada
+// ou com erro, já que a numeração antiga não pode ser reaproveitada.
+export function duplicateNfe(token: string, id: string) {
+  return apiPost<NfeRecord>(`/nfe/${id}/duplicate`, {}, token)
+}
+
 export interface NfeSendLogRecord {
   id: string
   code?: number

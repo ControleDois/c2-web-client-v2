@@ -6,6 +6,7 @@ import {
   forceSendNfe,
   cancelNfe,
   skipNfeNumber,
+  duplicateNfe,
   fetchNfeLogs,
   fetchNfeFileUrl,
   fetchNfePreviewDanfeUrl,
@@ -241,6 +242,23 @@ export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) 
     }
   }
 
+  // Cancelada/erro não pode reaproveitar a numeração — gera um rascunho novo
+  // com os mesmos dados (cliente, itens, pagamentos, observações) e já abre
+  // pra revisão antes de enviar de novo.
+  async function handleDuplicate(nfe: NfeRecord) {
+    setBusyId(nfe.id)
+    setActionError(null)
+    setActionMessage(null)
+    try {
+      const created = await duplicateNfe(session.token.token, nfe.id)
+      onEdit(created)
+    } catch (err) {
+      setActionError(formatNfeProviderError(err, 'Não foi possível duplicar a NF-e.'))
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   async function handleDownload(nfe: NfeRecord, type: 'xml' | 'danfe') {
     setBusyId(nfe.id)
     setActionError(null)
@@ -375,6 +393,16 @@ export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) 
           onClick: () => handleDownload(nfe, 'danfe'),
         }
       )
+    }
+
+    if (nfe.status === 3 || nfe.status === 4) {
+      actions.push({
+        key: 'duplicate',
+        label: 'Duplicar (numeração nova)',
+        icon: <CopyIcon className="h-4 w-4" />,
+        dividerBefore: nfe.status === 4,
+        onClick: () => handleDuplicate(nfe),
+      })
     }
 
     actions.push({
