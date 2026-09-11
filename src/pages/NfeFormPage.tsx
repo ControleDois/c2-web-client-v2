@@ -9,6 +9,7 @@ import {
   NFE_FORMA_PAGAMENTO_OPTIONS,
   NFE_TIPO_INTEGRACAO_OPTIONS,
   NFE_BANDEIRA_OPERADORA_OPTIONS,
+  NFE_LOCAL_DESTINO_OVERRIDE_OPTIONS,
   type NfeRecord,
   type NfeDraftPayload,
   type NfePaymentRecord,
@@ -22,7 +23,7 @@ import { ApiError } from '../lib/api'
 import { SelectField } from '../components/form/SelectField'
 import { SearchSelectField } from '../components/form/SearchSelectField'
 import { SectionCard } from '../components/SectionCard'
-import { TrashIcon, ChevronLeftIcon, PlusIcon, ChevronDownIcon } from '../components/icons'
+import { TrashIcon, ChevronLeftIcon, PlusIcon, ChevronDownIcon, AlertTriangleIcon } from '../components/icons'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
 interface NfeFormPageProps {
@@ -133,6 +134,7 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
   const [customer, setCustomer] = useState<EntityPick | null>(null)
   const [natureOperation, setNatureOperation] = useState<EntityPick | null>(null)
   const [presencaComprador, setPresencaComprador] = useState(1)
+  const [localDestinoOverride, setLocalDestinoOverride] = useState('')
 
   const [valorFrete, setValorFrete] = useState('')
   const [valorSeguro, setValorSeguro] = useState('')
@@ -159,6 +161,7 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
           nfe.natureOperation ? { id: nfe.natureOperation.id, label: nfe.natureOperation.description } : null
         )
         setPresencaComprador(nfe.presenca_comprador ?? 1)
+        setLocalDestinoOverride(nfe.local_destino_override ? String(nfe.local_destino_override) : '')
         setValorFrete(nfe.valor_frete ? String(nfe.valor_frete) : '')
         setValorSeguro(nfe.valor_seguro ? String(nfe.valor_seguro) : '')
         setValorDesconto(nfe.valor_desconto ? String(nfe.valor_desconto) : '')
@@ -284,6 +287,7 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
       nfeNatureOperationId: natureOperation.id,
       modelo: 55,
       presenca_comprador: presencaComprador,
+      local_destino_override: localDestinoOverride ? Number(localDestinoOverride) : undefined,
       valor_frete: parseAmount(valorFrete),
       valor_seguro: parseAmount(valorSeguro),
       valor_desconto: parseAmount(valorDesconto),
@@ -407,7 +411,27 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
                   </option>
                 ))}
               </SelectField>
+              <SelectField
+                label="Classificação da operação (CFOP/idDest)"
+                value={localDestinoOverride}
+                onChange={(event) => setLocalDestinoOverride(event.target.value)}
+              >
+                {NFE_LOCAL_DESTINO_OVERRIDE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </SelectField>
             </div>
+            {localDestinoOverride && (
+              <p className="mt-3 flex items-start gap-2 rounded-xl bg-[var(--amber-100)] px-3.5 py-2.5 text-[12.5px] font-medium text-[var(--amber-500)]">
+                <AlertTriangleIcon className="mt-0.5 h-3.5 w-3.5 flex-none" />
+                Você está forçando a classificação da operação em vez de deixar o sistema calcular pela UF do
+                emitente e do destinatário. A SEFAZ pode rejeitar se isso não corresponder à sua situação fiscal
+                real (ex: inscrição estadual de substituto tributário no estado de destino). Use por sua conta e
+                risco.
+              </p>
+            )}
           </SectionCard>
 
           <SectionCard

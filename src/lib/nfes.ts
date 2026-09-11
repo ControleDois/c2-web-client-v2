@@ -28,6 +28,17 @@ export const NFE_PRESENCA_COMPRADOR_OPTIONS: { value: number; label: string }[] 
   { value: 9, label: 'Outros' },
 ]
 
+// Por padrão o sistema compara a UF do emitente com a do destinatário pra
+// decidir CFOP/idDest (regra que a SEFAZ valida de forma cruzada e rígida).
+// Este override força a classificação, por conta e risco do emitente —
+// só usar quando a situação fiscal específica realmente foge da regra geral
+// (ex: inscrição estadual de substituto tributário no estado de destino).
+export const NFE_LOCAL_DESTINO_OVERRIDE_OPTIONS: { value: string; label: string }[] = [
+  { value: '', label: 'Automático (UF do emitente x destinatário)' },
+  { value: '1', label: 'Forçar operação interna (CFOP 5xxx)' },
+  { value: '2', label: 'Forçar operação interestadual (CFOP 6xxx)' },
+]
+
 export const NFE_INDICADOR_PAGAMENTO_OPTIONS: { value: number; label: string }[] = [
   { value: 0, label: 'À vista' },
   { value: 1, label: 'A prazo' },
@@ -125,6 +136,9 @@ export interface NfeRecord {
   valor_total?: number
   presenca_comprador?: number
   indicador_intermediario?: number
+  local_destino?: number
+  // 0/null = automático, 1 = força operação interna, 2 = força interestadual.
+  local_destino_override?: number | null
   // Texto livre impresso em "Informações Complementares" no DANFE.
   informacoes_adicionais_contribuinte?: string | null
   people?: { id: string; name: string; document?: string }
@@ -165,6 +179,10 @@ export interface NfeDraftPayload {
   modelo?: number
   presenca_comprador?: number
   indicador_intermediario?: number
+  // Força a classificação interna(1)/interestadual(2) da operação (CFOP e
+  // idDest), por conta e risco do emitente — omitir usa a UF de emitente x
+  // destinatário automaticamente.
+  local_destino_override?: number
   valor_frete?: number
   valor_seguro?: number
   valor_desconto?: number
