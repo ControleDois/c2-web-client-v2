@@ -109,6 +109,11 @@ export interface ConfigRecord {
 
   // Sicredi Pix
   sicredi_chave_pix?: string | null
+  // Escopos pedidos no token OAuth (ex: "cob.write+cob.read+webhook.read+
+  // webhook.write") - configurável por empresa porque o Sicredi rejeita o
+  // token inteiro se algum escopo pedido não estiver liberado pra
+  // aplicação, e cada cliente pode ter permissões diferentes liberadas.
+  sicredi_escopos?: string | null
   sicredi_client_id?: string | null
   sicredi_client_secret?: string | null
   sicredi_cert_file_name?: string | null
@@ -240,6 +245,7 @@ export interface ConfigPayload {
   autentique_webhook_secret?: string
 
   sicredi_chave_pix?: string
+  sicredi_escopos?: string
   sicredi_client_id?: string
   sicredi_client_secret?: string
   sicredi_pix_validade_apos_vencimento?: number

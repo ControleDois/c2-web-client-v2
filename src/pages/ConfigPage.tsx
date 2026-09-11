@@ -10,6 +10,7 @@ import { EmprestimoSection } from './config/EmprestimoSection'
 import { CobrancasSection } from './config/CobrancasSection'
 import { ProtecaoVeicularSection } from './config/ProtecaoVeicularSection'
 import { IntegracoesSection } from './config/IntegracoesSection'
+import { ApiTokenCard } from './config/ApiTokenCard'
 import { LojaOnlineSection } from './config/LojaOnlineSection'
 import { ComprasSection } from './config/ComprasSection'
 import { FiscalSection } from './config/FiscalSection'
@@ -92,6 +93,7 @@ function buildConfigPayload(companyId: string, config: ConfigRecord | null): Con
     autentique_webhook_secret: config?.autentique_webhook_secret ?? undefined,
 
     sicredi_chave_pix: config?.sicredi_chave_pix ?? undefined,
+    sicredi_escopos: config?.sicredi_escopos ?? undefined,
     sicredi_client_id: config?.sicredi_client_id ?? undefined,
     sicredi_client_secret: config?.sicredi_client_secret ?? undefined,
     sicredi_pix_validade_apos_vencimento: config?.sicredi_pix_validade_apos_vencimento ?? undefined,
@@ -329,7 +331,10 @@ export function ConfigPage({ session, company, onNavigate, onSaved }: ConfigPage
 
           {activeTab === 'dados-empresa' ? (
             company.people?.id ? (
-              <CompanyFormPage session={session} companyId={company.people.id} onSaved={() => {}} embedded />
+              <div className="flex flex-col gap-4">
+                <ApiTokenCard apiToken={config?.token} />
+                <CompanyFormPage session={session} companyId={company.people.id} onSaved={() => {}} embedded />
+              </div>
             ) : (
               <div className="rounded-2xl bg-[var(--red-100)] p-4 text-[13.5px] font-medium text-[var(--red-500)]">
                 Não foi possível identificar o cadastro da empresa ativa.
