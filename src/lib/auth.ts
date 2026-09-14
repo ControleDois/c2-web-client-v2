@@ -21,6 +21,10 @@ export interface AuthCompany {
   license_expires_at?: string | null
   people?: AuthPeople | null
   isMaster?: boolean
+  // Flag de empresa matriz ("Controle Dois", Company.is_master) — diferente de
+  // `isMaster`, que é a role de usuário (ROLE_MASTER_ID) dentro de uma empresa.
+  // É essa flag que deve gatear telas restritas à matriz, como Licenças.
+  is_master?: boolean
   [key: string]: unknown
 }
 

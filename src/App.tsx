@@ -52,6 +52,8 @@ import { PermissionsPage } from './pages/PermissionsPage'
 import { PermissionFormPage } from './pages/PermissionFormPage'
 import { CompanyGroupsPage } from './pages/CompanyGroupsPage'
 import { CompanyGroupFormPage } from './pages/CompanyGroupFormPage'
+import { LicensesPage } from './pages/LicensesPage'
+import { LicenseFormPage } from './pages/LicenseFormPage'
 import { AuditLogsPage } from './pages/AuditLogsPage'
 import { VehicleInspectionsPage } from './pages/VehicleInspectionsPage'
 import { LoanCustomerVerificationsPage } from './pages/LoanCustomerVerificationsPage'
@@ -133,6 +135,7 @@ function App() {
   const rolesView = useEntityView()
   const permissionsView = useEntityView()
   const companyGroupsView = useEntityView()
+  const licensesView = useEntityView()
   const nfesView = useEntityView()
   const nfeNatureOperationsView = useEntityView()
   const nfeTaxationsView = useEntityView()
@@ -157,6 +160,7 @@ function App() {
     roles: rolesView,
     permissions: permissionsView,
     'company-groups': companyGroupsView,
+    licenses: licensesView,
     nfes: nfesView,
     'nfe-nature-operations': nfeNatureOperationsView,
     'nfe-taxations': nfeTaxationsView,
@@ -582,6 +586,19 @@ function App() {
             onCreate={companyGroupsView.create}
             onEdit={(group) => companyGroupsView.edit(group.id)}
           />
+        )
+    } else if (page === 'licenses') {
+      pageContent =
+        licensesView.view.mode === 'form' && licensesView.view.id ? (
+          <LicenseFormPage
+            session={session}
+            company={activeCompany}
+            licenseId={licensesView.view.id}
+            onBack={licensesView.reset}
+            onSaved={licensesView.reset}
+          />
+        ) : (
+          <LicensesPage session={session} company={activeCompany} onEdit={(item) => licensesView.edit(item.id)} />
         )
     } else if (page === 'nfes') {
       pageContent =

@@ -64,6 +64,7 @@ export type AppPage =
   | 'nfe-manifests'
   | 'nfe-nature-operations'
   | 'nfe-taxations'
+  | 'licenses'
 
 interface AppShellProps {
   session: AuthSession
@@ -302,7 +303,7 @@ export function AppShell({
       </aside>
 
       <div className="app-shell-content flex h-full min-w-0 flex-1 flex-col overflow-hidden">
-        <Header session={session} onNavigate={onNavigate} onOpenMobileNav={() => setMobileNavOpen(true)} onLogout={onLogout} />
+        <Header session={session} company={company} onNavigate={onNavigate} onOpenMobileNav={() => setMobileNavOpen(true)} onLogout={onLogout} />
         <main className="app-shell-main min-h-0 flex-1 overflow-y-auto">{children}</main>
       </div>
     </div>
