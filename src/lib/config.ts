@@ -179,6 +179,7 @@ export interface ConfigRecord {
   // empresa matriz (visível só nela, na aba Integrações · APIs)
   ifood_client_id?: string | null
   ifood_client_secret?: string | null
+  ifood_webhook_enabled?: boolean | null
 
   // Loja Online (leitura — vem via preload company.shop no GET /config)
   company?: { system_type?: number; shop?: ShopRecord | null } | null
@@ -309,6 +310,7 @@ export interface ConfigPayload {
 
   ifood_client_id?: string
   ifood_client_secret?: string
+  ifood_webhook_enabled?: boolean
 
   shop?: ShopPayload
   sicredi_cert_file?: File

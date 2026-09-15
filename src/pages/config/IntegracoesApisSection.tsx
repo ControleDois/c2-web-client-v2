@@ -40,6 +40,17 @@ export function IntegracoesApisSection({ value, onChange }: IntegracoesApisSecti
               onChange={(event) => onChange({ ifood_client_secret: event.target.value })}
             />
           </div>
+
+          <label className="flex items-center gap-2.5">
+            <input
+              type="checkbox"
+              checked={Boolean(value.ifood_webhook_enabled)}
+              onChange={(event) => onChange({ ifood_webhook_enabled: event.target.checked })}
+              className="h-4 w-4 accent-[var(--blue-500)]"
+            />
+            <span className="text-[13.5px] font-semibold text-[var(--ink)]">Ativar recebimento de pedidos (webhook)</span>
+          </label>
+
           <p className="text-[11.5px] text-[var(--muted)]">
             URL do webhook a configurar no Portal do Desenvolvedor: <code>https://api.grupoamsfacilita.com.br/connect/ifood/webhook</code>
           </p>
