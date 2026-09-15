@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiFetchBlob, ApiError } from './api'
+import { apiGet, apiPost, apiFetchBlob, apiDownload, ApiError } from './api'
 import { formatNfeProviderError } from './nfes'
 
 interface Paginated<T> {
@@ -181,6 +181,22 @@ export async function fetchNfeManifestFileUrl(
 ): Promise<string> {
   const blob = await apiFetchBlob(`/nfe-manifest/${id}/file/${type}`, { companyId }, token)
   return URL.createObjectURL(blob)
+}
+
+// Baixa o arquivo de verdade (em vez de abrir numa aba) - mesmo padrão de
+// downloadNfeFile em nfes.ts.
+export function downloadNfeManifestFile(
+  token: string,
+  manifest: NfeReceivedManifestRecord,
+  companyId: string,
+  type: 'xml' | 'danfe'
+) {
+  const filename = `${manifest.chave_nfe}.${type === 'danfe' ? 'pdf' : 'xml'}`
+  return apiDownload(
+    `/nfe-manifest/${manifest.id}/file/${type}?companyId=${encodeURIComponent(companyId)}`,
+    token,
+    filename
+  )
 }
 
 export interface NfeManifestLogRecord {

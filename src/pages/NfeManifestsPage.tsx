@@ -7,6 +7,7 @@ import {
   importNfeManifestPurchaseNote,
   confirmPurchaseNoteEntry,
   fetchNfeManifestFileUrl,
+  downloadNfeManifestFile,
   fetchNfeManifestLogs,
   formatNfeProviderError,
   deriveManifestStatus,
@@ -247,8 +248,7 @@ export function NfeManifestsPage({ session, company }: NfeManifestsPageProps) {
     setBusyId(manifest.id)
     setActionError(null)
     try {
-      const url = await fetchNfeManifestFileUrl(session.token.token, manifest.id, company.id, type)
-      window.open(url, '_blank')
+      await downloadNfeManifestFile(session.token.token, manifest, company.id, type)
     } catch (err) {
       setActionError(formatNfeProviderError(err, `Não foi possível baixar o ${type === 'xml' ? 'XML' : 'DANFE'}.`))
     } finally {

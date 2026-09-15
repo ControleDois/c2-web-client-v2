@@ -8,7 +8,7 @@ import {
   skipNfeNumber,
   duplicateNfe,
   fetchNfeLogs,
-  fetchNfeFileUrl,
+  downloadNfeFile,
   fetchNfePreviewDanfeUrl,
   formatNfeProviderError,
   formatNfeMensagemSefaz,
@@ -254,8 +254,7 @@ export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) 
     setBusyId(nfe.id)
     setActionError(null)
     try {
-      const url = await fetchNfeFileUrl(session.token.token, nfe.id, type)
-      window.open(url, '_blank')
+      await downloadNfeFile(session.token.token, nfe, type)
     } catch (err) {
       setActionError(formatNfeProviderError(err, `Não foi possível baixar o ${type === 'xml' ? 'XML' : 'DANFE'}.`))
     } finally {

@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiPut, apiDelete, apiFetchBlob, ApiError } from './api'
+import { apiGet, apiPost, apiPut, apiDelete, apiFetchBlob, apiDownload, ApiError } from './api'
 
 interface Paginated<T> {
   data: T[]
@@ -422,6 +422,16 @@ export function fetchNfeLogs(token: string, id: string) {
 export async function fetchNfeFileUrl(token: string, id: string, type: 'xml' | 'danfe'): Promise<string> {
   const blob = await apiFetchBlob(`/nfe/${id}/file/${type}`, {}, token)
   return URL.createObjectURL(blob)
+}
+
+// Baixa o arquivo de verdade (em vez de abrir numa aba) - o nome espelha o
+// que o backend calcularia (NfeFiscalFileService.getFileName) pra manter a
+// mesma convenção mesmo sem ler o Content-Disposition da resposta.
+export function downloadNfeFile(token: string, nfe: NfeRecord, type: 'xml' | 'danfe') {
+  const extension = type === 'danfe' ? 'pdf' : 'xml'
+  const slug = Number(nfe.modelo) === 65 ? 'nfce' : 'nfe'
+  const filename = `${nfe.chave_nfe || nfe.numero || nfe.id}-${slug}.${extension}`
+  return apiDownload(`/nfe/${nfe.id}/file/${type}`, token, filename)
 }
 
 // Prévia do DANFE: assina localmente pra ter chave/QR-code coerentes, mas
