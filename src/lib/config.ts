@@ -175,6 +175,11 @@ export interface ConfigRecord {
   // Empréstimo
   loan_points_per_payoff?: number | null
 
+  // iFood — app centralizado da Controle Dois, só preenchido na config da
+  // empresa matriz (visível só nela, na aba Integrações · APIs)
+  ifood_client_id?: string | null
+  ifood_client_secret?: string | null
+
   // Loja Online (leitura — vem via preload company.shop no GET /config)
   company?: { system_type?: number; shop?: ShopRecord | null } | null
 }
@@ -301,6 +306,9 @@ export interface ConfigPayload {
   billing_whatsapp_message_overdue?: string
 
   loan_points_per_payoff?: number
+
+  ifood_client_id?: string
+  ifood_client_secret?: string
 
   shop?: ShopPayload
   sicredi_cert_file?: File

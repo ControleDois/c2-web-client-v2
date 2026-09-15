@@ -10,6 +10,7 @@ import { EmprestimoSection } from './config/EmprestimoSection'
 import { CobrancasSection } from './config/CobrancasSection'
 import { ProtecaoVeicularSection } from './config/ProtecaoVeicularSection'
 import { IntegracoesSection } from './config/IntegracoesSection'
+import { IntegracoesApisSection } from './config/IntegracoesApisSection'
 import { ApiTokenCard } from './config/ApiTokenCard'
 import { LojaOnlineSection } from './config/LojaOnlineSection'
 import { ComprasSection } from './config/ComprasSection'
@@ -33,6 +34,7 @@ type ConfigTab =
   | 'protecao-veicular'
   | 'assinatura-digital'
   | 'integracoes'
+  | 'integracoes-apis'
   | 'cobrancas'
   | 'emprestimo'
   | 'loja-online'
@@ -150,6 +152,9 @@ function buildConfigPayload(companyId: string, config: ConfigRecord | null): Con
 
     loan_points_per_payoff: config?.loan_points_per_payoff ?? undefined,
 
+    ifood_client_id: config?.ifood_client_id ?? undefined,
+    ifood_client_secret: config?.ifood_client_secret ?? undefined,
+
     shop: config?.company?.shop
       ? {
           link_url: config.company.shop.linkUrl ?? '',
@@ -187,6 +192,7 @@ export function ConfigPage({ session, company, onNavigate, onSaved }: ConfigPage
       { key: 'protecao-veicular', label: 'Proteção Veicular', visible: isProtecaoVeicular(systemType) },
       { key: 'assinatura-digital', label: 'Assinatura Digital', visible: true },
       { key: 'integracoes', label: 'Integrações Bancárias', visible: true },
+      { key: 'integracoes-apis', label: 'Integrações · APIs', visible: Boolean(company.is_master) },
       { key: 'cobrancas', label: 'Cobranças', visible: true },
       { key: 'emprestimo', label: 'Empréstimo', visible: isEmprestimo(systemType) },
       { key: 'loja-online', label: 'Loja Online', visible: isLojaOnline(systemType) },
@@ -194,7 +200,7 @@ export function ConfigPage({ session, company, onNavigate, onSaved }: ConfigPage
       { key: 'categorias-produto', label: 'Categorias de Produto', visible: true },
       { key: 'fiscal', label: 'Fiscal', visible: true },
     ],
-    [systemType]
+    [systemType, company.is_master]
   )
 
   const visibleTabs = tabs.filter((tab) => tab.visible)
@@ -355,6 +361,9 @@ export function ConfigPage({ session, company, onNavigate, onSaved }: ConfigPage
               )}
               {activeTab === 'integracoes' && (
                 <IntegracoesSection value={formState} onChange={handleChange} config={config} session={session} company={company} />
+              )}
+              {activeTab === 'integracoes-apis' && (
+                <IntegracoesApisSection value={formState} onChange={handleChange} session={session} company={company} />
               )}
               {activeTab === 'cobrancas' && <CobrancasSection value={formState} onChange={handleChange} />}
               {activeTab === 'loja-online' && <LojaOnlineSection value={formState} onChange={handleChange} />}
