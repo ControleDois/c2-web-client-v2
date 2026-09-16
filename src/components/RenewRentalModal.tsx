@@ -1,11 +1,13 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createSale, fetchSale, VEHICLE_RENTAL_STATUS_LABELS, type SaleRecord } from '../lib/sales'
 import { FORM_PAYMENT_LABELS } from '../lib/bills'
+import { fetchVehicles, type VehicleRecord } from '../lib/vehicles'
 import { addDaysToDate, addPeriodsToDate, buildPeriodPlots, rentalUnitsLabel } from '../lib/rentalPlots'
 import { formatCurrency, formatDate } from '../lib/format'
 import { ApiError } from '../lib/api'
 import { useMyCompanyPerson } from '../hooks/useMyCompanyPerson'
 import { SelectField } from './form/SelectField'
+import { SearchSelectField } from './form/SearchSelectField'
 import { CloseIcon, RefreshIcon, WalletIcon } from './icons'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
@@ -16,6 +18,12 @@ interface RenewRentalModalProps {
   sale: SaleRecord | null
   onClose: () => void
   onSuccess: (message: string) => void
+}
+
+interface VehiclePick {
+  id: string
+  label: string
+  sub?: string
 }
 
 function frequencyUnitLabel(frequency: string): string {
@@ -43,6 +51,7 @@ export function RenewRentalModal({ open, session, company, sale, onClose, onSucc
   const [formPayment, setFormPayment] = useState(9)
   const [newStartDate, setNewStartDate] = useState('')
   const [pickupOdometerInput, setPickupOdometerInput] = useState('')
+  const [vehicle, setVehicle] = useState<VehiclePick | null>(null)
 
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -64,6 +73,18 @@ export function RenewRentalModal({ open, session, company, sale, onClose, onSucc
         setNewStartDate(contract?.endDate ? addDaysToDate(contract.endDate.slice(0, 10), 1) : '')
         const odometer = contract?.returnOdometer ?? contract?.pickupOdometer
         setPickupOdometerInput(odometer ? String(odometer) : '')
+        setVehicle(
+          contract?.vehicle
+            ? {
+                id: contract.vehicle.id,
+                label:
+                  [contract.vehicle.brand, contract.vehicle.model].filter(Boolean).join(' ') ||
+                  contract.vehicle.license_plate ||
+                  '',
+                sub: contract.vehicle.license_plate ?? undefined,
+              }
+            : null
+        )
       })
       .catch((err) => {
         setLoadError(err instanceof ApiError ? err.message : 'Não foi possível carregar o aluguel.')
@@ -74,6 +95,21 @@ export function RenewRentalModal({ open, session, company, sale, onClose, onSucc
   }, [open, sale, session.token.token])
 
   const contract = detail?.vehicleRentalContract
+  const originalVehicleId = contract?.vehicle?.id
+
+  // Esconde da busca veículos já alugados em outro contrato não devolvido -
+  // excluindo o próprio contrato sendo renovado (senão o veículo atual dele
+  // "bloquearia a si mesmo").
+  const searchVehicles = useCallback(
+    (query: string) =>
+      fetchVehicles(session.token.token, company.id, {
+        search: query,
+        limit: 8,
+        excludeActiveRentals: true,
+        excludeRentalSaleId: sale?.id,
+      }).then((res) => res.data),
+    [session.token.token, company.id, sale?.id]
+  )
 
   const quantityNum = Number(quantity) || 0
   const rate = parseAmount(ratePerPeriod)
@@ -97,6 +133,10 @@ export function RenewRentalModal({ open, session, company, sale, onClose, onSucc
 
     if (contract.purchaseOption) return
 
+    if (!vehicle) {
+      setError('Selecione o veículo do novo período.')
+      return
+    }
     if (quantityNum <= 0) {
       setError('Informe por quantos períodos deseja renovar.')
       return
@@ -123,7 +163,7 @@ export function RenewRentalModal({ open, session, company, sale, onClose, onSucc
       await createSale(session.token.token, {
         companyId: company.id,
         peopleId: contract.renter?.id || detail.people_id || '',
-        vehicleId: contract.vehicle?.id || detail.vehicle_id || '',
+        vehicleId: vehicle.id,
         userId: myPerson.id,
         categoryId: detail.category_id,
         role: 1,
@@ -132,7 +172,7 @@ export function RenewRentalModal({ open, session, company, sale, onClose, onSucc
         note: `Renovação do aluguel #${detail.internal_code ?? detail.code}`,
         renewingFromSaleId: detail.id,
         vehicleRentalContract: {
-          vehicleId: contract.vehicle?.id,
+          vehicleId: vehicle.id,
           renterPeopleId: contract.renter?.id,
           ownerPeopleId: contract.vehicleOwnerType === 1 ? contract.owner?.id : undefined,
           driverPeopleId: contract.driver?.id,
@@ -212,6 +252,32 @@ export function RenewRentalModal({ open, session, company, sale, onClose, onSucc
                 Período atual: {formatDate(contract.startDate)} a {formatDate(contract.endDate)} (
                 {VEHICLE_RENTAL_STATUS_LABELS[contract.status] ?? '—'})
               </p>
+
+              <SearchSelectField
+                label="Veículo do novo período"
+                placeholder="Buscar por placa, marca ou modelo"
+                selectedLabel={vehicle?.label ?? null}
+                selectedSubLabel={vehicle?.sub}
+                onSearch={searchVehicles}
+                getOptionLabel={(item: VehicleRecord) => [item.brand, item.model].filter(Boolean).join(' ') || item.license_plate}
+                getOptionSubLabel={(item: VehicleRecord) => item.license_plate}
+                onSelect={(item: VehicleRecord) => {
+                  setVehicle({
+                    id: item.id,
+                    label: [item.brand, item.model].filter(Boolean).join(' ') || item.license_plate,
+                    sub: item.license_plate,
+                  })
+                  // KM salvo era do veículo anterior - não faz sentido levar
+                  // pro veículo novo escolhido na troca.
+                  if (item.id !== originalVehicleId) setPickupOdometerInput('')
+                }}
+                onClear={() => setVehicle(null)}
+              />
+              {vehicle && originalVehicleId && vehicle.id !== originalVehicleId && (
+                <p className="text-[12px] font-semibold text-[var(--amber-500)]">
+                  Veículo diferente do contrato atual — o cliente vai continuar com este veículo no novo período.
+                </p>
+              )}
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="flex flex-col gap-1.5">
