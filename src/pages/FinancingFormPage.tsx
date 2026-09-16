@@ -8,12 +8,14 @@ import { useMyCompanyPerson } from '../hooks/useMyCompanyPerson'
 import { SearchSelectField } from '../components/form/SearchSelectField'
 import { SectionCard } from '../components/SectionCard'
 import { ChevronLeftIcon, WalletIcon } from '../components/icons'
+import { MODALITY_LABELS, MODALITY_ORDER, type Modality } from '../lib/loanModalities'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
 interface FinancingFormPageProps {
   session: AuthSession
   company: AuthCompany
   saleId?: string
+  initialModality?: Modality
   onBack: () => void
   onSaved: () => void
 }
@@ -39,15 +41,6 @@ const FREQUENCIES: Frequency[] = [
   { id: 'monthly', label: 'Mensal', days: 30 },
   { id: 'quarterly', label: 'Trimestral', days: 90 },
 ]
-
-type Modality = 'price' | 'sac' | 'per_installment' | 'custom'
-
-const MODALITY_LABELS: Record<Modality, string> = {
-  price: 'Tabela Price',
-  sac: 'SAC',
-  per_installment: 'Por Parcela',
-  custom: 'Personalizada',
-}
 
 function round3(value: number): number {
   return Math.round(value * 1000) / 1000
@@ -259,7 +252,85 @@ function buildCustomList(
   })
 }
 
-export function FinancingFormPage({ session, company, saleId, onBack, onSaved }: FinancingFormPageProps) {
+// Dinheiro Alugado: capital não amortiza - cada parcela cobra só o juro do
+// período sobre o principal integral. O capital fica em aberto (a devolução
+// não tem data fixa, é combinada à parte com o cliente).
+function calculateDinheiroAlugado(
+  principal: number,
+  ratePercent: number,
+  installments: number,
+  frequencyId: string,
+  firstDate: string
+): Installment[] {
+  if (!principal || installments <= 0) return []
+
+  const list = generateList(firstDate, installments, frequencyId, 0)
+  const jurosPeriodo = round3(principal * (ratePercent / 100))
+
+  return list.map((item) => ({ ...item, amount: jurosPeriodo, principalAmount: 0, interestAmount: jurosPeriodo }))
+}
+
+// Sobre o Total: juros calculado uma única vez sobre o principal (não
+// composto por período) e o montante resultante é dividido em parcelas
+// iguais - reaproveita a mesma distribuição linear da "Por Parcela".
+function calculateSobreTotal(
+  principal: number,
+  ratePercent: number,
+  installments: number,
+  frequencyId: string,
+  firstDate: string
+): { list: Installment[]; installmentValue: number; total: number; interest: number } {
+  if (!principal || installments <= 0) return { list: [], installmentValue: 0, total: 0, interest: 0 }
+
+  const interest = round3(principal * (ratePercent / 100))
+  const total = round3(principal + interest)
+  const installmentValue = round3(total / installments)
+  const list = calculatePerInstallment(principal, installmentValue, installments, frequencyId, firstDate)
+
+  return { list, installmentValue, total, interest }
+}
+
+interface ChequeParams {
+  defineBy: 'rate' | 'amount'
+  faceValue: number
+  rate: number
+  advance: number
+  dueDate: string
+}
+
+// Cheque: antecipação de um cheque pré-datado - o cliente recebe o valor
+// líquido (liberado) hoje e o cheque de valor cheio é o que se cobra no
+// vencimento. "Definir o juros" parte do valor de face; "Definir o valor"
+// parte do valor líquido desejado e reconstrói a face necessária.
+function calculateCheque(params: ChequeParams): { list: Installment[]; faceValue: number; advance: number; interest: number } {
+  const taxa = (params.rate || 0) / 100
+  let faceValue = 0
+  let advance = 0
+
+  if (params.defineBy === 'rate') {
+    faceValue = params.faceValue || 0
+    advance = round3(faceValue - faceValue * taxa)
+  } else {
+    advance = params.advance || 0
+    faceValue = taxa < 1 ? round3(advance / (1 - taxa)) : advance
+  }
+
+  const interest = round3(faceValue - advance)
+
+  if (!faceValue || !params.dueDate) {
+    return { list: [], faceValue, advance, interest }
+  }
+
+  const list = generateList(params.dueDate, 1, 'monthly', faceValue).map((item) => ({
+    ...item,
+    principalAmount: advance,
+    interestAmount: interest,
+  }))
+
+  return { list, faceValue, advance, interest }
+}
+
+export function FinancingFormPage({ session, company, saleId, initialModality, onBack, onSaved }: FinancingFormPageProps) {
   const myPerson = useMyCompanyPerson(session, company)
 
   const [loading, setLoading] = useState(Boolean(saleId))
@@ -268,7 +339,7 @@ export function FinancingFormPage({ session, company, saleId, onBack, onSaved }:
   const [error, setError] = useState<string | null>(null)
 
   const [selectedPerson, setSelectedPerson] = useState<PersonRecord | null>(null)
-  const [modality, setModality] = useState<Modality>('price')
+  const [modality, setModality] = useState<Modality>(initialModality ?? 'price')
   const [valueInput, setValueInput] = useState('')
   const [rate, setRate] = useState(25)
   const [perInstallmentInput, setPerInstallmentInput] = useState('')
@@ -276,6 +347,16 @@ export function FinancingFormPage({ session, company, saleId, onBack, onSaved }:
   const [frequency, setFrequency] = useState('monthly')
   const [firstDate, setFirstDate] = useState(todayIso())
   const [note, setNote] = useState('')
+
+  // Campos exclusivos da modalidade Cheque - antecipação de um cheque
+  // pré-datado, fora do fluxo genérico de Valor Principal + Parcelas.
+  const [chequeDefineBy, setChequeDefineBy] = useState<'rate' | 'amount'>('rate')
+  const [chequeFaceValueInput, setChequeFaceValueInput] = useState('')
+  const [chequeRateInput, setChequeRateInput] = useState('5')
+  const [chequeAdvanceInput, setChequeAdvanceInput] = useState('')
+  const [chequeNumber, setChequeNumber] = useState('')
+  const [chequeBank, setChequeBank] = useState('')
+  const [chequeIssuer, setChequeIssuer] = useState('')
 
   const [previewList, setPreviewList] = useState<Installment[]>([])
   const [installmentValue, setInstallmentValue] = useState(0)
@@ -302,6 +383,9 @@ export function FinancingFormPage({ session, company, saleId, onBack, onSaved }:
 
   const value = parseAmount(valueInput)
   const perInstallmentValue = parseAmount(perInstallmentInput)
+  const chequeFaceValue = parseAmount(chequeFaceValueInput)
+  const chequeRate = parseAmount(chequeRateInput)
+  const chequeAdvanceDesired = parseAmount(chequeAdvanceInput)
 
   useEffect(() => {
     fetchConfig(session.token.token, company.id)
@@ -380,6 +464,17 @@ export function FinancingFormPage({ session, company, saleId, onBack, onSaved }:
             setRate(round3(taxaPeriodo * 100))
           } else if (detectedModality === 'per_installment') {
             setPerInstallmentInput(toAmountInput(firstAmount))
+          } else if (detectedModality === 'dinheiro_alugado') {
+            setRate(principal > 0 ? round3((firstAmount / principal) * 100) : 0)
+          } else if (detectedModality === 'sobre_total') {
+            const interest = total - principal
+            setRate(principal > 0 ? round3((interest / principal) * 100) : 0)
+          } else if (detectedModality === 'cheque') {
+            const interest = firstAmount - principal
+            setChequeDefineBy('amount')
+            setChequeAdvanceInput(toAmountInput(principal))
+            setChequeFaceValueInput(toAmountInput(firstAmount))
+            setChequeRateInput(String(firstAmount > 0 ? round3((interest / firstAmount) * 100) : 0))
           }
         }
 
@@ -451,13 +546,55 @@ export function FinancingFormPage({ session, company, saleId, onBack, onSaved }:
       setTotalAmount(total)
       setTotalInterest(round3(total - principal))
       setPreviewList(list)
-    } else {
+    } else if (mod === 'custom') {
       const list = buildCustomList(principal, n, freq, date)
       setInstallmentValue(list[0]?.amount ?? 0)
       setTotalAmount(principal)
       setTotalInterest(0)
       setPreviewList(list)
+    } else if (mod === 'dinheiro_alugado') {
+      const list = calculateDinheiroAlugado(principal, rateNum, n, freq, date)
+      const total = round3(list.reduce((acc, item) => acc + item.amount, 0))
+      setInstallmentValue(list[0]?.amount ?? 0)
+      setTotalAmount(total)
+      setTotalInterest(total)
+      setPreviewList(list)
+    } else if (mod === 'sobre_total') {
+      const { list, installmentValue: iv, total, interest } = calculateSobreTotal(principal, rateNum, n, freq, date)
+      setInstallmentValue(iv)
+      setTotalAmount(total)
+      setTotalInterest(interest)
+      setPreviewList(list)
     }
+  }
+
+  function applyChequeCalculation(overrides: {
+    defineBy?: 'rate' | 'amount'
+    faceValue?: number
+    rate?: number
+    advance?: number
+    dueDate?: string
+  }) {
+    const defineBy = overrides.defineBy ?? chequeDefineBy
+    const faceValueIn = overrides.faceValue ?? chequeFaceValue
+    const rateIn = overrides.rate ?? chequeRate
+    const advanceIn = overrides.advance ?? chequeAdvanceDesired
+    const dueDate = overrides.dueDate ?? firstDate
+
+    const { list, faceValue, advance, interest } = calculateCheque({
+      defineBy,
+      faceValue: faceValueIn,
+      rate: rateIn,
+      advance: advanceIn,
+      dueDate,
+    })
+
+    setValueInput(advance ? String(advance) : '')
+    setInstallments(1)
+    setInstallmentValue(advance)
+    setTotalAmount(faceValue)
+    setTotalInterest(interest)
+    setPreviewList(list)
   }
 
   function handleRecalculateFromParcel(newInstallmentValue: number) {
@@ -568,6 +705,16 @@ export function FinancingFormPage({ session, company, saleId, onBack, onSaved }:
     }))
 
     const notePrefix = modality !== 'price' ? `[${MODALITY_LABELS[modality]}] ` : ''
+    const chequeMeta =
+      modality === 'cheque'
+        ? [
+            chequeNumber && `Cheque nº ${chequeNumber}`,
+            chequeBank && `Banco ${chequeBank}`,
+            chequeIssuer && `Emitente ${chequeIssuer}`,
+          ]
+            .filter(Boolean)
+            .join(' · ')
+        : ''
 
     setSubmitting(true)
     try {
@@ -583,7 +730,7 @@ export function FinancingFormPage({ session, company, saleId, onBack, onSaved }:
         amount: value,
         payment_terms: installments,
         net_total: totalAmount,
-        note: `${notePrefix}${note}`.trim(),
+        note: `${notePrefix}${chequeMeta ? `${chequeMeta} — ` : ''}${note}`.trim(),
         plots,
       }
 
@@ -605,6 +752,19 @@ export function FinancingFormPage({ session, company, saleId, onBack, onSaved }:
       ? (Number(selectedPerson.available_limit ?? 0) / Number(selectedPerson.limit_credit)) * 100
       : 0
 
+  const summaryLabels =
+    modality === 'cheque'
+      ? { card1: 'Valor Liberado', card3: 'Valor do Cheque' }
+      : modality === 'dinheiro_alugado'
+        ? { card1: 'Juros por Período', card3: 'Capital em Aberto' }
+        : modality === 'sac'
+          ? { card1: '1ª Parcela', card3: 'Montante Total' }
+          : modality === 'price'
+            ? { card1: 'Média Parcela', card3: 'Montante Total' }
+            : { card1: 'Parcela', card3: 'Montante Total' }
+
+  const card3DisplayValue = modality === 'dinheiro_alugado' ? toAmountInput(value) : totalAmountInput
+
   return (
     <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8">
       <div className="flex items-center gap-3">
@@ -623,19 +783,27 @@ export function FinancingFormPage({ session, company, saleId, onBack, onSaved }:
             {modality === 'sac' && 'Amortização constante (SAC) — capital fixo, parcelas decrescentes.'}
             {modality === 'per_installment' && 'Informe o valor da parcela — os juros são calculados automaticamente.'}
             {modality === 'custom' && 'Parcelas totalmente personalizadas — edite cada valor e data livremente.'}
+            {modality === 'dinheiro_alugado' &&
+              'Juros fixos por período sobre o capital — o capital não amortiza, fica em aberto até ser devolvido.'}
+            {modality === 'sobre_total' && 'Juros calculados uma única vez sobre o valor total, divididos em parcelas iguais.'}
+            {modality === 'cheque' && 'Antecipação de cheque — o cliente recebe o valor líquido hoje e o cheque cobre o valor cheio no vencimento.'}
           </p>
         </div>
       </div>
 
       {!loading && !loadError && (
         <div className="flex flex-wrap gap-2">
-          {(Object.keys(MODALITY_LABELS) as Modality[]).map((key) => (
+          {MODALITY_ORDER.map((key) => (
             <button
               key={key}
               type="button"
               onClick={() => {
                 setModality(key)
-                applyFullCalculation({ modality: key })
+                if (key === 'cheque') {
+                  applyChequeCalculation({})
+                } else {
+                  applyFullCalculation({ modality: key })
+                }
               }}
               className={`rounded-xl px-4 py-2 text-[12.5px] font-semibold transition ${
                 modality === key
@@ -715,26 +883,168 @@ export function FinancingFormPage({ session, company, saleId, onBack, onSaved }:
                   </div>
                 )}
 
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Valor Principal (R$)</span>
-                  <div className="flex items-center gap-2 rounded-xl bg-[var(--page)] px-3.5 py-2.5 ring-1 ring-transparent transition focus-within:ring-[var(--blue-300)]">
-                    <WalletIcon className="h-4 w-4 flex-none text-[var(--muted)]" />
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      placeholder="0,00"
-                      value={valueInput}
-                      onChange={(event) => {
-                        const raw = event.target.value.replace(/[^\d.,]/g, '')
-                        setValueInput(raw)
-                        applyFullCalculation({ value: parseAmount(raw) })
-                      }}
-                      className="min-w-0 w-full bg-[var(--page)] text-[16px] font-semibold text-[var(--blue-700)] placeholder:text-[var(--muted)] focus:outline-none"
-                    />
-                  </div>
-                </label>
+                {modality === 'cheque' ? (
+                  <>
+                    <label className="flex flex-col gap-1.5">
+                      <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Vencimento do Cheque</span>
+                      <input
+                        type="date"
+                        value={firstDate}
+                        onChange={(event) => {
+                          setFirstDate(event.target.value)
+                          applyChequeCalculation({ dueDate: event.target.value })
+                        }}
+                        className="min-w-0 w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
+                      />
+                    </label>
 
-                {modality === 'custom' ? (
+                    <div className="flex gap-2 rounded-xl bg-[var(--page)] p-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setChequeDefineBy('rate')
+                          applyChequeCalculation({ defineBy: 'rate' })
+                        }}
+                        className={`flex-1 rounded-lg py-2 text-[12.5px] font-semibold transition ${
+                          chequeDefineBy === 'rate'
+                            ? 'bg-[var(--surface)] text-[var(--ink)] shadow-sm'
+                            : 'text-[var(--ink-soft)]'
+                        }`}
+                      >
+                        Definir o juros
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setChequeDefineBy('amount')
+                          applyChequeCalculation({ defineBy: 'amount' })
+                        }}
+                        className={`flex-1 rounded-lg py-2 text-[12.5px] font-semibold transition ${
+                          chequeDefineBy === 'amount'
+                            ? 'bg-[var(--surface)] text-[var(--ink)] shadow-sm'
+                            : 'text-[var(--ink-soft)]'
+                        }`}
+                      >
+                        Definir o valor
+                      </button>
+                    </div>
+
+                    {chequeDefineBy === 'rate' ? (
+                      <div className="grid grid-cols-2 gap-4">
+                        <label className="flex flex-col gap-1.5">
+                          <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Valor do Cheque (R$)</span>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            placeholder="0,00"
+                            value={chequeFaceValueInput}
+                            onChange={(event) => {
+                              const raw = event.target.value.replace(/[^\d.,]/g, '')
+                              setChequeFaceValueInput(raw)
+                              applyChequeCalculation({ faceValue: parseAmount(raw) })
+                            }}
+                            className="min-w-0 w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] font-semibold text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
+                          />
+                        </label>
+                        <label className="flex flex-col gap-1.5">
+                          <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Taxa %</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={chequeRateInput}
+                            onChange={(event) => {
+                              setChequeRateInput(event.target.value)
+                              applyChequeCalculation({ rate: Number(event.target.value) || 0 })
+                            }}
+                            className="min-w-0 w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] font-semibold text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
+                          />
+                        </label>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-4">
+                        <label className="flex flex-col gap-1.5">
+                          <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Valor Líquido Desejado (R$)</span>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            placeholder="0,00"
+                            value={chequeAdvanceInput}
+                            onChange={(event) => {
+                              const raw = event.target.value.replace(/[^\d.,]/g, '')
+                              setChequeAdvanceInput(raw)
+                              applyChequeCalculation({ advance: parseAmount(raw) })
+                            }}
+                            className="min-w-0 w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] font-semibold text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
+                          />
+                        </label>
+                        <label className="flex flex-col gap-1.5">
+                          <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Taxa %</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={chequeRateInput}
+                            onChange={(event) => {
+                              setChequeRateInput(event.target.value)
+                              applyChequeCalculation({ rate: Number(event.target.value) || 0 })
+                            }}
+                            className="min-w-0 w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] font-semibold text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
+                          />
+                        </label>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-3 gap-3">
+                      <label className="flex flex-col gap-1.5">
+                        <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Nº do Cheque</span>
+                        <input
+                          type="text"
+                          value={chequeNumber}
+                          onChange={(event) => setChequeNumber(event.target.value)}
+                          className="min-w-0 w-full rounded-xl bg-[var(--page)] px-3 py-2.5 text-[13px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
+                        />
+                      </label>
+                      <label className="flex flex-col gap-1.5">
+                        <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Banco</span>
+                        <input
+                          type="text"
+                          value={chequeBank}
+                          onChange={(event) => setChequeBank(event.target.value)}
+                          className="min-w-0 w-full rounded-xl bg-[var(--page)] px-3 py-2.5 text-[13px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
+                        />
+                      </label>
+                      <label className="flex flex-col gap-1.5">
+                        <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Emitente</span>
+                        <input
+                          type="text"
+                          value={chequeIssuer}
+                          onChange={(event) => setChequeIssuer(event.target.value)}
+                          className="min-w-0 w-full rounded-xl bg-[var(--page)] px-3 py-2.5 text-[13px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
+                        />
+                      </label>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <label className="flex flex-col gap-1.5">
+                      <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Valor Principal (R$)</span>
+                      <div className="flex items-center gap-2 rounded-xl bg-[var(--page)] px-3.5 py-2.5 ring-1 ring-transparent transition focus-within:ring-[var(--blue-300)]">
+                        <WalletIcon className="h-4 w-4 flex-none text-[var(--muted)]" />
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          placeholder="0,00"
+                          value={valueInput}
+                          onChange={(event) => {
+                            const raw = event.target.value.replace(/[^\d.,]/g, '')
+                            setValueInput(raw)
+                            applyFullCalculation({ value: parseAmount(raw) })
+                          }}
+                          className="min-w-0 w-full bg-[var(--page)] text-[16px] font-semibold text-[var(--blue-700)] placeholder:text-[var(--muted)] focus:outline-none"
+                        />
+                      </div>
+                    </label>
+
+                    {modality === 'custom' ? (
                   <label className="flex flex-col gap-1.5">
                     <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Parcelas</span>
                     <input
@@ -833,6 +1143,8 @@ export function FinancingFormPage({ session, company, saleId, onBack, onSaved }:
                     />
                   </label>
                 </div>
+                  </>
+                )}
 
                 <label className="flex flex-col gap-1.5">
                   <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Observação</span>
@@ -865,9 +1177,7 @@ export function FinancingFormPage({ session, company, saleId, onBack, onSaved }:
           <div className="flex flex-col gap-6 lg:col-span-8">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div className="rounded-2xl bg-[var(--blue-500)] p-5 text-white shadow-[var(--card-shadow)]">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-blue-100">
-                  {modality === 'price' ? 'Média Parcela' : modality === 'sac' ? '1ª Parcela' : 'Parcela'}
-                </p>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-blue-100">{summaryLabels.card1}</p>
                 <div className="mt-1 flex items-baseline gap-1">
                   <span className="text-[13px] text-blue-200">R$</span>
                   {modality === 'price' ? (
@@ -919,7 +1229,7 @@ export function FinancingFormPage({ session, company, saleId, onBack, onSaved }:
               </div>
 
               <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--muted)]">Montante Total</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--muted)]">{summaryLabels.card3}</p>
                 <div className="mt-1 flex items-baseline gap-1">
                   <span className="text-[13px] text-[var(--muted)]">R$</span>
                   {modality === 'price' ? (
@@ -936,7 +1246,7 @@ export function FinancingFormPage({ session, company, saleId, onBack, onSaved }:
                       className="w-full min-w-0 border-0 bg-transparent p-0 text-[22px] font-bold text-[var(--ink)] focus:outline-none focus:ring-0"
                     />
                   ) : (
-                    <span className="text-[22px] font-bold text-[var(--ink)]">{totalAmountInput || '0,00'}</span>
+                    <span className="text-[22px] font-bold text-[var(--ink)]">{card3DisplayValue || '0,00'}</span>
                   )}
                 </div>
                 <p className="mt-1.5 text-[11px] text-[var(--muted)]">
@@ -956,7 +1266,9 @@ export function FinancingFormPage({ session, company, saleId, onBack, onSaved }:
               <div className="flex-1 overflow-auto">
                 {previewList.length === 0 ? (
                   <p className="px-5 py-10 text-center text-[13px] text-[var(--muted)]">
-                    Preencha o valor principal e as parcelas pra gerar a prévia.
+                    {modality === 'cheque'
+                      ? 'Preencha o valor do cheque e o vencimento pra gerar a prévia.'
+                      : 'Preencha o valor principal e as parcelas pra gerar a prévia.'}
                   </p>
                 ) : (
                   <table className="w-full border-collapse text-[13px]">

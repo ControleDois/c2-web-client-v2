@@ -60,6 +60,7 @@ import { VehicleInspectionsPage } from './pages/VehicleInspectionsPage'
 import { LoanCustomerVerificationsPage } from './pages/LoanCustomerVerificationsPage'
 import { FinancingSalesPage } from './pages/FinancingSalesPage'
 import { FinancingFormPage } from './pages/FinancingFormPage'
+import type { Modality } from './lib/loanModalities'
 import { TowingCollectionPage } from './pages/TowingCollectionPage'
 import { VehicleRentalOperationsPage } from './pages/VehicleRentalOperationsPage'
 import { PurchaseManagementPage } from './pages/PurchaseManagementPage'
@@ -125,6 +126,7 @@ function App() {
   const vehicleRentalsView = useEntityView()
   const vehicleSalesView = useEntityView()
   const financingSalesView = useEntityView()
+  const [financingInitialModality, setFinancingInitialModality] = useState<Modality>('price')
   const orderServicesView = useEntityView()
   const towingSalesView = useEntityView()
   const bankAccountsView = useEntityView()
@@ -351,6 +353,7 @@ function App() {
             session={session}
             company={activeCompany}
             saleId={financingSalesView.view.id}
+            initialModality={financingInitialModality}
             onBack={financingSalesView.reset}
             onSaved={financingSalesView.reset}
           />
@@ -358,7 +361,10 @@ function App() {
           <FinancingSalesPage
             session={session}
             company={activeCompany}
-            onCreate={financingSalesView.create}
+            onCreate={(modality) => {
+              setFinancingInitialModality(modality)
+              financingSalesView.create()
+            }}
             onEdit={(sale) => financingSalesView.edit(sale.id)}
           />
         )

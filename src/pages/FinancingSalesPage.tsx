@@ -6,13 +6,15 @@ import { getCached, setCached } from '../lib/cache'
 import { useRowSelection } from '../hooks/useRowSelection'
 import { SearchIcon, PlusIcon, PencilIcon, TrashIcon } from '../components/icons'
 import { ConfirmDialog } from '../components/ConfirmDialog'
+import { NewLoanModal } from '../components/NewLoanModal'
 import { RowActionsMenu, type RowAction } from '../components/RowActionsMenu'
+import type { Modality } from '../lib/loanModalities'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
 interface FinancingSalesPageProps {
   session: AuthSession
   company: AuthCompany
-  onCreate: () => void
+  onCreate: (modality: Modality) => void
   onEdit: (sale: SaleRecord) => void
 }
 
@@ -26,6 +28,7 @@ export function FinancingSalesPage({ session, company, onCreate, onEdit }: Finan
   const [error, setError] = useState<string | null>(null)
 
   const { selected, toggle, toggleAll, clear, setSelected } = useRowSelection()
+  const [showPicker, setShowPicker] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<SaleRecord | null>(null)
   const [deletingSelected, setDeletingSelected] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -167,13 +170,22 @@ export function FinancingSalesPage({ session, company, onCreate, onEdit }: Finan
         </div>
         <button
           type="button"
-          onClick={onCreate}
+          onClick={() => setShowPicker(true)}
           className="flex items-center gap-2 rounded-xl bg-[var(--blue-500)] px-4 py-2.5 text-[13.5px] font-bold text-white transition hover:bg-[var(--blue-700)]"
         >
           <PlusIcon className="h-4 w-4" />
-          Nova venda
+          Novo Empréstimo
         </button>
       </div>
+
+      <NewLoanModal
+        open={showPicker}
+        onClose={() => setShowPicker(false)}
+        onSelect={(modality) => {
+          setShowPicker(false)
+          onCreate(modality)
+        }}
+      />
 
       <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-[var(--card-shadow)]">
         <div className="grid grid-cols-3 divide-x divide-[var(--border)]">
