@@ -58,6 +58,7 @@ export type AppPage =
   | 'order-services'
   | 'standalone-inspection'
   | 'loan-customer-verifications'
+  | 'financing-sales'
   | 'purchase-management'
   | 'purchase-requests'
   | 'nfes'
@@ -94,6 +95,7 @@ function buildNavGroups(
     ? [
         { page: 'dashboard' as const, label: 'Dashboard', icon: GridIcon },
         { page: 'people' as const, label: 'Pessoas', icon: UserIcon },
+        { page: 'financing-sales' as const, label: 'Venda', icon: SaleIcon },
       ]
     : isLocacaoVeiculos(systemType)
       ? [
@@ -179,8 +181,9 @@ function buildNavGroups(
   }
 
   // O relatório de faturamento é específico do fluxo de guincho (TowingSale)
-  // — não se aplica a um nicho sem veículos como Pizzaria/Lanchonete.
-  if (!noVehicleNiche) {
+  // — não se aplica a nichos sem veículo (Pizzaria/Lanchonete) nem ao
+  // Empréstimo (venda financiada, sem TowingSale nenhum).
+  if (!noVehicleNiche && !emprestimo) {
     groups.push({
       title: 'Relatórios',
       items: [{ page: 'towing-billing-report', label: 'Faturamento', icon: TrendUpIcon }],

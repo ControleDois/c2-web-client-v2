@@ -57,6 +57,8 @@ import { LicenseFormPage } from './pages/LicenseFormPage'
 import { AuditLogsPage } from './pages/AuditLogsPage'
 import { VehicleInspectionsPage } from './pages/VehicleInspectionsPage'
 import { LoanCustomerVerificationsPage } from './pages/LoanCustomerVerificationsPage'
+import { FinancingSalesPage } from './pages/FinancingSalesPage'
+import { FinancingFormPage } from './pages/FinancingFormPage'
 import { TowingCollectionPage } from './pages/TowingCollectionPage'
 import { VehicleRentalOperationsPage } from './pages/VehicleRentalOperationsPage'
 import { PurchaseManagementPage } from './pages/PurchaseManagementPage'
@@ -121,6 +123,7 @@ function App() {
   const productsView = useEntityView()
   const vehicleRentalsView = useEntityView()
   const vehicleSalesView = useEntityView()
+  const financingSalesView = useEntityView()
   const orderServicesView = useEntityView()
   const towingSalesView = useEntityView()
   const bankAccountsView = useEntityView()
@@ -146,6 +149,7 @@ function App() {
     products: productsView,
     'vehicle-rentals': vehicleRentalsView,
     'vehicle-sales': vehicleSalesView,
+    'financing-sales': financingSalesView,
     'order-services': orderServicesView,
     'towing-sales': towingSalesView,
     'bank-accounts': bankAccountsView,
@@ -325,6 +329,24 @@ function App() {
             company={activeCompany}
             onCreate={vehicleSalesView.create}
             onEdit={(sale) => vehicleSalesView.edit(sale.id)}
+          />
+        )
+    } else if (page === 'financing-sales') {
+      pageContent =
+        financingSalesView.view.mode === 'form' ? (
+          <FinancingFormPage
+            session={session}
+            company={activeCompany}
+            saleId={financingSalesView.view.id}
+            onBack={financingSalesView.reset}
+            onSaved={financingSalesView.reset}
+          />
+        ) : (
+          <FinancingSalesPage
+            session={session}
+            company={activeCompany}
+            onCreate={financingSalesView.create}
+            onEdit={(sale) => financingSalesView.edit(sale.id)}
           />
         )
     } else if (page === 'order-services') {

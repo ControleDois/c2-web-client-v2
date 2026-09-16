@@ -2,7 +2,7 @@ export const SYSTEM_TYPE_LABELS: Record<number, string> = {
   0: 'Padrão Geral',
   1: 'Proteção Veicular',
   2: 'Financeiro',
-  3: 'Fácil Juros / Empréstimo',
+  3: 'Juros / Empréstimos',
   4: 'Controle de Mídia',
   5: 'Sistema ERP',
   6: 'Locação de Veículos',

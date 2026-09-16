@@ -820,6 +820,12 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
                       <p className="text-[12px] text-[var(--ink-soft)]">
                         {bill.category?.name ?? '—'} · Vence em {formatDate(bill.date_due)}
                       </p>
+                      {Boolean(bill.interest_amount) && (
+                        <p className="mt-0.5 text-[11px] text-[var(--muted)]">
+                          Capital {formatCurrency(bill.principal_amount ?? 0)} · Juros{' '}
+                          {formatCurrency(bill.interest_amount ?? 0)}
+                        </p>
+                      )}
                       <div className="mt-2 flex items-center justify-between gap-2">
                         <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${statusTone(bill.status)}`}>
                           {billStatusLabel(bill.status, role)}
@@ -898,6 +904,11 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
                       </td>
                       <td className="py-2.5 text-right font-mono font-semibold text-[var(--ink)]">
                         {formatCurrency(bill.amount)}
+                        {Boolean(bill.interest_amount) && (
+                          <p className="mt-0.5 text-[10.5px] font-normal text-[var(--muted)]">
+                            juros {formatCurrency(bill.interest_amount ?? 0)}
+                          </p>
+                        )}
                       </td>
                       <td className="py-2.5 pr-3 text-right">
                         <div className="flex items-center justify-end">

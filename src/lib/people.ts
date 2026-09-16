@@ -43,6 +43,10 @@ export interface PersonRecord {
   file_url?: string | null
   address?: PersonAddress | null
   documents?: PersonDocument[]
+  // Limite de crédito (nicho Empréstimo) - `limit_credit` é o total
+  // cadastrado, `available_limit` já desconta o que está em aberto.
+  limit_credit?: number | null
+  available_limit?: number | null
   createdAt?: string
   created_at?: string
 }

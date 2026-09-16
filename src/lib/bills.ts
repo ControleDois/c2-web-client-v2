@@ -13,6 +13,10 @@ export interface BillRecord {
   bill_value?: number | null
   discount?: number | null
   fees?: number | null
+  // Presentes só em parcelas de venda financiada (nicho Empréstimo) -
+  // separam quanto da parcela é capital emprestado vs. juros contratado.
+  principal_amount?: number | null
+  interest_amount?: number | null
   form_payment: number
   note?: string | null
   categoryId?: string

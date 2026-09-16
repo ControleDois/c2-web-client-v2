@@ -88,6 +88,8 @@ export interface SaleRecord {
   role: number
   operationType?: string | null
   date_sale?: string | null
+  amount?: number | null
+  payment_terms?: number | null
   net_total?: number | null
   note?: string | null
   people?: SalePerson | null
@@ -97,12 +99,22 @@ export interface SaleRecord {
   user?: SalePerson | null
   user_id?: string
   category_id?: string | null
+  bills?: SaleBillRef[] | null
   vehicleRentalContract?: VehicleRentalContractRecord | null
   vehicleSaleContract?: VehicleSaleContractRecord | null
   created_at?: string
   autentique_id?: string | null
   autentique_public_id?: string | null
   autentique_short_link?: string | null
+}
+
+export interface SaleBillRef {
+  id: string
+  installment_number?: number | null
+  date_due?: string | null
+  amount?: number | null
+  principal_amount?: number | null
+  interest_amount?: number | null
 }
 
 export interface VehicleRentalContractPayload {
@@ -146,6 +158,8 @@ export interface SalePlotPayload {
   form_payment: number
   date_due: string
   amount: number
+  principal_amount?: number
+  interest_amount?: number
   status?: number
   note?: string
 }
@@ -156,9 +170,12 @@ export interface SalePayload {
   vehicleId?: string
   userId: string
   categoryId?: string
+  bankAccountId?: string
   role: number
   status: number
   date_sale?: string
+  amount?: number
+  payment_terms?: number
   net_total?: number
   note?: string
   internal_code?: number
