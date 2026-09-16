@@ -21,7 +21,6 @@ import {
   KeyIcon,
   CoinIcon as SaleIcon,
   WrenchIcon,
-  BadgeIcon,
   FileTextIcon,
   MailIcon,
 } from '../icons'
@@ -138,19 +137,8 @@ function buildNavGroups(
 
   // Empréstimo e os nichos sem veículo (Pizzaria/Lanchonete) não usam o
   // grupo "Operação" (que é todo sobre vistoria/busca/entrega de veículo) —
-  // só entram o grupo próprio (empréstimo) ou nenhum grupo extra.
-  if (emprestimo) {
-    groups.push({
-      title: 'Empréstimo',
-      items: [
-        {
-          page: 'loan-customer-verifications' as const,
-          label: 'Verificações de Cadastro',
-          icon: BadgeIcon,
-        },
-      ],
-    })
-  } else if (!noVehicleNiche) {
+  // empréstimo não tem nenhum grupo extra próprio.
+  if (!emprestimo && !noVehicleNiche) {
     groups.push({
       title: 'Operação',
       items: [

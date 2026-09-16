@@ -8,7 +8,7 @@ import { useMyCompanyPerson } from '../hooks/useMyCompanyPerson'
 import { SearchSelectField } from '../components/form/SearchSelectField'
 import { SectionCard } from '../components/SectionCard'
 import { ChevronLeftIcon, WalletIcon } from '../components/icons'
-import { MODALITY_LABELS, MODALITY_ORDER, type Modality } from '../lib/loanModalities'
+import { MODALITY_LABELS, MODALITY_ORDER, parseModalityFromNote, type Modality } from '../lib/loanModalities'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
 interface FinancingFormPageProps {
@@ -413,22 +413,9 @@ export function FinancingFormPage({ session, company, saleId, initialModality, o
         setValueInput(String(principal))
         setInstallments(n)
 
-        // A modalidade não tem coluna própria no backend - fica marcada como
-        // um prefixo "[SAC] ..." na observação e é extraída de volta aqui.
-        let rawNote = sale.note || ''
-        let detectedModality: Modality = 'price'
-        const tagMatch = rawNote.match(/^\[(.+?)\]\s*/)
-        if (tagMatch) {
-          const found = (Object.entries(MODALITY_LABELS) as [Modality, string][]).find(
-            ([, label]) => label === tagMatch[1]
-          )
-          if (found) {
-            detectedModality = found[0]
-            rawNote = rawNote.slice(tagMatch[0].length)
-          }
-        }
+        const { modality: detectedModality, cleanNote } = parseModalityFromNote(sale.note)
         setModality(detectedModality)
-        setNote(rawNote)
+        setNote(cleanNote)
 
         const total = Number(sale.net_total || 0)
         setTotalAmount(total)

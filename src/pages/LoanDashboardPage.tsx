@@ -8,10 +8,12 @@ import { getCached, setCached } from '../lib/cache'
 import { CoinIcon, WalletIcon, AlertTriangleIcon, UserIcon, TrendUpIcon, WhatsappIcon } from '../components/icons'
 import { getPersonName, type AuthCompany, type AuthSession } from '../lib/auth'
 import { SUPPORT_PHONE_DISPLAY, SUPPORT_WHATSAPP_URL } from '../lib/support'
+import type { SalesStatusFilter } from '../lib/loanModalities'
 
 interface LoanDashboardPageProps {
   session: AuthSession
   company: AuthCompany
+  onNavigateToSales?: (filter: SalesStatusFilter) => void
 }
 
 type PeriodKey = 'all' | 'today' | '7d' | 'month'
@@ -63,7 +65,7 @@ const EMPTY_SUMMARY: BillsSummary = {
   total: { count: 0, total: 0 },
 }
 
-export function LoanDashboardPage({ session, company }: LoanDashboardPageProps) {
+export function LoanDashboardPage({ session, company, onNavigateToSales }: LoanDashboardPageProps) {
   const [period, setPeriod] = useState<PeriodKey>('all')
   const [sales, setSales] = useState<SaleRecord[]>([])
   const [billsSummary, setBillsSummary] = useState<BillsSummary>(EMPTY_SUMMARY)
@@ -158,6 +160,7 @@ export function LoanDashboardPage({ session, company }: LoanDashboardPageProps) 
       sub: `${periodSales.length} venda${periodSales.length === 1 ? '' : 's'} no período`,
       icon: CoinIcon,
       tone: 'blue' as const,
+      filter: 'all' as SalesStatusFilter,
     },
     {
       label: 'A Receber (em aberto)',
@@ -165,6 +168,7 @@ export function LoanDashboardPage({ session, company }: LoanDashboardPageProps) 
       sub: `${billsSummary.pending.count} parcela${billsSummary.pending.count === 1 ? '' : 's'}`,
       icon: TrendUpIcon,
       tone: 'blue' as const,
+      filter: 'aberto' as SalesStatusFilter,
     },
     {
       label: 'Em Atraso',
@@ -172,6 +176,7 @@ export function LoanDashboardPage({ session, company }: LoanDashboardPageProps) 
       sub: `${billsSummary.overdue.count} parcela${billsSummary.overdue.count === 1 ? '' : 's'}`,
       icon: AlertTriangleIcon,
       tone: 'red' as const,
+      filter: 'atrasado' as SalesStatusFilter,
     },
     {
       label: 'Recebido',
@@ -250,18 +255,29 @@ export function LoanDashboardPage({ session, company }: LoanDashboardPageProps) 
       ) : (
         <>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-6">
-            {kpis.map((kpi) => (
-              <div key={kpi.label} className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
-                <span
-                  className={`mb-2.5 flex h-8 w-8 items-center justify-center rounded-lg ${toneClasses[kpi.tone]}`}
+            {kpis.map((kpi) => {
+              const clickable = Boolean(kpi.filter && onNavigateToSales)
+              const Wrapper = clickable ? 'button' : 'div'
+              return (
+                <Wrapper
+                  key={kpi.label}
+                  type={clickable ? 'button' : undefined}
+                  onClick={clickable ? () => onNavigateToSales?.(kpi.filter!) : undefined}
+                  className={`rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 text-left transition ${
+                    clickable ? 'cursor-pointer hover:border-[var(--blue-300)] hover:shadow-[var(--card-shadow)]' : ''
+                  }`}
                 >
-                  <kpi.icon className="h-4 w-4" />
-                </span>
-                <p className="text-[11px] font-semibold text-[var(--muted)]">{kpi.label}</p>
-                <p className="mt-1 text-[19px] font-bold tracking-tight text-[var(--ink)]">{kpi.value}</p>
-                {kpi.sub && <p className="mt-0.5 text-[11px] text-[var(--muted)]">{kpi.sub}</p>}
-              </div>
-            ))}
+                  <span
+                    className={`mb-2.5 flex h-8 w-8 items-center justify-center rounded-lg ${toneClasses[kpi.tone]}`}
+                  >
+                    <kpi.icon className="h-4 w-4" />
+                  </span>
+                  <p className="text-[11px] font-semibold text-[var(--muted)]">{kpi.label}</p>
+                  <p className="mt-1 text-[19px] font-bold tracking-tight text-[var(--ink)]">{kpi.value}</p>
+                  {kpi.sub && <p className="mt-0.5 text-[11px] text-[var(--muted)]">{kpi.sub}</p>}
+                </Wrapper>
+              )
+            })}
           </div>
 
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">

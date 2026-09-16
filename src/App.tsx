@@ -60,7 +60,7 @@ import { VehicleInspectionsPage } from './pages/VehicleInspectionsPage'
 import { LoanCustomerVerificationsPage } from './pages/LoanCustomerVerificationsPage'
 import { FinancingSalesPage } from './pages/FinancingSalesPage'
 import { FinancingFormPage } from './pages/FinancingFormPage'
-import type { Modality } from './lib/loanModalities'
+import type { Modality, SalesStatusFilter } from './lib/loanModalities'
 import { TowingCollectionPage } from './pages/TowingCollectionPage'
 import { VehicleRentalOperationsPage } from './pages/VehicleRentalOperationsPage'
 import { PurchaseManagementPage } from './pages/PurchaseManagementPage'
@@ -127,6 +127,7 @@ function App() {
   const vehicleSalesView = useEntityView()
   const financingSalesView = useEntityView()
   const [financingInitialModality, setFinancingInitialModality] = useState<Modality>('price')
+  const [financingSalesFilter, setFinancingSalesFilter] = useState<SalesStatusFilter>('all')
   const orderServicesView = useEntityView()
   const towingSalesView = useEntityView()
   const bankAccountsView = useEntityView()
@@ -361,6 +362,7 @@ function App() {
           <FinancingSalesPage
             session={session}
             company={activeCompany}
+            initialStatusFilter={financingSalesFilter}
             onCreate={(modality) => {
               setFinancingInitialModality(modality)
               financingSalesView.create()
@@ -739,7 +741,17 @@ function App() {
         />
       )
     } else if (isEmprestimo(activeCompany.system_type)) {
-      pageContent = <LoanDashboardPage session={session} company={activeCompany} />
+      pageContent = (
+        <LoanDashboardPage
+          session={session}
+          company={activeCompany}
+          onNavigateToSales={(filter) => {
+            setFinancingSalesFilter(filter)
+            financingSalesView.reset()
+            setPage('financing-sales')
+          }}
+        />
+      )
     } else {
       pageContent = <DashboardPage session={session} company={activeCompany} />
     }

@@ -7,8 +7,9 @@ import { useRowSelection } from '../hooks/useRowSelection'
 import { SearchIcon, PlusIcon, PencilIcon, TrashIcon } from '../components/icons'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { NewLoanModal } from '../components/NewLoanModal'
+import { LoanSaleDetailModal } from '../components/LoanSaleDetailModal'
 import { RowActionsMenu, type RowAction } from '../components/RowActionsMenu'
-import type { Modality } from '../lib/loanModalities'
+import { computeNextDue, avatarColorFor, initialsFor, type Modality, type SalesStatusFilter } from '../lib/loanModalities'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
 interface FinancingSalesPageProps {
@@ -16,12 +17,26 @@ interface FinancingSalesPageProps {
   company: AuthCompany
   onCreate: (modality: Modality) => void
   onEdit: (sale: SaleRecord) => void
+  initialStatusFilter?: SalesStatusFilter
 }
 
 const PAGE_SIZE = 10
 
-export function FinancingSalesPage({ session, company, onCreate, onEdit }: FinancingSalesPageProps) {
+const STATUS_FILTERS: { key: SalesStatusFilter; label: string }[] = [
+  { key: 'all', label: 'Todas' },
+  { key: 'aberto', label: 'Em aberto' },
+  { key: 'atrasado', label: 'Atrasadas' },
+]
+
+export function FinancingSalesPage({
+  session,
+  company,
+  onCreate,
+  onEdit,
+  initialStatusFilter,
+}: FinancingSalesPageProps) {
   const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<SalesStatusFilter>(initialStatusFilter ?? 'all')
   const [page, setPage] = useState(1)
   const [sales, setSales] = useState<SaleRecord[]>([])
   const [loading, setLoading] = useState(true)
@@ -29,13 +44,16 @@ export function FinancingSalesPage({ session, company, onCreate, onEdit }: Finan
 
   const { selected, toggle, toggleAll, clear, setSelected } = useRowSelection()
   const [showPicker, setShowPicker] = useState(false)
+  const [detailSaleId, setDetailSaleId] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<SaleRecord | null>(null)
   const [deletingSelected, setDeletingSelected] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
 
   function loadSales() {
-    return fetchSales(session.token.token, company.id, { limit: 500 }).then((res) => res.data || [])
+    return fetchSales(session.token.token, company.id, { limit: 500, withBills: true }).then(
+      (res) => res.data || []
+    )
   }
 
   useEffect(() => {
@@ -74,7 +92,7 @@ export function FinancingSalesPage({ session, company, onCreate, onEdit }: Finan
 
   useEffect(() => {
     setPage(1)
-  }, [search])
+  }, [search, statusFilter])
 
   function reload() {
     loadSales()
@@ -95,15 +113,20 @@ export function FinancingSalesPage({ session, company, onCreate, onEdit }: Finan
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase()
-    if (!term) return sales
     return sales.filter((sale) => {
+      if (statusFilter !== 'all') {
+        const dueStatus = computeNextDue(sale.bills).status
+        if (statusFilter === 'atrasado' && dueStatus !== 'atrasado') return false
+        if (statusFilter === 'aberto' && dueStatus === 'quitado') return false
+      }
+      if (!term) return true
       return (
         String(sale.internal_code ?? sale.code).includes(term) ||
         (sale.people?.name ?? '').toLowerCase().includes(term) ||
         (sale.people?.document ?? '').toLowerCase().includes(term)
       )
     })
-  }, [sales, search])
+  }, [sales, search, statusFilter])
 
   const lastPage = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const visible = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
@@ -140,6 +163,24 @@ export function FinancingSalesPage({ session, company, onCreate, onEdit }: Finan
     } finally {
       setDeleting(false)
     }
+  }
+
+  function DueBadge({ sale }: { sale: SaleRecord }) {
+    const info = computeNextDue(sale.bills)
+    if (info.status === 'quitado') {
+      return <span className="text-[12px] font-semibold text-[var(--green-600)]">Quitado</span>
+    }
+    if (info.status === 'atrasado') {
+      return (
+        <div>
+          <p className="text-[13px] font-semibold text-[var(--red-500)]">{formatDate(info.dueDate)}</p>
+          <p className="text-[11px] font-bold text-[var(--red-500)]">
+            {info.daysLate === 1 ? '1 dia em atraso' : `${info.daysLate} dias em atraso`}
+          </p>
+        </div>
+      )
+    }
+    return <p className="text-[13px] text-[var(--ink-soft)]">{formatDate(info.dueDate)}</p>
   }
 
   function buildRowActions(sale: SaleRecord): RowAction[] {
@@ -208,15 +249,34 @@ export function FinancingSalesPage({ session, company, onCreate, onEdit }: Finan
         </div>
       </div>
 
-      <div className="flex min-w-[240px] flex-1 items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2.5">
-        <SearchIcon className="h-4 w-4 flex-none text-[var(--muted)]" />
-        <input
-          type="text"
-          placeholder="Buscar por código, cliente ou documento"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          className="w-full bg-transparent text-[13.5px] text-[var(--ink)] placeholder:text-[var(--muted)] focus:outline-none"
-        />
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex min-w-[240px] flex-1 items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2.5">
+          <SearchIcon className="h-4 w-4 flex-none text-[var(--muted)]" />
+          <input
+            type="text"
+            placeholder="Buscar por código, cliente ou documento"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            className="w-full bg-transparent text-[13.5px] text-[var(--ink)] placeholder:text-[var(--muted)] focus:outline-none"
+          />
+        </div>
+
+        <div className="flex gap-1 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1">
+          {STATUS_FILTERS.map((option) => (
+            <button
+              key={option.key}
+              type="button"
+              onClick={() => setStatusFilter(option.key)}
+              className={`rounded-lg px-3 py-1.5 text-[12.5px] font-semibold transition ${
+                statusFilter === option.key
+                  ? 'bg-[var(--blue-500)] text-white'
+                  : 'text-[var(--ink-soft)] hover:text-[var(--ink)]'
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {selected.size > 0 && (
@@ -267,7 +327,8 @@ export function FinancingSalesPage({ session, company, onCreate, onEdit }: Finan
               {visible.map((sale) => (
                 <div
                   key={sale.id}
-                  className={`rounded-xl border border-[var(--border)] p-3 ${
+                  onClick={() => setDetailSaleId(sale.id)}
+                  className={`cursor-pointer rounded-xl border border-[var(--border)] p-3 ${
                     selected.has(sale.id) ? 'bg-[var(--blue-100)]' : 'bg-[var(--surface)]'
                   }`}
                 >
@@ -276,9 +337,16 @@ export function FinancingSalesPage({ session, company, onCreate, onEdit }: Finan
                       type="checkbox"
                       checked={selected.has(sale.id)}
                       onChange={() => toggle(sale.id)}
+                      onClick={(event) => event.stopPropagation()}
                       className="mt-0.5 h-4 w-4 flex-none accent-[var(--blue-500)]"
                       aria-label={`Selecionar venda ${sale.internal_code ?? sale.code}`}
                     />
+                    <span
+                      className="flex h-9 w-9 flex-none items-center justify-center rounded-full text-[12px] font-bold text-white"
+                      style={{ backgroundColor: avatarColorFor(sale.people?.name || '?') }}
+                    >
+                      {initialsFor(sale.people?.name || '?')}
+                    </span>
                     <div className="min-w-0 flex-1">
                       <p className="min-w-0 truncate text-[13.5px] font-bold text-[var(--ink)]">
                         #{sale.internal_code ?? sale.code} · {sale.people?.name || '—'}
@@ -286,10 +354,13 @@ export function FinancingSalesPage({ session, company, onCreate, onEdit }: Finan
                       <p className="mt-0.5 text-[12px] text-[var(--muted)]">
                         Principal: {formatCurrency(Number(sale.amount ?? 0))} · {sale.payment_terms ?? 0}x
                       </p>
+                      <div className="mt-0.5">
+                        <DueBadge sale={sale} />
+                      </div>
                       <p className="mt-0.5 text-[12px] font-bold text-[var(--green-600)]">
                         Total: {formatCurrency(Number(sale.net_total ?? 0))}
                       </p>
-                      <div className="mt-2.5 flex items-center justify-between gap-2">
+                      <div className="mt-2.5 flex items-center justify-between gap-2" onClick={(event) => event.stopPropagation()}>
                         <button
                           type="button"
                           onClick={() => onEdit(sale)}
@@ -319,10 +390,10 @@ export function FinancingSalesPage({ session, company, onCreate, onEdit }: Finan
                         aria-label="Selecionar todos"
                       />
                     </th>
-                    <th className="w-[30%] px-2 pb-2.5">Cliente</th>
-                    <th className="w-[18%] px-2 pb-2.5 text-right">Principal</th>
-                    <th className="w-[14%] px-2 pb-2.5 text-center">Parcelas</th>
-                    <th className="w-[18%] px-2 pb-2.5">Data da venda</th>
+                    <th className="w-[28%] px-2 pb-2.5">Cliente</th>
+                    <th className="w-[16%] px-2 pb-2.5 text-right">Principal</th>
+                    <th className="w-[10%] px-2 pb-2.5 text-center">Parcelas</th>
+                    <th className="w-[18%] px-2 pb-2.5">Vencimento</th>
                     <th className="w-[15%] px-2 pb-2.5 text-right">Total</th>
                     <th className="w-10 pb-2.5 pr-3 text-right">Ações</th>
                   </tr>
@@ -331,11 +402,12 @@ export function FinancingSalesPage({ session, company, onCreate, onEdit }: Finan
                   {visible.map((sale, index) => (
                     <tr
                       key={sale.id}
-                      className={`border-b border-[var(--border)] align-top transition-colors last:border-none hover:bg-[var(--blue-100)] ${
+                      onClick={() => setDetailSaleId(sale.id)}
+                      className={`cursor-pointer border-b border-[var(--border)] align-top transition-colors last:border-none hover:bg-[var(--blue-100)] ${
                         index % 2 === 1 ? 'bg-[var(--page)]' : ''
                       } ${selected.has(sale.id) ? 'bg-[var(--blue-100)]' : ''}`}
                     >
-                      <td className="py-2.5 pl-3">
+                      <td className="py-2.5 pl-3" onClick={(event) => event.stopPropagation()}>
                         <input
                           type="checkbox"
                           checked={selected.has(sale.id)}
@@ -349,6 +421,12 @@ export function FinancingSalesPage({ session, company, onCreate, onEdit }: Finan
                           <span className="mt-0.5 flex-none rounded-lg bg-[var(--blue-100)] px-2 py-1 text-[11px] font-bold text-[var(--blue-700)]">
                             #{sale.internal_code ?? sale.code}
                           </span>
+                          <span
+                            className="flex h-7 w-7 flex-none items-center justify-center rounded-full text-[11px] font-bold text-white"
+                            style={{ backgroundColor: avatarColorFor(sale.people?.name || '?') }}
+                          >
+                            {initialsFor(sale.people?.name || '?')}
+                          </span>
                           <p className="min-w-0 truncate text-[13.5px] font-semibold text-[var(--ink)]" title={sale.people?.name}>
                             {sale.people?.name || '—'}
                           </p>
@@ -358,13 +436,13 @@ export function FinancingSalesPage({ session, company, onCreate, onEdit }: Finan
                         {formatCurrency(Number(sale.amount ?? 0))}
                       </td>
                       <td className="px-2 py-2.5 text-center text-[var(--ink-soft)]">{sale.payment_terms ?? 0}x</td>
-                      <td className="px-2 py-2.5 text-[var(--ink-soft)]">
-                        {sale.date_sale ? formatDate(sale.date_sale) : '—'}
+                      <td className="px-2 py-2.5">
+                        <DueBadge sale={sale} />
                       </td>
                       <td className="px-2 py-2.5 text-right font-bold text-[var(--green-600)]">
                         {formatCurrency(Number(sale.net_total ?? 0))}
                       </td>
-                      <td className="py-2.5 pr-3 text-right">
+                      <td className="py-2.5 pr-3 text-right" onClick={(event) => event.stopPropagation()}>
                         <div className="flex items-center justify-end">
                           <RowActionsMenu actions={buildRowActions(sale)} />
                         </div>
@@ -436,6 +514,17 @@ export function FinancingSalesPage({ session, company, onCreate, onEdit }: Finan
           {deleteError}
         </div>
       )}
+
+      <LoanSaleDetailModal
+        session={session}
+        saleId={detailSaleId}
+        onClose={() => setDetailSaleId(null)}
+        onEdit={(saleId) => {
+          const sale = sales.find((s) => s.id === saleId)
+          setDetailSaleId(null)
+          if (sale) onEdit(sale)
+        }}
+      />
     </div>
   )
 }

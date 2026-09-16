@@ -112,9 +112,11 @@ export interface SaleBillRef {
   id: string
   installment_number?: number | null
   date_due?: string | null
+  date_received?: string | null
   amount?: number | null
   principal_amount?: number | null
   interest_amount?: number | null
+  status?: number
 }
 
 export interface VehicleRentalContractPayload {
@@ -248,7 +250,7 @@ export const VEHICLE_SALE_STATUS_LABELS: Record<number, string> = {
 export function fetchSales(
   token: string,
   companyId: string,
-  options: { search?: string; page?: number; limit?: number; vehicleId?: string } = {}
+  options: { search?: string; page?: number; limit?: number; vehicleId?: string; withBills?: boolean } = {}
 ) {
   return apiGet<Paginated<SaleRecord>>(
     '/sale',
@@ -258,6 +260,7 @@ export function fetchSales(
       page: options.page ? String(options.page) : '1',
       limit: options.limit ? String(options.limit) : '5000',
       vehicleId: options.vehicleId,
+      withBills: options.withBills ? 'true' : undefined,
     },
     token
   )
