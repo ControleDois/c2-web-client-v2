@@ -40,6 +40,15 @@ const FREQUENCIES: Frequency[] = [
   { id: 'quarterly', label: 'Trimestral', days: 90 },
 ]
 
+type Modality = 'price' | 'sac' | 'per_installment' | 'custom'
+
+const MODALITY_LABELS: Record<Modality, string> = {
+  price: 'Tabela Price',
+  sac: 'SAC',
+  per_installment: 'Por Parcela',
+  custom: 'Personalizada',
+}
+
 function round3(value: number): number {
   return Math.round(value * 1000) / 1000
 }
@@ -169,6 +178,87 @@ function calculateAmortization(
   })
 }
 
+// SAC: amortização constante (principal/n) a cada parcela, juros incidem
+// sobre o saldo devedor restante - parcela total decresce ao longo do tempo.
+// Aqui a taxa é aplicada direto por período (sem equivalência mensal), ao
+// contrário da Price que segue o cálculo do Angular original.
+function calculateSAC(
+  principal: number,
+  ratePercent: number,
+  installments: number,
+  frequencyId: string,
+  firstDate: string
+): Installment[] {
+  if (!principal || installments <= 0) return []
+
+  const list = generateList(firstDate, installments, frequencyId, 0)
+  const amortizacaoConstante = round3(principal / installments)
+  const taxaPeriodo = ratePercent / 100
+  let saldo = principal
+
+  return list.map((item, index) => {
+    const juros = round3(saldo * taxaPeriodo)
+    const amortizacao = index === list.length - 1 ? round3(saldo) : amortizacaoConstante
+    const amount = round3(amortizacao + juros)
+    saldo = round3(saldo - amortizacao)
+    return { ...item, amount, principalAmount: amortizacao, interestAmount: juros }
+  })
+}
+
+// Por Parcela: o operador informa direto o valor da parcela - juros e
+// amortização por período são derivados dele (parcela fixa, capital
+// distribuído igualmente), sem precisar de taxa como entrada.
+function calculatePerInstallment(
+  principal: number,
+  installmentValue: number,
+  installments: number,
+  frequencyId: string,
+  firstDate: string
+): Installment[] {
+  if (!principal || !installmentValue || installments <= 0) return []
+
+  const totalInterest = round3(installmentValue * installments - principal)
+  const interestPerInstallment = round3(totalInterest / installments)
+  const principalPerInstallment = round3(installmentValue - interestPerInstallment)
+  const list = generateList(firstDate, installments, frequencyId, installmentValue)
+
+  return list.map((item, index) => {
+    if (index === list.length - 1) {
+      const principalSoFar = round3(principalPerInstallment * (list.length - 1))
+      const interestSoFar = round3(interestPerInstallment * (list.length - 1))
+      return {
+        ...item,
+        principalAmount: round3(principal - principalSoFar),
+        interestAmount: round3(totalInterest - interestSoFar),
+      }
+    }
+    return { ...item, principalAmount: principalPerInstallment, interestAmount: interestPerInstallment }
+  })
+}
+
+// Personalizada: ponto de partida com o capital dividido igualmente entre as
+// parcelas, sem juros - o operador ajusta cada linha livremente na tabela.
+function buildCustomList(
+  principal: number,
+  installments: number,
+  frequencyId: string,
+  firstDate: string
+): Installment[] {
+  if (!principal || installments <= 0) return []
+
+  const base = round3(principal / installments)
+  const list = generateList(firstDate, installments, frequencyId, base)
+
+  return list.map((item, index) => {
+    if (index === list.length - 1) {
+      const soFar = round3(base * (list.length - 1))
+      const last = round3(principal - soFar)
+      return { ...item, amount: last, principalAmount: last, interestAmount: 0 }
+    }
+    return { ...item, principalAmount: base, interestAmount: 0 }
+  })
+}
+
 export function FinancingFormPage({ session, company, saleId, onBack, onSaved }: FinancingFormPageProps) {
   const myPerson = useMyCompanyPerson(session, company)
 
@@ -178,8 +268,10 @@ export function FinancingFormPage({ session, company, saleId, onBack, onSaved }:
   const [error, setError] = useState<string | null>(null)
 
   const [selectedPerson, setSelectedPerson] = useState<PersonRecord | null>(null)
+  const [modality, setModality] = useState<Modality>('price')
   const [valueInput, setValueInput] = useState('')
   const [rate, setRate] = useState(25)
+  const [perInstallmentInput, setPerInstallmentInput] = useState('')
   const [installments, setInstallments] = useState(1)
   const [frequency, setFrequency] = useState('monthly')
   const [firstDate, setFirstDate] = useState(todayIso())
@@ -209,6 +301,7 @@ export function FinancingFormPage({ session, company, saleId, onBack, onSaved }:
   const [bankAccountId, setBankAccountId] = useState<string | undefined>()
 
   const value = parseAmount(valueInput)
+  const perInstallmentValue = parseAmount(perInstallmentInput)
 
   useEffect(() => {
     fetchConfig(session.token.token, company.id)
@@ -235,7 +328,23 @@ export function FinancingFormPage({ session, company, saleId, onBack, onSaved }:
         const n = Number(sale.payment_terms || 1)
         setValueInput(String(principal))
         setInstallments(n)
-        setNote(sale.note || '')
+
+        // A modalidade não tem coluna própria no backend - fica marcada como
+        // um prefixo "[SAC] ..." na observação e é extraída de volta aqui.
+        let rawNote = sale.note || ''
+        let detectedModality: Modality = 'price'
+        const tagMatch = rawNote.match(/^\[(.+?)\]\s*/)
+        if (tagMatch) {
+          const found = (Object.entries(MODALITY_LABELS) as [Modality, string][]).find(
+            ([, label]) => label === tagMatch[1]
+          )
+          if (found) {
+            detectedModality = found[0]
+            rawNote = rawNote.slice(tagMatch[0].length)
+          }
+        }
+        setModality(detectedModality)
+        setNote(rawNote)
 
         const total = Number(sale.net_total || 0)
         setTotalAmount(total)
@@ -258,13 +367,20 @@ export function FinancingFormPage({ session, company, saleId, onBack, onSaved }:
           const firstAmount = Number(sale.bills[0].amount || 0)
           setInstallmentValue(firstAmount)
 
-          // Deduz a taxa a partir do capital/parcela/prazo salvos, já que ela
-          // nunca é persistida (só um valor de digitação, reconstruído aqui
-          // pra edição continuar coerente com o resto da tela).
-          const freqConfig = FREQUENCIES.find((f) => f.id === frequency)
-          const diasPeriodo = freqConfig?.days || 30
-          const taxaReal = calculateRate(principal, firstAmount, n)
-          setRate(round3(taxaReal * (30 / diasPeriodo) * 100))
+          // Deduz a taxa/valor de parcela a partir do capital/prazo salvos,
+          // já que não são persistidos (só digitação, reconstruídos aqui pra
+          // edição continuar coerente com o resto da tela).
+          if (detectedModality === 'price') {
+            const freqConfig = FREQUENCIES.find((f) => f.id === frequency)
+            const diasPeriodo = freqConfig?.days || 30
+            const taxaReal = calculateRate(principal, firstAmount, n)
+            setRate(round3(taxaReal * (30 / diasPeriodo) * 100))
+          } else if (detectedModality === 'sac') {
+            const taxaPeriodo = principal > 0 ? Number(sale.bills[0].interest_amount || 0) / principal : 0
+            setRate(round3(taxaPeriodo * 100))
+          } else if (detectedModality === 'per_installment') {
+            setPerInstallmentInput(toAmountInput(firstAmount))
+          }
         }
 
         setLoading(false)
@@ -287,12 +403,16 @@ export function FinancingFormPage({ session, company, saleId, onBack, onSaved }:
     installments?: number
     frequency?: string
     firstDate?: string
+    perInstallmentValue?: number
+    modality?: Modality
   }) {
     const principal = overrides.value ?? value
     const rateNum = overrides.rate ?? rate
     const n = overrides.installments ?? installments
     const freq = overrides.frequency ?? frequency
     const date = overrides.firstDate ?? firstDate
+    const pInstallment = overrides.perInstallmentValue ?? perInstallmentValue
+    const mod = overrides.modality ?? modality
 
     if (!principal || !n) {
       setPreviewList([])
@@ -302,14 +422,42 @@ export function FinancingFormPage({ session, company, saleId, onBack, onSaved }:
       return
     }
 
-    const { installmentValue: iv, totalAmount: ta, totalInterest: ti } = calculatePrice(principal, rateNum, n, freq)
-    let list = generateList(date, n, freq, iv)
-    list = calculateAmortization(list, principal, iv, n)
-
-    setInstallmentValue(iv)
-    setTotalAmount(ta)
-    setTotalInterest(ti)
-    setPreviewList(list)
+    if (mod === 'price') {
+      const { installmentValue: iv, totalAmount: ta, totalInterest: ti } = calculatePrice(principal, rateNum, n, freq)
+      let list = generateList(date, n, freq, iv)
+      list = calculateAmortization(list, principal, iv, n)
+      setInstallmentValue(iv)
+      setTotalAmount(ta)
+      setTotalInterest(ti)
+      setPreviewList(list)
+    } else if (mod === 'sac') {
+      const list = calculateSAC(principal, rateNum, n, freq, date)
+      const total = round3(list.reduce((acc, item) => acc + item.amount, 0))
+      setInstallmentValue(list[0]?.amount ?? 0)
+      setTotalAmount(total)
+      setTotalInterest(round3(total - principal))
+      setPreviewList(list)
+    } else if (mod === 'per_installment') {
+      if (!pInstallment) {
+        setPreviewList([])
+        setInstallmentValue(0)
+        setTotalAmount(0)
+        setTotalInterest(0)
+        return
+      }
+      const list = calculatePerInstallment(principal, pInstallment, n, freq, date)
+      const total = round3(pInstallment * n)
+      setInstallmentValue(pInstallment)
+      setTotalAmount(total)
+      setTotalInterest(round3(total - principal))
+      setPreviewList(list)
+    } else {
+      const list = buildCustomList(principal, n, freq, date)
+      setInstallmentValue(list[0]?.amount ?? 0)
+      setTotalAmount(principal)
+      setTotalInterest(0)
+      setPreviewList(list)
+    }
   }
 
   function handleRecalculateFromParcel(newInstallmentValue: number) {
@@ -339,21 +487,33 @@ export function FinancingFormPage({ session, company, saleId, onBack, onSaved }:
   }
 
   function handleUpdateFromTable(updated: Installment[]) {
-    const newTotal = updated.reduce((acc, item) => acc + Number(item.amount || 0), 0)
-    const newInstallmentValue = installments > 0 ? round3(newTotal / installments) : 0
+    if (modality === 'price') {
+      const newTotal = updated.reduce((acc, item) => acc + Number(item.amount || 0), 0)
+      const newInstallmentValue = installments > 0 ? round3(newTotal / installments) : 0
 
-    const freqConfig = FREQUENCIES.find((f) => f.id === frequency)
-    const diasPeriodo = freqConfig?.days || 30
-    const taxaPeriodo = calculateRate(value, newInstallmentValue, installments)
-    const novaTaxa = round3(taxaPeriodo * (30 / diasPeriodo) * 100)
+      const freqConfig = FREQUENCIES.find((f) => f.id === frequency)
+      const diasPeriodo = freqConfig?.days || 30
+      const taxaPeriodo = calculateRate(value, newInstallmentValue, installments)
+      const novaTaxa = round3(taxaPeriodo * (30 / diasPeriodo) * 100)
 
-    const list = calculateAmortization(updated, value, newInstallmentValue, installments)
+      const list = calculateAmortization(updated, value, newInstallmentValue, installments)
 
-    setTotalAmount(round3(newTotal))
+      setTotalAmount(round3(newTotal))
+      setTotalInterest(round3(newTotal - value))
+      setInstallmentValue(newInstallmentValue)
+      setRate(novaTaxa)
+      setPreviewList(list)
+      return
+    }
+
+    // Nas demais modalidades a edição manual de uma linha só atualiza os
+    // totais - a matemática própria de cada uma (SAC, por parcela etc.) não
+    // é re-derivada a partir de um valor de parcela editado à mão.
+    const newTotal = round3(updated.reduce((acc, item) => acc + Number(item.amount || 0), 0))
+    setTotalAmount(newTotal)
     setTotalInterest(round3(newTotal - value))
-    setInstallmentValue(newInstallmentValue)
-    setRate(novaTaxa)
-    setPreviewList(list)
+    setInstallmentValue(installments > 0 ? round3(newTotal / installments) : 0)
+    setPreviewList(updated)
   }
 
   const searchPeople = (query: string) =>
@@ -372,6 +532,10 @@ export function FinancingFormPage({ session, company, saleId, onBack, onSaved }:
     }
     if (!installments || installments <= 0) {
       setError('Informe o número de parcelas.')
+      return
+    }
+    if (modality === 'per_installment' && !perInstallmentValue) {
+      setError('Informe o valor da parcela.')
       return
     }
     if (previewList.length === 0) {
@@ -403,6 +567,8 @@ export function FinancingFormPage({ session, company, saleId, onBack, onSaved }:
       status: 0,
     }))
 
+    const notePrefix = modality !== 'price' ? `[${MODALITY_LABELS[modality]}] ` : ''
+
     setSubmitting(true)
     try {
       const payload = {
@@ -417,7 +583,7 @@ export function FinancingFormPage({ session, company, saleId, onBack, onSaved }:
         amount: value,
         payment_terms: installments,
         net_total: totalAmount,
-        note,
+        note: `${notePrefix}${note}`.trim(),
         plots,
       }
 
@@ -453,10 +619,35 @@ export function FinancingFormPage({ session, company, saleId, onBack, onSaved }:
           <p className="text-[12px] font-semibold tracking-wide text-[var(--blue-700)] uppercase">Principal</p>
           <h1 className="mt-0.5 text-[22px] font-bold tracking-tight text-[var(--ink)]">Nova Venda</h1>
           <p className="text-[12.5px] text-[var(--ink-soft)]">
-            Metodologia Price, com ajuste manual de parcelas e totais.
+            {modality === 'price' && 'Tabela Price, com ajuste manual de parcelas e totais.'}
+            {modality === 'sac' && 'Amortização constante (SAC) — capital fixo, parcelas decrescentes.'}
+            {modality === 'per_installment' && 'Informe o valor da parcela — os juros são calculados automaticamente.'}
+            {modality === 'custom' && 'Parcelas totalmente personalizadas — edite cada valor e data livremente.'}
           </p>
         </div>
       </div>
+
+      {!loading && !loadError && (
+        <div className="flex flex-wrap gap-2">
+          {(Object.keys(MODALITY_LABELS) as Modality[]).map((key) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => {
+                setModality(key)
+                applyFullCalculation({ modality: key })
+              }}
+              className={`rounded-xl px-4 py-2 text-[12.5px] font-semibold transition ${
+                modality === key
+                  ? 'bg-[var(--blue-500)] text-white'
+                  : 'bg-[var(--surface)] text-[var(--ink-soft)] ring-1 ring-[var(--border)] hover:bg-[var(--page)]'
+              }`}
+            >
+              {MODALITY_LABELS[key]}
+            </button>
+          ))}
+        </div>
+      )}
 
       {loading ? (
         <div className="flex flex-col gap-2.5">
@@ -543,21 +734,7 @@ export function FinancingFormPage({ session, company, saleId, onBack, onSaved }:
                   </div>
                 </label>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <label className="flex flex-col gap-1.5">
-                    <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Taxa %</span>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={rate}
-                      onChange={(event) => {
-                        const num = Number(event.target.value) || 0
-                        setRate(num)
-                        applyFullCalculation({ rate: num })
-                      }}
-                      className="min-w-0 w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] font-semibold text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
-                    />
-                  </label>
+                {modality === 'custom' ? (
                   <label className="flex flex-col gap-1.5">
                     <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Parcelas</span>
                     <input
@@ -572,7 +749,58 @@ export function FinancingFormPage({ session, company, saleId, onBack, onSaved }:
                       className="min-w-0 w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-center text-[14px] font-semibold text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
                     />
                   </label>
-                </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-4">
+                    {modality === 'per_installment' ? (
+                      <label className="flex flex-col gap-1.5">
+                        <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Valor por Parcela (R$)</span>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          placeholder="0,00"
+                          value={perInstallmentInput}
+                          onChange={(event) => {
+                            const raw = event.target.value.replace(/[^\d.,]/g, '')
+                            setPerInstallmentInput(raw)
+                            applyFullCalculation({ perInstallmentValue: parseAmount(raw) })
+                          }}
+                          className="min-w-0 w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] font-semibold text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
+                        />
+                      </label>
+                    ) : (
+                      <label className="flex flex-col gap-1.5">
+                        <span className="text-[12px] font-semibold text-[var(--ink-soft)]">
+                          Taxa % {modality === 'sac' ? '(ao período)' : ''}
+                        </span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={rate}
+                          onChange={(event) => {
+                            const num = Number(event.target.value) || 0
+                            setRate(num)
+                            applyFullCalculation({ rate: num })
+                          }}
+                          className="min-w-0 w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] font-semibold text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
+                        />
+                      </label>
+                    )}
+                    <label className="flex flex-col gap-1.5">
+                      <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Parcelas</span>
+                      <input
+                        type="number"
+                        min={1}
+                        value={installments}
+                        onChange={(event) => {
+                          const num = Math.max(1, Number(event.target.value) || 1)
+                          setInstallments(num)
+                          applyFullCalculation({ installments: num })
+                        }}
+                        className="min-w-0 w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-center text-[14px] font-semibold text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
+                      />
+                    </label>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-4">
                   <label className="flex flex-col gap-1.5">
@@ -637,63 +865,83 @@ export function FinancingFormPage({ session, company, saleId, onBack, onSaved }:
           <div className="flex flex-col gap-6 lg:col-span-8">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div className="rounded-2xl bg-[var(--blue-500)] p-5 text-white shadow-[var(--card-shadow)]">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-blue-100">Média Parcela</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-blue-100">
+                  {modality === 'price' ? 'Média Parcela' : modality === 'sac' ? '1ª Parcela' : 'Parcela'}
+                </p>
                 <div className="mt-1 flex items-baseline gap-1">
                   <span className="text-[13px] text-blue-200">R$</span>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={installmentValueInput}
-                    onFocus={() => setFocusedSummaryField('installment')}
-                    onChange={(event) => setInstallmentValueInput(event.target.value.replace(/[^\d.,]/g, ''))}
-                    onBlur={(event) => {
-                      setFocusedSummaryField(null)
-                      handleRecalculateFromParcel(parseAmount(event.target.value))
-                    }}
-                    className="w-full min-w-0 border-0 bg-transparent p-0 text-[22px] font-bold text-white focus:outline-none focus:ring-0"
-                  />
+                  {modality === 'price' ? (
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={installmentValueInput}
+                      onFocus={() => setFocusedSummaryField('installment')}
+                      onChange={(event) => setInstallmentValueInput(event.target.value.replace(/[^\d.,]/g, ''))}
+                      onBlur={(event) => {
+                        setFocusedSummaryField(null)
+                        handleRecalculateFromParcel(parseAmount(event.target.value))
+                      }}
+                      className="w-full min-w-0 border-0 bg-transparent p-0 text-[22px] font-bold text-white focus:outline-none focus:ring-0"
+                    />
+                  ) : (
+                    <span className="text-[22px] font-bold text-white">{installmentValueInput || '0,00'}</span>
+                  )}
                 </div>
-                <p className="mt-1.5 text-[11px] text-blue-200">Editável (recalcula taxa)</p>
+                <p className="mt-1.5 text-[11px] text-blue-200">
+                  {modality === 'price' ? 'Editável (recalcula taxa)' : 'Calculado automaticamente'}
+                </p>
               </div>
 
               <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--muted)]">Total Juros</p>
                 <div className="mt-1 flex items-baseline gap-1">
                   <span className="text-[13px] text-[var(--muted)]">R$</span>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={totalInterestInput}
-                    onFocus={() => setFocusedSummaryField('interest')}
-                    onChange={(event) => setTotalInterestInput(event.target.value.replace(/[^\d.,]/g, ''))}
-                    onBlur={(event) => {
-                      setFocusedSummaryField(null)
-                      handleRecalculateFromInterest(parseAmount(event.target.value))
-                    }}
-                    className="w-full min-w-0 border-0 bg-transparent p-0 text-[22px] font-bold text-[var(--red-500)] focus:outline-none focus:ring-0"
-                  />
+                  {modality === 'price' ? (
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={totalInterestInput}
+                      onFocus={() => setFocusedSummaryField('interest')}
+                      onChange={(event) => setTotalInterestInput(event.target.value.replace(/[^\d.,]/g, ''))}
+                      onBlur={(event) => {
+                        setFocusedSummaryField(null)
+                        handleRecalculateFromInterest(parseAmount(event.target.value))
+                      }}
+                      className="w-full min-w-0 border-0 bg-transparent p-0 text-[22px] font-bold text-[var(--red-500)] focus:outline-none focus:ring-0"
+                    />
+                  ) : (
+                    <span className="text-[22px] font-bold text-[var(--red-500)]">{totalInterestInput || '0,00'}</span>
+                  )}
                 </div>
-                <p className="mt-1.5 text-[11px] text-[var(--muted)]">Editável (recalcula parcelas)</p>
+                <p className="mt-1.5 text-[11px] text-[var(--muted)]">
+                  {modality === 'price' ? 'Editável (recalcula parcelas)' : 'Calculado automaticamente'}
+                </p>
               </div>
 
               <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--muted)]">Montante Total</p>
                 <div className="mt-1 flex items-baseline gap-1">
                   <span className="text-[13px] text-[var(--muted)]">R$</span>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={totalAmountInput}
-                    onFocus={() => setFocusedSummaryField('total')}
-                    onChange={(event) => setTotalAmountInput(event.target.value.replace(/[^\d.,]/g, ''))}
-                    onBlur={(event) => {
-                      setFocusedSummaryField(null)
-                      handleRecalculateFromTotal(parseAmount(event.target.value))
-                    }}
-                    className="w-full min-w-0 border-0 bg-transparent p-0 text-[22px] font-bold text-[var(--ink)] focus:outline-none focus:ring-0"
-                  />
+                  {modality === 'price' ? (
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={totalAmountInput}
+                      onFocus={() => setFocusedSummaryField('total')}
+                      onChange={(event) => setTotalAmountInput(event.target.value.replace(/[^\d.,]/g, ''))}
+                      onBlur={(event) => {
+                        setFocusedSummaryField(null)
+                        handleRecalculateFromTotal(parseAmount(event.target.value))
+                      }}
+                      className="w-full min-w-0 border-0 bg-transparent p-0 text-[22px] font-bold text-[var(--ink)] focus:outline-none focus:ring-0"
+                    />
+                  ) : (
+                    <span className="text-[22px] font-bold text-[var(--ink)]">{totalAmountInput || '0,00'}</span>
+                  )}
                 </div>
-                <p className="mt-1.5 text-[11px] text-[var(--muted)]">Editável (recalcula parcelas)</p>
+                <p className="mt-1.5 text-[11px] text-[var(--muted)]">
+                  {modality === 'price' ? 'Editável (recalcula parcelas)' : 'Calculado automaticamente'}
+                </p>
               </div>
             </div>
 
