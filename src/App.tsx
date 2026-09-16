@@ -5,6 +5,7 @@ import { SignupPage } from './pages/SignupPage'
 import { CompanySelectionPage } from './pages/CompanySelectionPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { RentalDashboardPage } from './pages/RentalDashboardPage'
+import { LoanDashboardPage } from './pages/LoanDashboardPage'
 import { StandaloneInspectionPage } from './pages/StandaloneInspectionPage'
 import { PeoplePage } from './pages/PeoplePage'
 import { PeopleFormPage } from './pages/PeopleFormPage'
@@ -79,7 +80,7 @@ import {
   type AuthSession,
   type AuthCompany,
 } from './lib/auth'
-import { isLocacaoVeiculos } from './lib/systemTypes'
+import { isLocacaoVeiculos, isEmprestimo } from './lib/systemTypes'
 
 type Screen = 'login' | 'forgot-password' | 'signup'
 
@@ -184,6 +185,18 @@ function App() {
   function handleSelectCompany(company: AuthCompany) {
     saveActiveCompany(company)
     setActiveCompany(company)
+  }
+
+  // Atalho da Header pra usuário Master pular direto pra empresa matriz
+  // (Controle Dois), sem passar pela tela de seleção de empresas.
+  function handleGoToMatrixCompany() {
+    if (!session) return
+    const matrixCompany = getUserCompanies(session).find((c) => c.is_master)
+    if (!matrixCompany) return
+
+    setPage('dashboard')
+    resetAllViews()
+    handleSelectCompany(matrixCompany)
   }
 
   function resetAllViews() {
@@ -719,6 +732,8 @@ function App() {
           onNewInspection={() => handleNavigate('standalone-inspection')}
         />
       )
+    } else if (isEmprestimo(activeCompany.system_type)) {
+      pageContent = <LoanDashboardPage session={session} company={activeCompany} />
     } else {
       pageContent = <DashboardPage session={session} company={activeCompany} />
     }
@@ -730,6 +745,7 @@ function App() {
         activePage={page}
         onNavigate={handleNavigate}
         onSwitchCompany={handleSwitchCompany}
+        onGoToMatrixCompany={handleGoToMatrixCompany}
         onLogout={handleLogout}
         purchaseManagementEnabled={purchaseManagementEnabled}
         nfeModuleEnabled={nfeModuleEnabled}

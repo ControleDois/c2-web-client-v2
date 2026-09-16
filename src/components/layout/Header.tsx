@@ -41,13 +41,21 @@ interface HeaderProps {
       | 'audit-logs'
       | 'licenses'
   ) => void
+  onGoToMatrixCompany: () => void
   onOpenMobileNav: () => void
   onLogout: () => void
 }
 
 const POLL_MS = 60000
 
-export function Header({ session, company, onNavigate, onOpenMobileNav, onLogout }: HeaderProps) {
+export function Header({
+  session,
+  company,
+  onNavigate,
+  onGoToMatrixCompany,
+  onOpenMobileNav,
+  onLogout,
+}: HeaderProps) {
   const [unreadCount, setUnreadCount] = useState(0)
   const [notifOpen, setNotifOpen] = useState(false)
   const [notifications, setNotifications] = useState<NotificationRecord[]>([])
@@ -173,6 +181,25 @@ export function Header({ session, company, onNavigate, onOpenMobileNav, onLogout
           </div>
         )}
       </div>
+
+      {/* Atalho pra pular direto pra empresa matriz (Controle Dois) - só
+          aparece quando o usuário tem a role Master NESTA empresa (não
+          confundir com Company.is_master, a flag da própria matriz) e não
+          faz sentido mostrar quando já se está na matriz. */}
+      {company?.isMaster && !company?.is_master && (
+        <>
+          <div className="mx-1.5 h-6 w-px bg-[var(--border)]" />
+          <button
+            type="button"
+            onClick={onGoToMatrixCompany}
+            title="Ir para a empresa matriz (Controle Dois)"
+            aria-label="Ir para a empresa matriz (Controle Dois)"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-[var(--ink-soft)] transition hover:bg-[var(--page)] hover:text-[var(--ink)]"
+          >
+            <BuildingsIcon className="h-[18px] w-[18px]" />
+          </button>
+        </>
+      )}
 
       <div className="mx-1.5 h-6 w-px bg-[var(--border)]" />
 
