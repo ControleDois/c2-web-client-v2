@@ -14,6 +14,7 @@ import { IntegracoesApisSection } from './config/IntegracoesApisSection'
 import { ApiTokenCard } from './config/ApiTokenCard'
 import { LojaOnlineSection } from './config/LojaOnlineSection'
 import { ComprasSection } from './config/ComprasSection'
+import { PontoSection } from './config/PontoSection'
 import { FiscalSection } from './config/FiscalSection'
 import { CategoriasProdutoSection } from './config/CategoriasProdutoSection'
 import { CheckCircleIcon } from '../components/icons'
@@ -41,6 +42,7 @@ type ConfigTab =
   | 'compras'
   | 'categorias-produto'
   | 'fiscal'
+  | 'ponto'
 
 interface TabDefinition {
   key: ConfigTab
@@ -156,6 +158,8 @@ function buildConfigPayload(companyId: string, config: ConfigRecord | null): Con
     ifood_client_secret: config?.ifood_client_secret ?? undefined,
     ifood_webhook_enabled: config?.ifood_webhook_enabled ?? false,
 
+    time_clock_enabled: config?.time_clock_enabled ?? false,
+
     shop: config?.company?.shop
       ? {
           link_url: config.company.shop.linkUrl ?? '',
@@ -200,6 +204,7 @@ export function ConfigPage({ session, company, onNavigate, onSaved }: ConfigPage
       { key: 'compras', label: 'Compras', visible: true },
       { key: 'categorias-produto', label: 'Categorias de Produto', visible: true },
       { key: 'fiscal', label: 'Fiscal', visible: true },
+      { key: 'ponto', label: 'Ponto', visible: true },
     ],
     [systemType, company.is_master]
   )
@@ -380,6 +385,13 @@ export function ConfigPage({ session, company, onNavigate, onSaved }: ConfigPage
               )}
               {activeTab === 'fiscal' && (
                 <FiscalSection value={formState} onChange={handleChange} config={config} session={session} company={company} />
+              )}
+              {activeTab === 'ponto' && (
+                <PontoSection
+                  value={formState}
+                  onChange={handleChange}
+                  onOpenTimeClock={() => onNavigate('time-clock')}
+                />
               )}
             </div>
           )}

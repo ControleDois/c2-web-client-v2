@@ -181,6 +181,9 @@ export interface ConfigRecord {
   ifood_client_secret?: string | null
   ifood_webhook_enabled?: boolean | null
 
+  // Controle de Ponto - disponível pra qualquer nicho
+  time_clock_enabled?: boolean
+
   // Loja Online (leitura — vem via preload company.shop no GET /config)
   company?: { system_type?: number; shop?: ShopRecord | null } | null
 }
@@ -311,6 +314,8 @@ export interface ConfigPayload {
   ifood_client_id?: string
   ifood_client_secret?: string
   ifood_webhook_enabled?: boolean
+
+  time_clock_enabled?: boolean
 
   shop?: ShopPayload
   sicredi_cert_file?: File

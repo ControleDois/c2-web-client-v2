@@ -66,6 +66,7 @@ import { VehicleRentalOperationsPage } from './pages/VehicleRentalOperationsPage
 import { PurchaseManagementPage } from './pages/PurchaseManagementPage'
 import { PurchaseRequestsPage } from './pages/PurchaseRequestsPage'
 import { TowingBillingReportPage } from './pages/TowingBillingReportPage'
+import { TimeClockPage } from './pages/TimeClockPage'
 import { AppShell, type AppPage } from './components/layout/AppShell'
 import { ThemeToggle } from './components/ThemeToggle'
 import { useEntityView } from './hooks/useEntityView'
@@ -93,12 +94,14 @@ function App() {
   const [switchingCompany, setSwitchingCompany] = useState(false)
   const [purchaseManagementEnabled, setPurchaseManagementEnabled] = useState(false)
   const [nfeModuleEnabled, setNfeModuleEnabled] = useState(false)
+  const [timeClockEnabled, setTimeClockEnabled] = useState(false)
   const [configVersion, setConfigVersion] = useState(0)
 
   useEffect(() => {
     if (!session || !activeCompany) {
       setPurchaseManagementEnabled(false)
       setNfeModuleEnabled(false)
+      setTimeClockEnabled(false)
       return
     }
     let cancelled = false
@@ -107,12 +110,14 @@ function App() {
         if (!cancelled) {
           setPurchaseManagementEnabled(Boolean(config.purchase_management_enabled))
           setNfeModuleEnabled(Boolean(config.nfe_module_enabled))
+          setTimeClockEnabled(Boolean(config.time_clock_enabled))
         }
       })
       .catch(() => {
         if (!cancelled) {
           setPurchaseManagementEnabled(false)
           setNfeModuleEnabled(false)
+          setTimeClockEnabled(false)
         }
       })
     return () => {
@@ -732,6 +737,10 @@ function App() {
           onBack={() => handleNavigate('purchase-management')}
         />
       )
+    } else if (page === 'time-clock') {
+      pageContent = (
+        <TimeClockPage session={session} company={activeCompany} onBack={() => handleNavigate('config')} />
+      )
     } else if (isLocacaoVeiculos(activeCompany.system_type)) {
       pageContent = (
         <RentalDashboardPage
@@ -767,6 +776,7 @@ function App() {
         onLogout={handleLogout}
         purchaseManagementEnabled={purchaseManagementEnabled}
         nfeModuleEnabled={nfeModuleEnabled}
+        timeClockEnabled={timeClockEnabled}
       >
         {pageContent}
       </AppShell>

@@ -23,6 +23,7 @@ import {
   WrenchIcon,
   FileTextIcon,
   MailIcon,
+  ClockIcon,
 } from '../icons'
 import { getCompanyName, type AuthCompany, type AuthSession } from '../../lib/auth'
 import { isLocacaoVeiculos, isEmprestimo, isPizzaria, isLanchonete } from '../../lib/systemTypes'
@@ -65,6 +66,7 @@ export type AppPage =
   | 'nfe-nature-operations'
   | 'nfe-taxations'
   | 'licenses'
+  | 'time-clock'
 
 interface AppShellProps {
   session: AuthSession
@@ -76,6 +78,7 @@ interface AppShellProps {
   onLogout: () => void
   purchaseManagementEnabled?: boolean
   nfeModuleEnabled?: boolean
+  timeClockEnabled?: boolean
   children: ReactNode
 }
 
@@ -84,7 +87,8 @@ type NavGroup = { title: string; items: { page: AppPage; label: string; icon: ty
 function buildNavGroups(
   systemType?: number,
   purchaseManagementEnabled?: boolean,
-  nfeModuleEnabled?: boolean
+  nfeModuleEnabled?: boolean,
+  timeClockEnabled?: boolean
 ): NavGroup[] {
   const emprestimo = isEmprestimo(systemType)
   const pizzaria = isPizzaria(systemType)
@@ -157,6 +161,13 @@ function buildNavGroups(
     })
   }
 
+  if (timeClockEnabled) {
+    groups.push({
+      title: 'Ponto',
+      items: [{ page: 'time-clock', label: 'Controle de Ponto', icon: ClockIcon }],
+    })
+  }
+
   if (nfeModuleEnabled) {
     groups.push({
       title: 'Fiscal',
@@ -192,10 +203,11 @@ export function AppShell({
   onLogout,
   purchaseManagementEnabled,
   nfeModuleEnabled,
+  timeClockEnabled,
   children,
 }: AppShellProps) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
-  const navGroups = buildNavGroups(company.system_type, purchaseManagementEnabled, nfeModuleEnabled)
+  const navGroups = buildNavGroups(company.system_type, purchaseManagementEnabled, nfeModuleEnabled, timeClockEnabled)
 
   function handleNavigate(page: AppPage) {
     onNavigate(page)
