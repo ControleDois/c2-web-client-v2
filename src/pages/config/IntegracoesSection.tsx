@@ -17,6 +17,7 @@ import { SectionCard } from '../../components/SectionCard'
 import { TextField } from '../../components/form/TextField'
 import { SelectField } from '../../components/form/SelectField'
 import { LockIcon, TagIcon, PaperclipIcon, WalletIcon, LinkIcon, MailIcon } from '../../components/icons'
+import { IfoodMerchantCard } from './IfoodMerchantCard'
 import type { AuthSession, AuthCompany } from '../../lib/auth'
 
 interface IntegracoesSectionProps {
@@ -273,6 +274,10 @@ export function IntegracoesSection({ value, onChange, config, session, company }
   const token = session.token.token
   return (
     <div className="flex flex-col gap-4">
+      <SectionCard title="iFood" subtitle="Conecte a loja ao app do iFood e sincronize o cardápio">
+        <IfoodMerchantCard session={session} company={company} />
+      </SectionCard>
+
       <SectionCard title="Sicredi PIX" subtitle="Chaves, certificados e regras de cobrança">
         <div className="flex flex-col gap-5">
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
