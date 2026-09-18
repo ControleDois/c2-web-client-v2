@@ -103,14 +103,6 @@ export function FinancingSalesPage({
       .catch(() => {})
   }
 
-  const totals = useMemo(() => {
-    return {
-      count: sales.length,
-      principal: sales.reduce((sum, sale) => sum + Number(sale.amount ?? 0), 0),
-      total: sales.reduce((sum, sale) => sum + Number(sale.net_total ?? 0), 0),
-    }
-  }, [sales])
-
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase()
     return sales.filter((sale) => {
@@ -127,6 +119,14 @@ export function FinancingSalesPage({
       )
     })
   }, [sales, search, statusFilter])
+
+  const totals = useMemo(() => {
+    return {
+      count: filtered.length,
+      principal: filtered.reduce((sum, sale) => sum + Number(sale.amount ?? 0), 0),
+      total: filtered.reduce((sum, sale) => sum + Number(sale.net_total ?? 0), 0),
+    }
+  }, [filtered])
 
   const lastPage = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const visible = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
