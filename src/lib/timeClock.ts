@@ -8,7 +8,10 @@ export interface TimeClockDeviceRecord {
   ip_address?: string | null
   last_event_at?: string | null
   webhook_token: string
+  // Monitor (linha de Controle de Acesso) - REP iDClass não usa este.
   webhook_url: string
+  // Agente local (console Delphi) - envia lotes de marcações lidas do AFD.
+  agent_url: string
 }
 
 export interface TimeClockEnrollmentRecord {

@@ -147,7 +147,7 @@ function DeviceCard({
   onChanged: () => void
 }) {
   const token = session.token.token
-  const [copied, setCopied] = useState(false)
+  const [copied, setCopied] = useState<'agent' | 'monitor' | null>(null)
   const [showEnrollForm, setShowEnrollForm] = useState(false)
   const [selectedPerson, setSelectedPerson] = useState<PersonRecord | null>(null)
   const [externalUserId, setExternalUserId] = useState('')
@@ -156,10 +156,10 @@ function DeviceCard({
   const [deleteTarget, setDeleteTarget] = useState<TimeClockDeviceRecord | null>(null)
   const [deleting, setDeleting] = useState(false)
 
-  function copyWebhookUrl() {
-    navigator.clipboard?.writeText(device.webhook_url)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+  function copyUrl(url: string) {
+    navigator.clipboard?.writeText(url)
+    setCopied(url === device.agent_url ? 'agent' : 'monitor')
+    setTimeout(() => setCopied(null), 2000)
   }
 
   async function handleAddEnrollment() {
@@ -252,22 +252,44 @@ function DeviceCard({
 
       <div className="mt-3 rounded-lg bg-[var(--page)] p-3">
         <p className="text-[11px] font-semibold text-[var(--ink-soft)]">
-          URL do Monitor — cole na configuração de rede do aparelho (hostname/path)
+          URL do agente — configure no agente local (console Delphi) instalado no servidor do cliente
         </p>
+        <div className="mt-1.5 flex items-center gap-2">
+          <code className="flex-1 truncate rounded-lg bg-[var(--surface)] px-3 py-2 text-[12px] text-[var(--ink)]">
+            {device.agent_url}
+          </code>
+          <button
+            type="button"
+            onClick={() => copyUrl(device.agent_url)}
+            className="flex h-8 w-8 flex-none items-center justify-center rounded-lg border border-[var(--border)] text-[var(--ink-soft)] hover:text-[var(--ink)]"
+            title="Copiar URL"
+          >
+            {copied === 'agent' ? <CheckCircleIcon className="h-3.5 w-3.5 text-[var(--green-600)]" /> : <CopyIcon className="h-3.5 w-3.5" />}
+          </button>
+        </div>
+        <p className="mt-1.5 text-[11px] text-[var(--muted)]">
+          O agente manda um POST com <code>{'{ events: [{ external_user_id, occurred_at }] }'}</code> pra essa URL.
+        </p>
+      </div>
+
+      <details className="mt-2 rounded-lg bg-[var(--page)] p-3">
+        <summary className="cursor-pointer text-[11px] font-semibold text-[var(--ink-soft)]">
+          URL do Monitor (só pra equipamentos da linha de Controle de Acesso, não o REP iDClass)
+        </summary>
         <div className="mt-1.5 flex items-center gap-2">
           <code className="flex-1 truncate rounded-lg bg-[var(--surface)] px-3 py-2 text-[12px] text-[var(--ink)]">
             {device.webhook_url}
           </code>
           <button
             type="button"
-            onClick={copyWebhookUrl}
+            onClick={() => copyUrl(device.webhook_url)}
             className="flex h-8 w-8 flex-none items-center justify-center rounded-lg border border-[var(--border)] text-[var(--ink-soft)] hover:text-[var(--ink)]"
             title="Copiar URL"
           >
-            {copied ? <CheckCircleIcon className="h-3.5 w-3.5 text-[var(--green-600)]" /> : <CopyIcon className="h-3.5 w-3.5" />}
+            {copied === 'monitor' ? <CheckCircleIcon className="h-3.5 w-3.5 text-[var(--green-600)]" /> : <CopyIcon className="h-3.5 w-3.5" />}
           </button>
         </div>
-      </div>
+      </details>
 
       <div className="mt-3">
         <div className="mb-2 flex items-center justify-between">
