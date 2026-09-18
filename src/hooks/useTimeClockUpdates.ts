@@ -34,6 +34,7 @@ export function useTimeClockUpdates(companyId: string, onEvent: (event: TimeCloc
         device_name: payload.device_name,
         people_id: payload.people_id,
         people_name: payload.people_name,
+        external_user_id: payload.external_user_id,
         direction: payload.direction,
         occurred_at: payload.occurred_at,
       })

@@ -26,6 +26,9 @@ export interface TimeClockEventRecord {
   id: string
   people_id: string | null
   people_name: string | null
+  // ID interno do REP (PIS/matricula) - so relevante quando people_id e
+  // null, pra dar pra vincular sem precisar ir no aparelho descobrir qual e.
+  external_user_id: string
   device_id: string
   device_name: string | null
   direction: 'in' | 'out' | 'unknown'

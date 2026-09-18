@@ -586,7 +586,7 @@ function PainelTab({ session, company }: { session: AuthSession; company: AuthCo
                   ) : (
                     <ArrowUpCircleIcon className="h-4 w-4 flex-none text-[var(--ink-soft)]" />
                   )}
-                  {event.people_name || 'Não identificado'}
+                  {event.people_name || `Não identificado (ID ${event.external_user_id})`}
                   <span className="text-[var(--muted)]">· {event.device_name || 'Dispositivo'}</span>
                 </span>
                 <span className="flex-none text-[var(--muted)]">{formatDateTime(event.occurred_at)}</span>
