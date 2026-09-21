@@ -40,9 +40,11 @@ function NumberField({
 
 export function FiscalSection({ value, onChange, config, session, company }: FiscalSectionProps) {
   const [natureOperationLabel, setNatureOperationLabel] = useState<string | null>(null)
+  const [nfceNatureOperationLabel, setNfceNatureOperationLabel] = useState<string | null>(null)
 
   useEffect(() => {
     setNatureOperationLabel(config?.natureOperation?.description ?? null)
+    setNfceNatureOperationLabel(config?.nfce_nature_operation?.description ?? null)
   }, [config])
 
   return (
@@ -172,6 +174,100 @@ export function FiscalSection({ value, onChange, config, session, company }: Fis
             </>
           )}
         </div>
+      </SectionCard>
+
+      <SectionCard title="NFC-e" subtitle="Nota fiscal de consumidor (venda rápida do PDV) — série, CSC e ambiente">
+        {!value.nfe_module_enabled ? (
+          <p className="text-[12.5px] text-[var(--muted)]">
+            Ative o módulo de NFe acima pra configurar a NFC-e — ela usa o mesmo provedor de emissão e as mesmas
+            credenciais.
+          </p>
+        ) : (
+          <div className="flex flex-col gap-5">
+            <p className="text-[12px] text-[var(--muted)]">
+              A NFC-e usa o mesmo provedor e as mesmas credenciais da NFe, mas com série, numeração e CSC próprios. Pra
+              começar testando, deixe o ambiente em <strong>Homologação</strong>.
+            </p>
+
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              <SelectField
+                label="Ambiente"
+                value={value.nfce_ambiente ?? ''}
+                onChange={(event) =>
+                  onChange({ nfce_ambiente: event.target.value === '' ? undefined : Number(event.target.value) })
+                }
+              >
+                <option value="">Selecione</option>
+                <option value={0}>Produção</option>
+                <option value={1}>Homologação</option>
+              </SelectField>
+              <NumberField label="Série" value={value.nfce_serie} onChange={(v) => onChange({ nfce_serie: v })} />
+              <NumberField
+                label="Próximo número"
+                value={value.nfce_numero}
+                onChange={(v) => onChange({ nfce_numero: v })}
+              />
+              <NumberField
+                label="Série (homologação)"
+                value={value.nfce_homologacao_serie}
+                onChange={(v) => onChange({ nfce_homologacao_serie: v })}
+              />
+              <NumberField
+                label="Próximo número (homologação)"
+                value={value.nfce_homologacao_numero}
+                onChange={(v) => onChange({ nfce_homologacao_numero: v })}
+              />
+              <NumberField
+                label="ID do CSC (idToken)"
+                value={value.nfce_id_token}
+                onChange={(v) => onChange({ nfce_id_token: v })}
+              />
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <TextField
+                label="CSC (homologação)"
+                icon={<KeyIcon className="h-4 w-4" />}
+                type="password"
+                autoComplete="new-password"
+                value={value.nfce_csc_homologacao ?? ''}
+                onChange={(event) => onChange({ nfce_csc_homologacao: event.target.value })}
+              />
+              <TextField
+                label="CSC (produção)"
+                icon={<KeyIcon className="h-4 w-4" />}
+                type="password"
+                autoComplete="new-password"
+                value={value.nfce_csc_producao ?? ''}
+                onChange={(event) => onChange({ nfce_csc_producao: event.target.value })}
+              />
+            </div>
+            <p className="text-[11.5px] text-[var(--muted)]">
+              O CSC e o ID do CSC são gerados no portal da SEFAZ do estado da empresa (um par pra homologação e outro
+              pra produção).
+            </p>
+
+            <SearchSelectField
+              label="Natureza de operação padrão (NFC-e)"
+              placeholder="Buscar natureza de operação"
+              selectedLabel={nfceNatureOperationLabel}
+              onSearch={(query) =>
+                fetchNfeNatureOperations(session.token.token, company.id, { search: query, limit: 8 }).then(
+                  (res) => res.data
+                )
+              }
+              getOptionLabel={(item: NfeNatureOperationRecord) => item.description}
+              onSelect={(item: NfeNatureOperationRecord) => {
+                setNfceNatureOperationLabel(item.description)
+                onChange({ nfceNatureOperationId: item.id })
+              }}
+              onClear={() => {
+                setNfceNatureOperationLabel(null)
+                onChange({ nfceNatureOperationId: undefined })
+              }}
+            />
+          </div>
+        )}
       </SectionCard>
     </div>
   )

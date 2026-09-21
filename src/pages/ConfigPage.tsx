@@ -75,6 +75,16 @@ function buildConfigPayload(companyId: string, config: ConfigRecord | null): Con
     nfe_homologacao_numero: config?.nfe_homologacao_numero ?? undefined,
     nfeNatureOperationId: config?.nfe_nature_operation_id ?? undefined,
 
+    nfce_ambiente: config?.nfce_ambiente ?? undefined,
+    nfce_serie: config?.nfce_serie ?? undefined,
+    nfce_numero: config?.nfce_numero ?? undefined,
+    nfce_homologacao_serie: config?.nfce_homologacao_serie ?? undefined,
+    nfce_homologacao_numero: config?.nfce_homologacao_numero ?? undefined,
+    nfce_id_token: config?.nfce_id_token ?? undefined,
+    nfce_csc_homologacao: config?.nfce_csc_homologacao ?? undefined,
+    nfce_csc_producao: config?.nfce_csc_producao ?? undefined,
+    nfceNatureOperationId: config?.nfce_nature_operation_id ?? undefined,
+
     multa_modalidade: config?.multa_modalidade ?? undefined,
     multa_valor: config?.multa_valor ?? undefined,
     juros_modalidade: config?.juros_modalidade ?? undefined,

@@ -81,6 +81,22 @@ export interface ConfigRecord {
   // com o resto da resposta em snake_case (confirmado direto na API).
   natureOperation?: { id: string; description: string } | null
 
+  // NFC-e - usa o mesmo provedor e credenciais (Focus/servidor próprio) do
+  // módulo de NFe, mas com série/numeração/CSC próprios. Ambiente: 0 =
+  // produção, 1 = homologação (igual ao NFe). A natureza de operação vem em
+  // "nfce_nature_operation" (relation, nome literal) e no corpo do PUT vai
+  // como "nfceNatureOperationId".
+  nfce_ambiente?: number | null
+  nfce_serie?: number | null
+  nfce_numero?: number | null
+  nfce_homologacao_serie?: number | null
+  nfce_homologacao_numero?: number | null
+  nfce_id_token?: number | null
+  nfce_csc_homologacao?: string | null
+  nfce_csc_producao?: string | null
+  nfce_nature_operation_id?: string | null
+  nfce_nature_operation?: { id: string; description: string } | null
+
   // Cobranças — regras genéricas de multa/juros/desconto (movidas da aba Vendas)
   multa_modalidade?: number | null
   multa_valor?: number | null
@@ -231,6 +247,16 @@ export interface ConfigPayload {
   nfe_homologacao_serie?: number
   nfe_homologacao_numero?: number
   nfeNatureOperationId?: string
+
+  nfce_ambiente?: number
+  nfce_serie?: number
+  nfce_numero?: number
+  nfce_homologacao_serie?: number
+  nfce_homologacao_numero?: number
+  nfce_id_token?: number
+  nfce_csc_homologacao?: string
+  nfce_csc_producao?: string
+  nfceNatureOperationId?: string
 
   multa_modalidade?: number
   multa_valor?: number
