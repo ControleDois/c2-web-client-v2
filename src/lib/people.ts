@@ -63,6 +63,7 @@ export interface PersonPayload {
   email?: string
   internal_code?: number
   birth?: string
+  limit_credit?: number
   address?: PersonAddress
   documents?: PersonDocumentInput[]
   file?: File
@@ -139,6 +140,7 @@ function buildPersonForm(payload: PersonPayload): FormData {
     ['email', payload.email],
     ['internal_code', payload.internal_code],
     ['birth', payload.birth],
+    ['limit_credit', payload.limit_credit],
   ]
   for (const [key, value] of plainFields) {
     if (value !== undefined && value !== '') form.append(key, String(value))

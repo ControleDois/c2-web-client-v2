@@ -28,6 +28,7 @@ import {
   PaperclipIcon,
   EyeIcon,
 } from '../components/icons'
+import { isEmprestimo } from '../lib/systemTypes'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
 interface PeopleFormPageProps {
@@ -47,6 +48,12 @@ interface DocEntry {
   existingFileName?: string
 }
 
+function parseCurrencyInput(value: string): number {
+  const normalized = value.includes(',') ? value.replace(/\./g, '').replace(',', '.') : value
+  const parsed = Number(normalized)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
 export function PeopleFormPage({ session, company, personId, onBack, onSaved }: PeopleFormPageProps) {
   const [loading, setLoading] = useState(Boolean(personId))
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -63,6 +70,9 @@ export function PeopleFormPage({ session, company, personId, onBack, onSaved }: 
   const [role, setRole] = useState(2)
   const [status, setStatus] = useState(0)
   const [birth, setBirth] = useState('')
+  const [limitCredit, setLimitCredit] = useState('')
+  const [availableLimit, setAvailableLimit] = useState<number | null>(null)
+  const showCreditLimit = isEmprestimo(company.system_type)
 
   const [zipCode, setZipCode] = useState('')
   const [street, setStreet] = useState('')
@@ -123,6 +133,8 @@ export function PeopleFormPage({ session, company, personId, onBack, onSaved }: 
         setRole(person.roles?.[0] ?? 2)
         setStatus(person.status?.[0] ?? 0)
         setBirth(person.birth ? person.birth.slice(0, 10) : '')
+        setLimitCredit(person.limit_credit ? String(Number(person.limit_credit).toFixed(2)).replace('.', ',') : '')
+        setAvailableLimit(person.available_limit != null ? Number(person.available_limit) : null)
         setZipCode(person.address?.zip_code ? formatCep(person.address.zip_code) : '')
         setStreet(person.address?.address ?? '')
         setNumber(person.address?.number ?? '')
@@ -253,6 +265,7 @@ export function PeopleFormPage({ session, company, personId, onBack, onSaved }: 
       email: email || undefined,
       internal_code: internalCode ? Number(internalCode) : undefined,
       birth: birth || undefined,
+      limit_credit: showCreditLimit && limitCredit.trim() ? parseCurrencyInput(limitCredit) : undefined,
       address: hasAddress ? address : undefined,
       documents: documentEntries,
       file: avatarFile,
@@ -433,6 +446,24 @@ export function PeopleFormPage({ session, company, personId, onBack, onSaved }: 
                     className="min-w-0 w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
                   />
                 </label>
+                {showCreditLimit && (
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Limite de crédito (R$)</span>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="0,00"
+                      value={limitCredit}
+                      onChange={(event) => setLimitCredit(event.target.value.replace(/[^\d.,]/g, ''))}
+                      className="min-w-0 w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
+                    />
+                    {availableLimit !== null && (
+                      <span className="text-[11.5px] text-[var(--muted)]">
+                        Disponível: {availableLimit.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                      </span>
+                    )}
+                  </label>
+                )}
               </div>
             </div>
 
