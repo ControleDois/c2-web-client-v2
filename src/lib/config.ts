@@ -199,6 +199,14 @@ export interface ConfigRecord {
 
   // Controle de Ponto - disponível pra qualquer nicho
   time_clock_enabled?: boolean
+  time_clock_default_work_days?: string
+  time_clock_default_start_time?: string
+  time_clock_default_end_time?: string
+  time_clock_default_lunch_break_minutes?: number
+  time_clock_default_tolerance_minutes?: number
+  time_clock_overtime_percent?: number
+  time_clock_absence_discount_enabled?: boolean
+  time_clock_hours_month_divisor?: number
 
   // Loja Online (leitura — vem via preload company.shop no GET /config)
   company?: { system_type?: number; shop?: ShopRecord | null } | null
@@ -342,6 +350,14 @@ export interface ConfigPayload {
   ifood_webhook_enabled?: boolean
 
   time_clock_enabled?: boolean
+  time_clock_default_work_days?: string
+  time_clock_default_start_time?: string
+  time_clock_default_end_time?: string
+  time_clock_default_lunch_break_minutes?: number
+  time_clock_default_tolerance_minutes?: number
+  time_clock_overtime_percent?: number
+  time_clock_absence_discount_enabled?: boolean
+  time_clock_hours_month_divisor?: number
 
   shop?: ShopPayload
   sicredi_cert_file?: File

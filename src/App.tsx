@@ -274,6 +274,7 @@ function App() {
             session={session}
             company={activeCompany}
             personId={peopleView.view.id}
+            timeClockEnabled={timeClockEnabled}
             onBack={peopleView.reset}
             onSaved={peopleView.reset}
           />

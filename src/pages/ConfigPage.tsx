@@ -169,6 +169,14 @@ function buildConfigPayload(companyId: string, config: ConfigRecord | null): Con
     ifood_webhook_enabled: config?.ifood_webhook_enabled ?? false,
 
     time_clock_enabled: config?.time_clock_enabled ?? false,
+    time_clock_default_work_days: config?.time_clock_default_work_days ?? '1,2,3,4,5',
+    time_clock_default_start_time: config?.time_clock_default_start_time ?? '08:00',
+    time_clock_default_end_time: config?.time_clock_default_end_time ?? '18:00',
+    time_clock_default_lunch_break_minutes: config?.time_clock_default_lunch_break_minutes ?? 60,
+    time_clock_default_tolerance_minutes: config?.time_clock_default_tolerance_minutes ?? 10,
+    time_clock_overtime_percent: config?.time_clock_overtime_percent ?? 50,
+    time_clock_absence_discount_enabled: config?.time_clock_absence_discount_enabled ?? true,
+    time_clock_hours_month_divisor: config?.time_clock_hours_month_divisor ?? 220,
 
     shop: config?.company?.shop
       ? {

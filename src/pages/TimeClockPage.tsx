@@ -9,16 +9,23 @@ import {
   deleteTimeClockEnrollment,
   fetchTimeClockEvents,
   fetchTimeClockStatus,
+  fetchTimeClockReport,
+  fetchTimeClockPayroll,
+  formatMinutes,
   type TimeClockDeviceRecord,
   type TimeClockEnrollmentRecord,
   type TimeClockEventRecord,
   type TimeClockStatusResult,
+  type TimeClockEmployeeReport,
+  type TimeClockPayrollRow,
 } from '../lib/timeClock'
 import { fetchPeople, type PersonRecord } from '../lib/people'
 import { useTimeClockUpdates } from '../hooks/useTimeClockUpdates'
 import { ApiError } from '../lib/api'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { TextField } from '../components/form/TextField'
+import { MultiSeriesBarChart } from '../components/charts/MultiSeriesBarChart'
+import { formatCurrency } from '../lib/format'
 import {
   ClockIcon,
   ArrowDownCircleIcon,
@@ -39,7 +46,7 @@ interface TimeClockPageProps {
   onBack: () => void
 }
 
-type Tab = 'painel' | 'dispositivos'
+type Tab = 'painel' | 'relatorio' | 'folha' | 'dispositivos'
 
 function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
@@ -462,6 +469,373 @@ function DispositivosTab({ session, company }: { session: AuthSession; company: 
   )
 }
 
+const WEEKDAY_SHORT: Record<number, string> = { 1: 'Seg', 2: 'Ter', 3: 'Qua', 4: 'Qui', 5: 'Sex', 6: 'Sáb', 7: 'Dom' }
+
+const DAY_STATUS_LABELS: Record<TimeClockEmployeeReport['days'][number]['status'], string> = {
+  ok: 'OK',
+  absence: 'Falta',
+  incomplete: 'Incompleto',
+  day_off_worked: 'Folga trabalhada',
+}
+
+function dayStatusTone(status: TimeClockEmployeeReport['days'][number]['status']): string {
+  if (status === 'absence') return 'bg-[var(--red-100)] text-[var(--red-500)]'
+  if (status === 'incomplete') return 'bg-[var(--amber-100)] text-[var(--amber-500)]'
+  if (status === 'day_off_worked') return 'bg-[var(--blue-100)] text-[var(--blue-700)]'
+  return 'bg-[var(--page)] text-[var(--ink-soft)]'
+}
+
+// Formata "yyyy-MM-dd" sem passar por Date/toLocaleDateString - evita o
+// clássico bug de fuso (meia-noite local vira o dia anterior em UTC-3).
+function formatDayShort(dateStr: string): string {
+  const [, month, day] = dateStr.split('-')
+  return `${day}/${month}`
+}
+
+function formatDayLong(dateStr: string): string {
+  const [year, month, day] = dateStr.split('-')
+  return `${day}/${month}/${year}`
+}
+
+function formatClockTime(iso: string | null): string {
+  if (!iso) return '—'
+  const time = iso.split('T')[1] || ''
+  return time.slice(0, 5)
+}
+
+function currentMonthRange(): { start: string; end: string } {
+  const now = new Date()
+  const start = new Date(now.getFullYear(), now.getMonth(), 1)
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+  const toISO = (date: Date) => date.toISOString().slice(0, 10)
+  return { start: toISO(start), end: toISO(end) }
+}
+
+function RelatorioTab({ session, company }: { session: AuthSession; company: AuthCompany }) {
+  const token = session.token.token
+  const defaultRange = useMemo(currentMonthRange, [])
+  const [startDate, setStartDate] = useState(defaultRange.start)
+  const [endDate, setEndDate] = useState(defaultRange.end)
+  const [reports, setReports] = useState<TimeClockEmployeeReport[]>([])
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  function load() {
+    setLoading(true)
+    setError(null)
+    fetchTimeClockReport(token, company.id, { startDate, endDate })
+      .then((res) => {
+        setReports(res.data)
+        setSelectedId((current) => {
+          if (current && res.data.some((r) => r.people_id === current)) return current
+          return res.data[0]?.people_id ?? null
+        })
+      })
+      .catch((err) => setError(err instanceof ApiError ? err.message : 'Não foi possível carregar o relatório.'))
+      .finally(() => setLoading(false))
+  }
+
+  useEffect(load, [token, company.id, startDate, endDate])
+
+  const selected = reports.find((r) => r.people_id === selectedId) || null
+
+  return (
+    <div className="flex flex-col gap-5">
+      <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[12px] font-semibold text-[var(--ink-soft)]">De</span>
+          <input
+            type="date"
+            value={startDate}
+            onChange={(event) => setStartDate(event.target.value)}
+            className="rounded-xl border border-[var(--border)] bg-[var(--page)] px-3.5 py-2 text-[13px] text-[var(--ink)] focus:outline-none"
+          />
+        </label>
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Até</span>
+          <input
+            type="date"
+            value={endDate}
+            onChange={(event) => setEndDate(event.target.value)}
+            className="rounded-xl border border-[var(--border)] bg-[var(--page)] px-3.5 py-2 text-[13px] text-[var(--ink)] focus:outline-none"
+          />
+        </label>
+      </div>
+
+      {error && <p className="text-[12.5px] font-medium text-[var(--red-500)]">{error}</p>}
+
+      {loading ? (
+        <div className="flex flex-col gap-2">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div key={index} className="h-16 animate-pulse rounded-xl bg-[var(--surface)]" />
+          ))}
+        </div>
+      ) : reports.length === 0 ? (
+        <p className="text-[13px] text-[var(--muted)]">
+          Nenhum funcionário vinculado a um relógio de ponto ainda. Vincule na aba "Dispositivos".
+        </p>
+      ) : (
+        <div className="grid gap-5 lg:grid-cols-[280px_1fr]">
+          <div className="flex flex-col gap-1.5">
+            {reports.map((report) => {
+              const balance = report.summary.balance_minutes
+              return (
+                <button
+                  key={report.people_id}
+                  type="button"
+                  onClick={() => setSelectedId(report.people_id)}
+                  className={`rounded-xl border px-3.5 py-2.5 text-left transition ${
+                    selectedId === report.people_id
+                      ? 'border-[var(--blue-500)] bg-[var(--blue-100)]'
+                      : 'border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--page)]'
+                  }`}
+                >
+                  <p className="truncate text-[13px] font-bold text-[var(--ink)]">{report.people_name}</p>
+                  <div className="mt-1 flex items-center justify-between gap-2 text-[11px]">
+                    <span className="text-[var(--muted)]">{formatMinutes(report.summary.worked_minutes)} trabalhadas</span>
+                    <span className={`font-bold ${balance < 0 ? 'text-[var(--red-500)]' : 'text-[var(--green-600)]'}`}>
+                      {balance >= 0 ? '+' : ''}
+                      {formatMinutes(balance)}
+                    </span>
+                  </div>
+                  {(report.summary.absence_days > 0 || report.summary.late_days > 0) && (
+                    <p className="mt-1 text-[10.5px] text-[var(--amber-500)]">
+                      {report.summary.absence_days > 0 && `${report.summary.absence_days} falta(s)`}
+                      {report.summary.absence_days > 0 && report.summary.late_days > 0 && ' · '}
+                      {report.summary.late_days > 0 && `${report.summary.late_days} atraso(s)`}
+                    </p>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+
+          {selected && (
+            <div className="flex flex-col gap-5">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+                <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3.5">
+                  <p className="text-[10.5px] font-semibold text-[var(--muted)] uppercase">Trabalhado</p>
+                  <p className="mt-0.5 text-[16px] font-bold text-[var(--ink)]">
+                    {formatMinutes(selected.summary.worked_minutes)}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3.5">
+                  <p className="text-[10.5px] font-semibold text-[var(--muted)] uppercase">Carga horária</p>
+                  <p className="mt-0.5 text-[16px] font-bold text-[var(--ink)]">
+                    {formatMinutes(selected.summary.expected_minutes)}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3.5">
+                  <p className="text-[10.5px] font-semibold text-[var(--muted)] uppercase">Saldo</p>
+                  <p
+                    className={`mt-0.5 text-[16px] font-bold ${
+                      selected.summary.balance_minutes < 0 ? 'text-[var(--red-500)]' : 'text-[var(--green-600)]'
+                    }`}
+                  >
+                    {selected.summary.balance_minutes >= 0 ? '+' : ''}
+                    {formatMinutes(selected.summary.balance_minutes)}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3.5">
+                  <p className="text-[10.5px] font-semibold text-[var(--muted)] uppercase">Faltas</p>
+                  <p className="mt-0.5 text-[16px] font-bold text-[var(--ink)]">{selected.summary.absence_days}</p>
+                </div>
+                <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3.5">
+                  <p className="text-[10.5px] font-semibold text-[var(--muted)] uppercase">Atrasos</p>
+                  <p className="mt-0.5 text-[16px] font-bold text-[var(--ink)]">{selected.summary.late_days}</p>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
+                <h4 className="mb-3 text-[13px] font-bold text-[var(--ink)]">Trabalhado × Carga horária (horas/dia)</h4>
+                <MultiSeriesBarChart
+                  labels={selected.days.map((day) => formatDayShort(day.date))}
+                  series={[
+                    { name: 'Trabalhado', color: 'var(--blue-500)', data: selected.days.map((d) => Math.round((d.worked_minutes / 60) * 10) / 10) },
+                    { name: 'Carga horária', color: 'var(--border)', data: selected.days.map((d) => Math.round((d.expected_minutes / 60) * 10) / 10) },
+                  ]}
+                  formatValue={(value) => `${value}h`}
+                />
+              </div>
+
+              <div className="overflow-x-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
+                <table className="w-full border-collapse text-[12.5px]">
+                  <thead>
+                    <tr className="border-b border-[var(--border)] text-left text-[10.5px] font-semibold tracking-wide text-[var(--muted)] uppercase">
+                      <th className="px-3.5 py-2.5">Data</th>
+                      <th className="px-3.5 py-2.5">Batidas</th>
+                      <th className="px-3.5 py-2.5">Trabalhado</th>
+                      <th className="px-3.5 py-2.5">Carga</th>
+                      <th className="px-3.5 py-2.5">Status</th>
+                      <th className="px-3.5 py-2.5">Observação</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selected.days.map((day) => (
+                      <tr key={day.date} className="border-b border-[var(--border)] last:border-none">
+                        <td className="px-3.5 py-2.5 whitespace-nowrap text-[var(--ink)]">
+                          {formatDayLong(day.date)}
+                          <span className="ml-1 text-[var(--muted)]">{WEEKDAY_SHORT[day.weekday]}</span>
+                          {!day.is_work_day && <span className="ml-1 text-[10px] text-[var(--muted)]">(folga)</span>}
+                        </td>
+                        <td className="px-3.5 py-2.5 whitespace-nowrap text-[var(--ink-soft)]">
+                          {day.punches.length === 0
+                            ? '—'
+                            : day.punches.map((p) => formatClockTime(p.occurred_at)).join(' · ')}
+                        </td>
+                        <td className="px-3.5 py-2.5 whitespace-nowrap font-semibold text-[var(--ink)]">
+                          {formatMinutes(day.worked_minutes)}
+                        </td>
+                        <td className="px-3.5 py-2.5 whitespace-nowrap text-[var(--ink-soft)]">
+                          {formatMinutes(day.expected_minutes)}
+                        </td>
+                        <td className="px-3.5 py-2.5">
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${dayStatusTone(day.status)}`}>
+                            {DAY_STATUS_LABELS[day.status]}
+                          </span>
+                        </td>
+                        <td className="px-3.5 py-2.5 text-[var(--ink-soft)]">
+                          {day.observations.length === 0 ? '—' : day.observations.join(' ')}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function FolhaTab({ session, company }: { session: AuthSession; company: AuthCompany }) {
+  const token = session.token.token
+  const defaultRange = useMemo(currentMonthRange, [])
+  const [startDate, setStartDate] = useState(defaultRange.start)
+  const [endDate, setEndDate] = useState(defaultRange.end)
+  const [rows, setRows] = useState<TimeClockPayrollRow[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  function load() {
+    setLoading(true)
+    setError(null)
+    fetchTimeClockPayroll(token, company.id, { startDate, endDate })
+      .then((res) => setRows(res.data))
+      .catch((err) => setError(err instanceof ApiError ? err.message : 'Não foi possível gerar a folha.'))
+      .finally(() => setLoading(false))
+  }
+
+  useEffect(load, [token, company.id, startDate, endDate])
+
+  const totalPay = rows.reduce((sum, row) => sum + row.total_pay, 0)
+
+  return (
+    <div className="flex flex-col gap-5">
+      <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[12px] font-semibold text-[var(--ink-soft)]">De</span>
+          <input
+            type="date"
+            value={startDate}
+            onChange={(event) => setStartDate(event.target.value)}
+            className="rounded-xl border border-[var(--border)] bg-[var(--page)] px-3.5 py-2 text-[13px] text-[var(--ink)] focus:outline-none"
+          />
+        </label>
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Até</span>
+          <input
+            type="date"
+            value={endDate}
+            onChange={(event) => setEndDate(event.target.value)}
+            className="rounded-xl border border-[var(--border)] bg-[var(--page)] px-3.5 py-2 text-[13px] text-[var(--ink)] focus:outline-none"
+          />
+        </label>
+      </div>
+
+      <div className="flex items-start gap-2.5 rounded-2xl border border-[var(--amber-100)] bg-[var(--amber-100)]/40 p-3.5 text-[12px] text-[var(--amber-500)]">
+        <span>
+          Estimativa com base nas horas batidas no ponto e no salário/valor-hora cadastrado em cada
+          funcionário. Não substitui o cálculo oficial da folha (INSS, FGTS, 13º, férias etc.).
+        </span>
+      </div>
+
+      {error && <p className="text-[12.5px] font-medium text-[var(--red-500)]">{error}</p>}
+
+      {loading ? (
+        <div className="flex flex-col gap-2">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div key={index} className="h-14 animate-pulse rounded-xl bg-[var(--surface)]" />
+          ))}
+        </div>
+      ) : rows.length === 0 ? (
+        <p className="text-[13px] text-[var(--muted)]">Nenhum funcionário vinculado a um relógio de ponto ainda.</p>
+      ) : (
+        <div className="overflow-x-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
+          <table className="w-full border-collapse text-[12.5px]">
+            <thead>
+              <tr className="border-b border-[var(--border)] text-left text-[10.5px] font-semibold tracking-wide text-[var(--muted)] uppercase">
+                <th className="px-3.5 py-2.5">Funcionário</th>
+                <th className="px-3.5 py-2.5">Trabalhado</th>
+                <th className="px-3.5 py-2.5">Carga</th>
+                <th className="px-3.5 py-2.5">Extra</th>
+                <th className="px-3.5 py-2.5">A menos</th>
+                <th className="px-3.5 py-2.5 text-right">Base</th>
+                <th className="px-3.5 py-2.5 text-right">+ Extra</th>
+                <th className="px-3.5 py-2.5 text-right">− Desconto</th>
+                <th className="px-3.5 py-2.5 text-right">Total estimado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.people_id} className="border-b border-[var(--border)] last:border-none">
+                  <td className="px-3.5 py-2.5 font-semibold text-[var(--ink)]">
+                    {row.people_name}
+                    {row.notes.length > 0 && (
+                      <p className="mt-0.5 text-[10.5px] font-normal text-[var(--amber-500)]">{row.notes.join(' ')}</p>
+                    )}
+                  </td>
+                  <td className="px-3.5 py-2.5 whitespace-nowrap text-[var(--ink-soft)]">{formatMinutes(row.worked_minutes)}</td>
+                  <td className="px-3.5 py-2.5 whitespace-nowrap text-[var(--ink-soft)]">{formatMinutes(row.expected_minutes)}</td>
+                  <td className="px-3.5 py-2.5 whitespace-nowrap text-[var(--green-600)]">
+                    {row.overtime_minutes > 0 ? formatMinutes(row.overtime_minutes) : '—'}
+                  </td>
+                  <td className="px-3.5 py-2.5 whitespace-nowrap text-[var(--red-500)]">
+                    {row.shortfall_minutes > 0 ? formatMinutes(row.shortfall_minutes) : '—'}
+                  </td>
+                  <td className="px-3.5 py-2.5 text-right whitespace-nowrap text-[var(--ink)]">{formatCurrency(row.base_pay)}</td>
+                  <td className="px-3.5 py-2.5 text-right whitespace-nowrap text-[var(--green-600)]">
+                    {row.overtime_pay > 0 ? `+${formatCurrency(row.overtime_pay)}` : '—'}
+                  </td>
+                  <td className="px-3.5 py-2.5 text-right whitespace-nowrap text-[var(--red-500)]">
+                    {row.absence_discount > 0 ? `−${formatCurrency(row.absence_discount)}` : '—'}
+                  </td>
+                  <td className="px-3.5 py-2.5 text-right font-bold whitespace-nowrap text-[var(--ink)]">
+                    {formatCurrency(row.total_pay)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colSpan={8} className="px-3.5 py-3 text-right text-[12px] font-bold text-[var(--ink-soft)]">
+                  Total estimado do período
+                </td>
+                <td className="px-3.5 py-3 text-right text-[14px] font-bold text-[var(--ink)]">
+                  {formatCurrency(totalPay)}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function PainelTab({ session, company }: { session: AuthSession; company: AuthCompany }) {
   const token = session.token.token
   const [status, setStatus] = useState<TimeClockStatusResult | null>(null)
@@ -605,6 +979,8 @@ export function TimeClockPage({ session, company, onBack }: TimeClockPageProps) 
   const tabs = useMemo<{ key: Tab; label: string }[]>(
     () => [
       { key: 'painel', label: 'Painel' },
+      { key: 'relatorio', label: 'Relatório' },
+      { key: 'folha', label: 'Folha de pagamento' },
       { key: 'dispositivos', label: 'Dispositivos' },
     ],
     []
@@ -649,11 +1025,10 @@ export function TimeClockPage({ session, company, onBack }: TimeClockPageProps) 
         ))}
       </div>
 
-      {tab === 'painel' ? (
-        <PainelTab session={session} company={company} />
-      ) : (
-        <DispositivosTab session={session} company={company} />
-      )}
+      {tab === 'painel' && <PainelTab session={session} company={company} />}
+      {tab === 'relatorio' && <RelatorioTab session={session} company={company} />}
+      {tab === 'folha' && <FolhaTab session={session} company={company} />}
+      {tab === 'dispositivos' && <DispositivosTab session={session} company={company} />}
     </div>
   )
 }

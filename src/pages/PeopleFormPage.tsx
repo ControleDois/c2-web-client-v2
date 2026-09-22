@@ -35,6 +35,7 @@ interface PeopleFormPageProps {
   session: AuthSession
   company: AuthCompany
   personId?: string
+  timeClockEnabled?: boolean
   onBack: () => void
   onSaved: () => void
 }
@@ -54,7 +55,24 @@ function parseCurrencyInput(value: string): number {
   return Number.isFinite(parsed) ? parsed : 0
 }
 
-export function PeopleFormPage({ session, company, personId, onBack, onSaved }: PeopleFormPageProps) {
+const WEEKDAY_OPTIONS: { value: number; label: string }[] = [
+  { value: 1, label: 'Seg' },
+  { value: 2, label: 'Ter' },
+  { value: 3, label: 'Qua' },
+  { value: 4, label: 'Qui' },
+  { value: 5, label: 'Sex' },
+  { value: 6, label: 'Sáb' },
+  { value: 7, label: 'Dom' },
+]
+
+export function PeopleFormPage({
+  session,
+  company,
+  personId,
+  timeClockEnabled,
+  onBack,
+  onSaved,
+}: PeopleFormPageProps) {
   const [loading, setLoading] = useState(Boolean(personId))
   const [loadError, setLoadError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -73,6 +91,22 @@ export function PeopleFormPage({ session, company, personId, onBack, onSaved }: 
   const [limitCredit, setLimitCredit] = useState('')
   const [availableLimit, setAvailableLimit] = useState<number | null>(null)
   const showCreditLimit = isEmprestimo(company.system_type)
+
+  // Ponto: jornada e remuneração - em branco = usa o padrão da empresa
+  // (Configurações → Ponto).
+  const [tcWorkDays, setTcWorkDays] = useState<number[]>([])
+  const [tcStartTime, setTcStartTime] = useState('')
+  const [tcEndTime, setTcEndTime] = useState('')
+  const [tcLunchBreak, setTcLunchBreak] = useState('')
+  const [tcTolerance, setTcTolerance] = useState('')
+  const [tcSalaryType, setTcSalaryType] = useState<'monthly' | 'hourly' | ''>('')
+  const [tcSalaryValue, setTcSalaryValue] = useState('')
+
+  function toggleWorkDay(day: number) {
+    setTcWorkDays((current) =>
+      current.includes(day) ? current.filter((value) => value !== day) : [...current, day].sort((a, b) => a - b)
+    )
+  }
 
   const [zipCode, setZipCode] = useState('')
   const [street, setStreet] = useState('')
@@ -135,6 +169,24 @@ export function PeopleFormPage({ session, company, personId, onBack, onSaved }: 
         setBirth(person.birth ? person.birth.slice(0, 10) : '')
         setLimitCredit(person.limit_credit ? String(Number(person.limit_credit).toFixed(2)).replace('.', ',') : '')
         setAvailableLimit(person.available_limit != null ? Number(person.available_limit) : null)
+        setTcWorkDays(
+          person.time_clock_work_days
+            ? person.time_clock_work_days
+                .split(',')
+                .map((value) => Number(value.trim()))
+                .filter((value) => value >= 1 && value <= 7)
+            : []
+        )
+        setTcStartTime(person.time_clock_start_time ?? '')
+        setTcEndTime(person.time_clock_end_time ?? '')
+        setTcLunchBreak(person.time_clock_lunch_break_minutes != null ? String(person.time_clock_lunch_break_minutes) : '')
+        setTcTolerance(person.time_clock_tolerance_minutes != null ? String(person.time_clock_tolerance_minutes) : '')
+        setTcSalaryType(person.time_clock_salary_type ?? '')
+        setTcSalaryValue(
+          person.time_clock_salary_value != null
+            ? String(Number(person.time_clock_salary_value).toFixed(2)).replace('.', ',')
+            : ''
+        )
         setZipCode(person.address?.zip_code ? formatCep(person.address.zip_code) : '')
         setStreet(person.address?.address ?? '')
         setNumber(person.address?.number ?? '')
@@ -266,6 +318,13 @@ export function PeopleFormPage({ session, company, personId, onBack, onSaved }: 
       internal_code: internalCode ? Number(internalCode) : undefined,
       birth: birth || undefined,
       limit_credit: showCreditLimit && limitCredit.trim() ? parseCurrencyInput(limitCredit) : undefined,
+      time_clock_work_days: timeClockEnabled && tcWorkDays.length ? tcWorkDays.join(',') : undefined,
+      time_clock_start_time: timeClockEnabled && tcStartTime ? tcStartTime : undefined,
+      time_clock_end_time: timeClockEnabled && tcEndTime ? tcEndTime : undefined,
+      time_clock_lunch_break_minutes: timeClockEnabled && tcLunchBreak.trim() ? Number(tcLunchBreak) : undefined,
+      time_clock_tolerance_minutes: timeClockEnabled && tcTolerance.trim() ? Number(tcTolerance) : undefined,
+      time_clock_salary_type: timeClockEnabled && tcSalaryType ? tcSalaryType : undefined,
+      time_clock_salary_value: timeClockEnabled && tcSalaryValue.trim() ? parseCurrencyInput(tcSalaryValue) : undefined,
       address: hasAddress ? address : undefined,
       documents: documentEntries,
       file: avatarFile,
@@ -466,6 +525,104 @@ export function PeopleFormPage({ session, company, personId, onBack, onSaved }: 
                 )}
               </div>
             </div>
+
+            {timeClockEnabled && (
+              <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6">
+                <h2 className="text-[14px] font-bold text-[var(--ink)]">Ponto — jornada e remuneração</h2>
+                <p className="mt-1 text-[12px] text-[var(--ink-soft)]">
+                  Em branco, usa o padrão da empresa (Configurações → Ponto). Usado nos relatórios de
+                  ponto e na folha de pagamento estimada.
+                </p>
+
+                <div className="mt-4">
+                  <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Dias de trabalho</span>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {WEEKDAY_OPTIONS.map((day) => (
+                      <button
+                        key={day.value}
+                        type="button"
+                        onClick={() => toggleWorkDay(day.value)}
+                        className={`rounded-lg px-3 py-1.5 text-[12px] font-bold transition ${
+                          tcWorkDays.includes(day.value)
+                            ? 'bg-[var(--blue-500)] text-white'
+                            : 'bg-[var(--page)] text-[var(--ink-soft)] hover:text-[var(--ink)]'
+                        }`}
+                      >
+                        {day.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Entrada prevista</span>
+                    <input
+                      type="time"
+                      value={tcStartTime}
+                      onChange={(event) => setTcStartTime(event.target.value)}
+                      className="min-w-0 w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Saída prevista</span>
+                    <input
+                      type="time"
+                      value={tcEndTime}
+                      onChange={(event) => setTcEndTime(event.target.value)}
+                      className="min-w-0 w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Almoço (min)</span>
+                    <input
+                      type="number"
+                      min={0}
+                      placeholder="60"
+                      value={tcLunchBreak}
+                      onChange={(event) => setTcLunchBreak(event.target.value.replace(/\D/g, ''))}
+                      className="min-w-0 w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Tolerância (min)</span>
+                    <input
+                      type="number"
+                      min={0}
+                      placeholder="10"
+                      value={tcTolerance}
+                      onChange={(event) => setTcTolerance(event.target.value.replace(/\D/g, ''))}
+                      className="min-w-0 w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
+                    />
+                  </label>
+                </div>
+
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                  <SelectField
+                    label="Remuneração"
+                    value={tcSalaryType}
+                    onChange={(event) => setTcSalaryType(event.target.value as 'monthly' | 'hourly' | '')}
+                  >
+                    <option value="">Padrão da empresa / não informado</option>
+                    <option value="monthly">Salário mensal fixo</option>
+                    <option value="hourly">Valor por hora trabalhada</option>
+                  </SelectField>
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-[12px] font-semibold text-[var(--ink-soft)]">
+                      {tcSalaryType === 'hourly' ? 'Valor da hora (R$)' : 'Salário mensal (R$)'}
+                    </span>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="0,00"
+                      value={tcSalaryValue}
+                      onChange={(event) => setTcSalaryValue(event.target.value.replace(/[^\d.,]/g, ''))}
+                      className="min-w-0 w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
+                    />
+                  </label>
+                </div>
+              </div>
+            )}
 
             <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6">
               <h2 className="mb-4 text-[14px] font-bold text-[var(--ink)]">Endereço</h2>

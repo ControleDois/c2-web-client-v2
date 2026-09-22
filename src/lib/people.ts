@@ -47,6 +47,14 @@ export interface PersonRecord {
   // cadastrado, `available_limit` já desconta o que está em aberto.
   limit_credit?: number | null
   available_limit?: number | null
+  // Ponto: jornada e remuneração (null = usa o padrão da empresa em Config)
+  time_clock_work_days?: string | null
+  time_clock_start_time?: string | null
+  time_clock_end_time?: string | null
+  time_clock_lunch_break_minutes?: number | null
+  time_clock_tolerance_minutes?: number | null
+  time_clock_salary_type?: 'monthly' | 'hourly' | null
+  time_clock_salary_value?: number | null
   createdAt?: string
   created_at?: string
 }
@@ -64,6 +72,13 @@ export interface PersonPayload {
   internal_code?: number
   birth?: string
   limit_credit?: number
+  time_clock_work_days?: string
+  time_clock_start_time?: string
+  time_clock_end_time?: string
+  time_clock_lunch_break_minutes?: number
+  time_clock_tolerance_minutes?: number
+  time_clock_salary_type?: 'monthly' | 'hourly'
+  time_clock_salary_value?: number
   address?: PersonAddress
   documents?: PersonDocumentInput[]
   file?: File
@@ -141,6 +156,13 @@ function buildPersonForm(payload: PersonPayload): FormData {
     ['internal_code', payload.internal_code],
     ['birth', payload.birth],
     ['limit_credit', payload.limit_credit],
+    ['time_clock_work_days', payload.time_clock_work_days],
+    ['time_clock_start_time', payload.time_clock_start_time],
+    ['time_clock_end_time', payload.time_clock_end_time],
+    ['time_clock_lunch_break_minutes', payload.time_clock_lunch_break_minutes],
+    ['time_clock_tolerance_minutes', payload.time_clock_tolerance_minutes],
+    ['time_clock_salary_type', payload.time_clock_salary_type],
+    ['time_clock_salary_value', payload.time_clock_salary_value],
   ]
   for (const [key, value] of plainFields) {
     if (value !== undefined && value !== '') form.append(key, String(value))
