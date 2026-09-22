@@ -143,6 +143,7 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
   const [pixLoteResult, setPixLoteResult] = useState<string | null>(null)
 
   const [whatsappBill, setWhatsappBill] = useState<BillRecord | null>(null)
+  const [copiedBadgeId, setCopiedBadgeId] = useState<string | null>(null)
   const [groupModalOpen, setGroupModalOpen] = useState(false)
   const [groupDetailsBill, setGroupDetailsBill] = useState<BillRecord | null>(null)
   const [successToast, setSuccessToast] = useState<string | null>(null)
@@ -425,6 +426,20 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
     }
   }
 
+  // Badge da listagem (PIX/Boleto já gerado) - copia direto sem abrir o
+  // menu de ações, com "Copiado!" temporário no próprio ícone.
+  async function handleCopyBadge(bill: BillRecord, kind: 'pix' | 'boleto') {
+    const value = kind === 'pix' ? bill.pix_copia_e_cola : bill.boleto_linha_digital
+    if (!value) return
+    try {
+      await navigator.clipboard.writeText(value)
+      setCopiedBadgeId(`${bill.id}:${kind}`)
+      setTimeout(() => setCopiedBadgeId((current) => (current === `${bill.id}:${kind}` ? null : current)), 1600)
+    } catch {
+      setPixError(kind === 'pix' ? 'Não foi possível copiar o código PIX.' : 'Não foi possível copiar a linha digitável.')
+    }
+  }
+
   async function handleGenerateBoleto(bill: BillRecord) {
     if (pixBusyId) return
     setPixBusyId(bill.id)
@@ -532,14 +547,12 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
           })
         }
 
-        if (bill.pix_copia_e_cola || bill.boleto_linha_digital) {
-          actions.push({
-            key: 'send-whatsapp',
-            label: 'Enviar WhatsApp',
-            icon: <WhatsappIcon className="h-4 w-4" />,
-            onClick: () => setWhatsappBill(bill),
-          })
-        }
+        actions.push({
+          key: 'send-whatsapp',
+          label: 'Enviar WhatsApp',
+          icon: <WhatsappIcon className="h-4 w-4" />,
+          onClick: () => setWhatsappBill(bill),
+        })
       }
     }
     if ((bill.groupeds?.length ?? 0) > 0) {
@@ -565,6 +578,53 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
       onClick: () => setDeleteTarget(bill),
     })
     return actions
+  }
+
+  // Selo PIX/Boleto na listagem: mostra que já foi gerado e copia direto no
+  // clique, sem precisar abrir o menu de ações.
+  function renderBillBadges(bill: BillRecord) {
+    if (role !== 1 || (!bill.pix_copia_e_cola && !bill.boleto_linha_digital)) return null
+
+    return (
+      <span className="ml-1.5 inline-flex items-center gap-1 align-middle">
+        {bill.pix_copia_e_cola && (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation()
+              void handleCopyBadge(bill, 'pix')
+            }}
+            title="PIX gerado - clique para copiar"
+            className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold transition ${
+              copiedBadgeId === `${bill.id}:pix`
+                ? 'bg-[var(--green-100)] text-[var(--green-600)]'
+                : 'bg-[var(--blue-100)] text-[var(--blue-700)] hover:bg-[var(--blue-300)]'
+            }`}
+          >
+            <QrCodeIcon className="h-3 w-3" />
+            {copiedBadgeId === `${bill.id}:pix` ? 'Copiado!' : 'PIX'}
+          </button>
+        )}
+        {bill.boleto_linha_digital && (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation()
+              void handleCopyBadge(bill, 'boleto')
+            }}
+            title="Boleto gerado - clique para copiar a linha digitável"
+            className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold transition ${
+              copiedBadgeId === `${bill.id}:boleto`
+                ? 'bg-[var(--green-100)] text-[var(--green-600)]'
+                : 'bg-[var(--amber-100)] text-[var(--amber-500)] hover:brightness-95'
+            }`}
+          >
+            <FileTextIcon className="h-3 w-3" />
+            {copiedBadgeId === `${bill.id}:boleto` ? 'Copiado!' : 'Boleto'}
+          </button>
+        )}
+      </span>
+    )
   }
 
   const selectedBills = bills.filter((bill) => selected.has(bill.id))
@@ -809,7 +869,10 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
                     />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-2">
-                        <p className="min-w-0 truncate text-[13.5px] font-bold text-[var(--ink)]">{bill.name}</p>
+                        <p className="min-w-0 truncate text-[13.5px] font-bold text-[var(--ink)]">
+                          {bill.name}
+                          {renderBillBadges(bill)}
+                        </p>
                         <span className="flex-none font-mono text-[12px] font-semibold text-[var(--ink)]">
                           {formatCurrency(bill.amount)}
                         </span>
@@ -893,7 +956,10 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
                         />
                       </td>
                       <td className="py-2.5 font-mono text-[var(--ink-soft)]">#{bill.code}</td>
-                      <td className="py-2.5 font-medium text-[var(--ink)]">{bill.name}</td>
+                      <td className="py-2.5 font-medium text-[var(--ink)]">
+                        {bill.name}
+                        {renderBillBadges(bill)}
+                      </td>
                       <td className="py-2.5 text-[var(--ink-soft)]">{bill.people?.name ?? '—'}</td>
                       <td className="py-2.5 text-[var(--ink-soft)]">{bill.category?.name ?? '—'}</td>
                       <td className="py-2.5 text-[var(--ink-soft)]">{formatDate(bill.date_due)}</td>

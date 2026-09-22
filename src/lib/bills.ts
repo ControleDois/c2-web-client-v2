@@ -280,10 +280,29 @@ export function printBillBoleto(token: string, companyId: string, id: string) {
   return apiPost<{ url: string }>(`/bill/print-boleto/${id}`, {}, token, { companyId })
 }
 
-export function sendBillWhatsapp(token: string, billId: string, whatsappId: string) {
-  return apiPost<{ message: string; postId: string; postMessageId: string }>(
+export interface SendBillWhatsappOptions {
+  sendMessage: boolean
+  sendPixButton: boolean
+  sendBoleto: boolean
+}
+
+export function sendBillWhatsapp(
+  token: string,
+  billId: string,
+  whatsappId: string,
+  options: SendBillWhatsappOptions
+) {
+  return apiPost<{ message: string; postId: string; postMessageId: string; postMessageIds: string[] }>(
     '/uazapi/send-bill-charge',
-    { billId, whatsappId },
+    { billId, whatsappId, ...options },
+    token
+  )
+}
+
+export function fetchBillWhatsappPreview(token: string, billId: string) {
+  return apiGet<{ message: string; ruleType: 'before' | 'overdue' }>(
+    `/uazapi/send-bill-charge/${billId}/preview`,
+    undefined,
     token
   )
 }
