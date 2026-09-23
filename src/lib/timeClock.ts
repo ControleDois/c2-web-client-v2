@@ -1,5 +1,23 @@
 import { apiGet, apiPost, apiPut, apiDelete } from './api'
 
+export type NotificationEventType = 'late' | 'early_leave' | 'absence' | 'incomplete' | 'overtime'
+
+export interface NotificationRecipient {
+  name: string
+  phone: string
+}
+
+export interface NotificationRuleRecord {
+  id: string
+  module: string
+  event_type: NotificationEventType
+  enabled: boolean
+  whatsapp_id: string | null
+  whatsapp?: { id: string; name: string; phone: string } | null
+  threshold_minutes: number | null
+  recipients: NotificationRecipient[]
+}
+
 export interface TimeClockDeviceRecord {
   id: string
   name: string
@@ -198,6 +216,45 @@ export function fetchTimeClockPayroll(
     { companyId, startDate: options.startDate, endDate: options.endDate, peopleId: options.peopleId },
     token
   )
+}
+
+export function fetchNotificationRules(token: string, companyId: string) {
+  return apiGet<NotificationRuleRecord[]>('/time-clock/notification-rules', { companyId, module: 'time_clock' }, token)
+}
+
+export function createNotificationRule(
+  token: string,
+  companyId: string,
+  payload: {
+    event_type: NotificationEventType
+    enabled?: boolean
+    whatsapp_id?: string
+    threshold_minutes?: number
+    recipients?: NotificationRecipient[]
+  }
+) {
+  return apiPost<NotificationRuleRecord>(
+    '/time-clock/notification-rules',
+    { company_id: companyId, module: 'time_clock', ...payload },
+    token
+  )
+}
+
+export function updateNotificationRule(
+  token: string,
+  id: string,
+  payload: {
+    enabled?: boolean
+    whatsapp_id?: string
+    threshold_minutes?: number | null
+    recipients?: NotificationRecipient[]
+  }
+) {
+  return apiPut<NotificationRuleRecord>(`/time-clock/notification-rules/${id}`, payload, token)
+}
+
+export function deleteNotificationRule(token: string, id: string) {
+  return apiDelete<{ id: string }>(`/time-clock/notification-rules/${id}`, token)
 }
 
 export function formatMinutes(minutes: number): string {

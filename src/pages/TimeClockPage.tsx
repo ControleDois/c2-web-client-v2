@@ -11,6 +11,9 @@ import {
   fetchTimeClockStatus,
   fetchTimeClockReport,
   fetchTimeClockPayroll,
+  fetchNotificationRules,
+  createNotificationRule,
+  updateNotificationRule,
   formatMinutes,
   type TimeClockDeviceRecord,
   type TimeClockEnrollmentRecord,
@@ -18,12 +21,17 @@ import {
   type TimeClockStatusResult,
   type TimeClockEmployeeReport,
   type TimeClockPayrollRow,
+  type NotificationRuleRecord,
+  type NotificationEventType,
+  type NotificationRecipient,
 } from '../lib/timeClock'
 import { fetchPeople, type PersonRecord } from '../lib/people'
+import { fetchCompanyWhatsapps, type CompanyWhatsappRecord } from '../lib/companyWhatsapp'
 import { useTimeClockUpdates } from '../hooks/useTimeClockUpdates'
 import { ApiError } from '../lib/api'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { TextField } from '../components/form/TextField'
+import { SelectField } from '../components/form/SelectField'
 import { MultiSeriesBarChart } from '../components/charts/MultiSeriesBarChart'
 import { formatCurrency } from '../lib/format'
 import {
@@ -37,6 +45,8 @@ import {
   BadgeIcon,
   CheckCircleIcon,
   SearchIcon,
+  BellIcon,
+  WhatsappIcon,
 } from '../components/icons'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
@@ -46,7 +56,7 @@ interface TimeClockPageProps {
   onBack: () => void
 }
 
-type Tab = 'painel' | 'relatorio' | 'folha' | 'dispositivos'
+type Tab = 'painel' | 'relatorio' | 'folha' | 'notificacoes' | 'dispositivos'
 
 function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
@@ -836,6 +846,321 @@ function FolhaTab({ session, company }: { session: AuthSession; company: AuthCom
   )
 }
 
+const EVENT_TYPE_ORDER: NotificationEventType[] = ['late', 'early_leave', 'absence', 'incomplete', 'overtime']
+
+const EVENT_TYPE_META: Record<
+  NotificationEventType,
+  { label: string; description: string; hasThreshold: boolean; thresholdLabel: string; thresholdDefault: number; realTime: boolean }
+> = {
+  late: {
+    label: 'Atraso',
+    description: 'Manda assim que o funcionário bate a primeira entrada do dia depois do horário previsto (+ tolerância).',
+    hasThreshold: true,
+    thresholdLabel: 'Atraso mínimo pra notificar (min)',
+    thresholdDefault: 10,
+    realTime: true,
+  },
+  early_leave: {
+    label: 'Saída antecipada',
+    description: 'Funcionário saiu antes do horário previsto no fim do expediente.',
+    hasThreshold: true,
+    thresholdLabel: 'Mínimo antes do horário (min)',
+    thresholdDefault: 10,
+    realTime: false,
+  },
+  absence: {
+    label: 'Falta',
+    description: 'Dia útil sem nenhuma batida de ponto registrada.',
+    hasThreshold: false,
+    thresholdLabel: '',
+    thresholdDefault: 0,
+    realTime: false,
+  },
+  incomplete: {
+    label: 'Marcação incompleta',
+    description: 'Bateu entrada mas não bateu a saída no dia.',
+    hasThreshold: false,
+    thresholdLabel: '',
+    thresholdDefault: 0,
+    realTime: false,
+  },
+  overtime: {
+    label: 'Hora extra',
+    description: 'Funcionário trabalhou bem mais que a carga horária do dia.',
+    hasThreshold: true,
+    thresholdLabel: 'Hora extra mínima pra notificar (min)',
+    thresholdDefault: 30,
+    realTime: false,
+  },
+}
+
+function NotificationRuleCard({
+  session,
+  company,
+  eventType,
+  rule,
+  whatsapps,
+  onSaved,
+}: {
+  session: AuthSession
+  company: AuthCompany
+  eventType: NotificationEventType
+  rule: NotificationRuleRecord | null
+  whatsapps: CompanyWhatsappRecord[]
+  onSaved: (rule: NotificationRuleRecord) => void
+}) {
+  const token = session.token.token
+  const meta = EVENT_TYPE_META[eventType]
+
+  const [enabled, setEnabled] = useState(rule?.enabled ?? false)
+  const [whatsappId, setWhatsappId] = useState(rule?.whatsapp_id ?? '')
+  const [threshold, setThreshold] = useState(
+    rule?.threshold_minutes != null ? String(rule.threshold_minutes) : String(meta.thresholdDefault)
+  )
+  const [recipients, setRecipients] = useState<NotificationRecipient[]>(rule?.recipients ?? [])
+  const [newName, setNewName] = useState('')
+  const [newPhone, setNewPhone] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    setEnabled(rule?.enabled ?? false)
+    setWhatsappId(rule?.whatsapp_id ?? '')
+    setThreshold(rule?.threshold_minutes != null ? String(rule.threshold_minutes) : String(meta.thresholdDefault))
+    setRecipients(rule?.recipients ?? [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rule?.id])
+
+  function addRecipient() {
+    if (!newName.trim() || !newPhone.replace(/\D/g, '')) return
+    setRecipients((current) => [...current, { name: newName.trim(), phone: newPhone.replace(/\D/g, '') }])
+    setNewName('')
+    setNewPhone('')
+  }
+
+  function removeRecipient(index: number) {
+    setRecipients((current) => current.filter((_, i) => i !== index))
+  }
+
+  async function handleSave() {
+    setError(null)
+    if (enabled && !whatsappId) {
+      setError('Escolha o WhatsApp que vai enviar essa notificação.')
+      return
+    }
+    if (enabled && recipients.length === 0) {
+      setError('Adicione ao menos um destinatário.')
+      return
+    }
+
+    setSaving(true)
+    try {
+      const payload = {
+        enabled,
+        whatsapp_id: whatsappId || undefined,
+        threshold_minutes: meta.hasThreshold && threshold.trim() ? Number(threshold) : undefined,
+        recipients,
+      }
+      const updated = rule
+        ? await updateNotificationRule(token, rule.id, payload)
+        : await createNotificationRule(token, company.id, { event_type: eventType, ...payload })
+      onSaved(updated)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2500)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Não foi possível salvar a notificação.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <BellIcon className="h-4 w-4 text-[var(--blue-700)]" />
+            <h4 className="text-[13.5px] font-bold text-[var(--ink)]">{meta.label}</h4>
+            <span
+              className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                meta.realTime ? 'bg-[var(--green-100)] text-[var(--green-600)]' : 'bg-[var(--blue-100)] text-[var(--blue-700)]'
+              }`}
+            >
+              {meta.realTime ? 'Tempo real' : 'Verificação 1x/dia às 20h'}
+            </span>
+          </div>
+          <p className="mt-1 text-[12px] text-[var(--ink-soft)]">{meta.description}</p>
+        </div>
+        <label className="flex flex-none items-center gap-2">
+          <input
+            type="checkbox"
+            checked={enabled}
+            onChange={(event) => setEnabled(event.target.checked)}
+            className="h-4 w-4 accent-[var(--blue-500)]"
+          />
+          <span className="text-[12.5px] font-semibold text-[var(--ink)]">Ativo</span>
+        </label>
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <SelectField label="Enviar pelo WhatsApp" value={whatsappId} onChange={(event) => setWhatsappId(event.target.value)}>
+          <option value="">Selecione</option>
+          {whatsapps.map((whatsapp) => (
+            <option key={whatsapp.id} value={whatsapp.id}>
+              {whatsapp.name} - {whatsapp.phone}
+            </option>
+          ))}
+        </SelectField>
+        {meta.hasThreshold && (
+          <label className="flex flex-col gap-1.5">
+            <span className="text-[12px] font-semibold text-[var(--ink-soft)]">{meta.thresholdLabel}</span>
+            <input
+              type="number"
+              min={0}
+              value={threshold}
+              onChange={(event) => setThreshold(event.target.value.replace(/\D/g, ''))}
+              className="min-w-0 w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
+            />
+          </label>
+        )}
+      </div>
+
+      <div className="mt-4">
+        <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Quem recebe</span>
+        {recipients.length > 0 && (
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {recipients.map((recipient, index) => (
+              <span
+                key={`${recipient.phone}-${index}`}
+                className="flex items-center gap-1.5 rounded-full bg-[var(--page)] px-3 py-1.5 text-[12px] font-semibold text-[var(--ink)]"
+              >
+                {recipient.name} · {recipient.phone}
+                <button
+                  type="button"
+                  onClick={() => removeRecipient(index)}
+                  className="text-[var(--muted)] hover:text-[var(--red-500)]"
+                  aria-label={`Remover ${recipient.name}`}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+        <div className="mt-2 flex flex-wrap items-end gap-2">
+          <div className="min-w-[160px] flex-1">
+            <TextField
+              label="Nome"
+              icon={<UserIcon className="h-4 w-4" />}
+              placeholder="Ex: Gerência"
+              value={newName}
+              onChange={(event) => setNewName(event.target.value)}
+            />
+          </div>
+          <div className="min-w-[160px] flex-1">
+            <TextField
+              label="WhatsApp"
+              icon={<WhatsappIcon className="h-4 w-4" />}
+              placeholder="Ex: 65999998888"
+              value={newPhone}
+              onChange={(event) => setNewPhone(event.target.value.replace(/\D/g, ''))}
+            />
+          </div>
+          <button
+            type="button"
+            onClick={addRecipient}
+            className="flex items-center gap-1.5 rounded-xl border border-[var(--border)] px-3.5 py-2.5 text-[12.5px] font-bold text-[var(--ink-soft)] hover:text-[var(--ink)]"
+          >
+            <PlusIcon className="h-3.5 w-3.5" /> Adicionar
+          </button>
+        </div>
+      </div>
+
+      {error && <p className="mt-3 text-[12px] font-medium text-[var(--red-500)]">{error}</p>}
+
+      <div className="mt-4 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={saving}
+          className="rounded-xl bg-[var(--blue-500)] px-4 py-2 text-[12.5px] font-bold text-white hover:bg-[var(--blue-700)] disabled:opacity-60"
+        >
+          {saving ? 'Salvando…' : 'Salvar'}
+        </button>
+        {saved && (
+          <span className="flex items-center gap-1 text-[12px] font-semibold text-[var(--green-600)]">
+            <CheckCircleIcon className="h-3.5 w-3.5" /> Salvo
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function NotificacoesTab({ session, company }: { session: AuthSession; company: AuthCompany }) {
+  const token = session.token.token
+  const [rules, setRules] = useState<NotificationRuleRecord[]>([])
+  const [whatsapps, setWhatsapps] = useState<CompanyWhatsappRecord[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setLoading(true)
+    setError(null)
+    Promise.all([
+      fetchNotificationRules(token, company.id),
+      fetchCompanyWhatsapps(token, company.id, { limit: 100 }),
+    ])
+      .then(([rulesResult, whatsappsResult]) => {
+        setRules(rulesResult)
+        setWhatsapps((whatsappsResult.data || []).filter((w) => !w.official_whatsapp))
+      })
+      .catch((err) => setError(err instanceof ApiError ? err.message : 'Não foi possível carregar as notificações.'))
+      .finally(() => setLoading(false))
+  }, [token, company.id])
+
+  function handleSaved(updated: NotificationRuleRecord) {
+    setRules((current) => {
+      const exists = current.some((r) => r.id === updated.id)
+      return exists ? current.map((r) => (r.id === updated.id ? updated : r)) : [...current, updated]
+    })
+  }
+
+  if (loading) {
+    return (
+      <div className="flex flex-col gap-3">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <div key={index} className="h-40 animate-pulse rounded-2xl bg-[var(--surface)]" />
+        ))}
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      {whatsapps.length === 0 && (
+        <p className="rounded-2xl border border-[var(--amber-100)] bg-[var(--amber-100)]/40 p-3.5 text-[12.5px] text-[var(--amber-500)]">
+          Nenhum WhatsApp cadastrado ainda — configure um em Configurações → Integrações → WhatsApp antes de ativar
+          as notificações.
+        </p>
+      )}
+      {error && <p className="text-[12.5px] font-medium text-[var(--red-500)]">{error}</p>}
+      {EVENT_TYPE_ORDER.map((eventType) => (
+        <NotificationRuleCard
+          key={eventType}
+          session={session}
+          company={company}
+          eventType={eventType}
+          rule={rules.find((r) => r.event_type === eventType) || null}
+          whatsapps={whatsapps}
+          onSaved={handleSaved}
+        />
+      ))}
+    </div>
+  )
+}
+
 function PainelTab({ session, company }: { session: AuthSession; company: AuthCompany }) {
   const token = session.token.token
   const [status, setStatus] = useState<TimeClockStatusResult | null>(null)
@@ -981,6 +1306,7 @@ export function TimeClockPage({ session, company, onBack }: TimeClockPageProps) 
       { key: 'painel', label: 'Painel' },
       { key: 'relatorio', label: 'Relatório' },
       { key: 'folha', label: 'Folha de pagamento' },
+      { key: 'notificacoes', label: 'Notificações' },
       { key: 'dispositivos', label: 'Dispositivos' },
     ],
     []
@@ -1028,6 +1354,7 @@ export function TimeClockPage({ session, company, onBack }: TimeClockPageProps) 
       {tab === 'painel' && <PainelTab session={session} company={company} />}
       {tab === 'relatorio' && <RelatorioTab session={session} company={company} />}
       {tab === 'folha' && <FolhaTab session={session} company={company} />}
+      {tab === 'notificacoes' && <NotificacoesTab session={session} company={company} />}
       {tab === 'dispositivos' && <DispositivosTab session={session} company={company} />}
     </div>
   )
