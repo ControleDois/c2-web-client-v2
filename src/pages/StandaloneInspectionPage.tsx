@@ -2,7 +2,13 @@ import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type T
 import { createVehicleInspection } from '../lib/vehicleInspections'
 import { fetchVehicles, type VehicleRecord } from '../lib/vehicles'
 import { fetchConfig } from '../lib/config'
-import { FUEL_LEVEL_OPTIONS } from '../lib/sales'
+import {
+  FUEL_LEVEL_OPTIONS,
+  fetchSales,
+  updateVehicleRentalOperation,
+  VEHICLE_RENTAL_STATUS_LABELS,
+  type SaleRecord,
+} from '../lib/sales'
 import { ApiError } from '../lib/api'
 import { SearchSelectField } from '../components/form/SearchSelectField'
 import { SelectField } from '../components/form/SelectField'
@@ -62,6 +68,16 @@ export function StandaloneInspectionPage({ session, company, onBack, onSaved }: 
   const [fuelLevel, setFuelLevel] = useState('')
   const [location, setLocation] = useState('')
 
+  // Se o veículo escolhido tem um aluguel em andamento (Pendente ou
+  // Retirado), oferece vincular esta vistoria a ele como retirada/devolução
+  // - é o que faz a vistoria avulsa também atualizar a data de
+  // entrega/devolução do contrato, em vez de ficar solta sem efeito nenhum
+  // no aluguel.
+  const [activeRentalSale, setActiveRentalSale] = useState<SaleRecord | null>(null)
+  const [loadingRental, setLoadingRental] = useState(false)
+  const [linkRental, setLinkRental] = useState(false)
+  const [rentalOperation, setRentalOperation] = useState<'pickup' | 'return'>('return')
+
   const [detailedRequired, setDetailedRequired] = useState<boolean | null>(null)
   const [slots, setSlots] = useState<PhotoSlot[]>([])
   const [submitting, setSubmitting] = useState(false)
@@ -85,6 +101,40 @@ export function StandaloneInspectionPage({ session, company, onBack, onSaved }: 
       cancelled = true
     }
   }, [session.token.token, company.id])
+
+  useEffect(() => {
+    setActiveRentalSale(null)
+    setLinkRental(false)
+    if (!vehicle) return
+
+    let cancelled = false
+    setLoadingRental(true)
+    fetchSales(session.token.token, company.id, { vehicleId: vehicle.id, limit: 20 })
+      .then((res) => {
+        if (cancelled) return
+        const active = (res.data || []).find((sale) => {
+          const status = Number(sale.vehicleRentalContract?.status ?? -1)
+          return status === 0 || status === 1
+        })
+        if (active) {
+          setActiveRentalSale(active)
+          setLinkRental(true)
+          // Pendente (ainda não retirado) → isso é a retirada; Retirado →
+          // só pode ser a devolução.
+          setRentalOperation(Number(active.vehicleRentalContract?.status) === 1 ? 'return' : 'pickup')
+        }
+      })
+      .catch(() => {
+        // Falha silenciosa - vincular ao aluguel é um extra, não pode
+        // travar a vistoria em si.
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingRental(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [vehicle, session.token.token, company.id])
 
   const [cameraSlotIndex, setCameraSlotIndex] = useState<number | null>(null)
   const [videoStream, setVideoStream] = useState<MediaStream | null>(null)
@@ -362,7 +412,7 @@ export function StandaloneInspectionPage({ session, company, onBack, onSaved }: 
           ? dataURLtoFile(ownerSignatureCanvasRef.current.toDataURL('image/png'), `assinatura_proprietario_${Date.now()}.png`)
           : undefined
 
-      await createVehicleInspection(session.token.token, {
+      const result = await createVehicleInspection(session.token.token, {
         company_id: company.id,
         vehicle_id: vehicle!.id,
         user_id: myCompanyPerson?.id,
@@ -372,6 +422,45 @@ export function StandaloneInspectionPage({ session, company, onBack, onSaved }: 
         driver_signature: userSignature,
         driver_signer_name: userSignerName || undefined,
       })
+
+      // Vincula ao aluguel em andamento (se marcado) - é isso que faz a
+      // data de entrega/devolução do contrato acompanhar a vistoria, em vez
+      // de a vistoria ficar solta sem efeito nenhum nele.
+      if (linkRental && activeRentalSale) {
+        const nowISO = new Date().toISOString()
+        try {
+          if (rentalOperation === 'pickup') {
+            await updateVehicleRentalOperation(session.token.token, activeRentalSale.id, {
+              pickupDate: nowISO,
+              pickupOdometer: odometer ? Number(odometer) : undefined,
+              pickupFuelLevel: fuelLevel || undefined,
+              pickupLocation: location || undefined,
+              pickupInspectionId: result.data.id,
+              status: 1,
+            })
+          } else {
+            await updateVehicleRentalOperation(session.token.token, activeRentalSale.id, {
+              returnDate: nowISO,
+              returnOdometer: odometer ? Number(odometer) : undefined,
+              returnFuelLevel: fuelLevel || undefined,
+              returnLocation: location || undefined,
+              returnInspectionId: result.data.id,
+              status: 2,
+            })
+          }
+        } catch (linkErr) {
+          // A vistoria já foi salva - só o vínculo com o aluguel falhou.
+          // Avisa e deixa na tela pra não perder o contexto (o operador pode
+          // tentar de novo pela tela do aluguel, vinculando essa vistoria).
+          setError(
+            `Vistoria salva, mas não foi possível atualizar o aluguel: ${
+              linkErr instanceof ApiError ? linkErr.message : 'erro desconhecido'
+            }`
+          )
+          setSubmitting(false)
+          return
+        }
+      }
 
       onSaved()
     } catch (err) {
@@ -427,6 +516,59 @@ export function StandaloneInspectionPage({ session, company, onBack, onSaved }: 
               />
             </div>
           </div>
+
+          {loadingRental && (
+            <p className="mt-3 text-[12px] text-[var(--muted)]">Verificando aluguéis em andamento deste veículo…</p>
+          )}
+
+          {activeRentalSale && (
+            <div className="mt-3 rounded-xl border border-[var(--blue-300)] bg-[var(--blue-100)] p-3.5">
+              <label className="flex items-start gap-2.5">
+                <input
+                  type="checkbox"
+                  checked={linkRental}
+                  onChange={(event) => setLinkRental(event.target.checked)}
+                  className="mt-0.5 h-4 w-4 flex-none accent-[var(--blue-500)]"
+                />
+                <span className="text-[12.5px] text-[var(--blue-700)]">
+                  <span className="font-bold">
+                    Vincular a este aluguel — #{activeRentalSale.internal_code ?? activeRentalSale.code} ·{' '}
+                    {activeRentalSale.vehicleRentalContract?.renter?.name || '—'} (
+                    {VEHICLE_RENTAL_STATUS_LABELS[Number(activeRentalSale.vehicleRentalContract?.status)] ?? '—'})
+                  </span>
+                  <br />
+                  Atualiza a data de entrega/devolução do contrato com o horário desta vistoria.
+                </span>
+              </label>
+
+              {linkRental && (
+                <div className="mt-3 flex w-fit gap-1 rounded-xl bg-[var(--surface)] p-1">
+                  <button
+                    type="button"
+                    onClick={() => setRentalOperation('pickup')}
+                    className={`rounded-lg px-3.5 py-1.5 text-[12px] font-semibold transition ${
+                      rentalOperation === 'pickup'
+                        ? 'bg-[var(--blue-500)] text-white'
+                        : 'text-[var(--ink-soft)] hover:text-[var(--ink)]'
+                    }`}
+                  >
+                    É a retirada
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRentalOperation('return')}
+                    className={`rounded-lg px-3.5 py-1.5 text-[12px] font-semibold transition ${
+                      rentalOperation === 'return'
+                        ? 'bg-[var(--blue-500)] text-white'
+                        : 'text-[var(--ink-soft)] hover:text-[var(--ink)]'
+                    }`}
+                  >
+                    É a devolução
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="mt-4 grid gap-4 sm:grid-cols-3">
             <label className="flex flex-col gap-1.5">
