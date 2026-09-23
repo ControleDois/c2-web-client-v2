@@ -96,6 +96,50 @@ function frequencyLabel(frequency?: string | null): string {
   return RENTAL_FREQUENCY_LABELS[frequency] ?? frequency
 }
 
+interface RentalDueInfo {
+  status: 'vencido' | 'vence_hoje' | 'em_dia'
+  days: number
+}
+
+// Mesma lógica visual do módulo de Empréstimo (computeNextDue em
+// loanModalities.ts): compara a data de fim com hoje, em horário local (por
+// isso o "T00:00:00" — sem isso o parser trata como UTC e a data pode virar
+// o dia anterior aqui no fuso do Brasil). Devolvido (status 2) não tem
+// vencimento a acompanhar — o aluguel já encerrou de fato.
+function rentalDueInfo(contract: VehicleRentalContractRecord): RentalDueInfo | null {
+  if (Number(contract.status) === 2 || !contract.endDate) return null
+
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const due = new Date(`${contract.endDate.slice(0, 10)}T00:00:00`)
+  const diffDays = Math.round((due.getTime() - today.getTime()) / 86400000)
+
+  if (diffDays < 0) return { status: 'vencido', days: -diffDays }
+  if (diffDays === 0) return { status: 'vence_hoje', days: 0 }
+  return { status: 'em_dia', days: diffDays }
+}
+
+function RentalDueBadge({ contract }: { contract: VehicleRentalContractRecord }) {
+  const info = rentalDueInfo(contract)
+  if (!info) return null
+
+  if (info.status === 'vencido') {
+    return (
+      <p className="text-[11px] font-bold text-[var(--red-500)]">
+        {info.days === 1 ? 'Vencido há 1 dia' : `Vencido há ${info.days} dias`}
+      </p>
+    )
+  }
+  if (info.status === 'vence_hoje') {
+    return <p className="text-[11px] font-bold text-[var(--amber-500)]">Vence hoje</p>
+  }
+  return (
+    <p className="text-[11px] text-[var(--muted)]">
+      {info.days === 1 ? 'Vence em 1 dia' : `Vence em ${info.days} dias`}
+    </p>
+  )
+}
+
 function rentalUnits(contract: VehicleRentalContractRecord): number | null {
   if (!contract.startDate || !contract.endDate) return null
   const start = new Date(contract.startDate)
@@ -152,8 +196,10 @@ export function VehicleRentalsPage({ session, company, onCreate, onEdit }: Vehic
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [dateType, setDateType] = useState<RentalDateType>('period')
-  const [sortField, setSortField] = useState<SortField>('code')
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
+  // Padrão: quem está vencendo primeiro aparece no topo — é o que importa
+  // no dia a dia (saber quem precisa renovar/devolver logo).
+  const [sortField, setSortField] = useState<SortField>('period')
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
   const [page, setPage] = useState(1)
   const [sales, setSales] = useState<SaleRecord[]>([])
   const [loading, setLoading] = useState(true)
@@ -289,8 +335,8 @@ export function VehicleRentalsPage({ session, company, onCreate, onEdit }: Vehic
     })
   }, [sales, search, statusFilter, vehicleFilter, personFilter, dateFrom, dateTo, dateType])
 
-  // Padrão vem dos últimos aluguéis primeiro (por código, o nº sequencial) —
-  // as colunas clicáveis na tabela deixam reordenar por período/valor/status.
+  // Padrão vem de quem está vencendo primeiro (menor data de fim) — as
+  // colunas clicáveis na tabela deixam reordenar por período/valor/status.
   const sorted = useMemo(() => {
     const items = [...filtered]
     const direction = sortDirection === 'asc' ? 1 : -1
@@ -299,8 +345,13 @@ export function VehicleRentalsPage({ session, company, onCreate, onEdit }: Vehic
       const contractB = b.vehicleRentalContract
       switch (sortField) {
         case 'period': {
-          const aTime = contractA?.startDate ? new Date(contractA.startDate).getTime() : 0
-          const bTime = contractB?.startDate ? new Date(contractB.startDate).getTime() : 0
+          // Sem data de fim vai sempre pro final da lista, não importa a
+          // direção — não tem "vencimento" pra comparar.
+          const aTime = contractA?.endDate ? new Date(contractA.endDate).getTime() : Number.POSITIVE_INFINITY
+          const bTime = contractB?.endDate ? new Date(contractB.endDate).getTime() : Number.POSITIVE_INFINITY
+          if (aTime === Number.POSITIVE_INFINITY && bTime === Number.POSITIVE_INFINITY) return 0
+          if (aTime === Number.POSITIVE_INFINITY) return 1
+          if (bTime === Number.POSITIVE_INFINITY) return -1
           return (aTime - bTime) * direction
         }
         case 'value': {
@@ -597,6 +648,7 @@ export function VehicleRentalsPage({ session, company, onCreate, onEdit }: Vehic
                 const units = rentalUnits(contract)
                 const periodValue = rentalPeriodValue(contract)
                 const total = rentalTotalValue(contract)
+                const dueInfo = rentalDueInfo(contract)
                 return (
                   <div
                     key={sale.id}
@@ -625,11 +677,16 @@ export function VehicleRentalsPage({ session, company, onCreate, onEdit }: Vehic
                           <TruckIcon className="h-3.5 w-3.5 flex-none text-[var(--muted)]" />
                           {vehicleLabel(sale)}
                         </p>
-                        <p className="mt-0.5 text-[12px] text-[var(--muted)]">
+                        <p
+                          className={`mt-0.5 text-[12px] ${
+                            dueInfo?.status === 'vencido' ? 'font-semibold text-[var(--red-500)]' : 'text-[var(--muted)]'
+                          }`}
+                        >
                           {contract.startDate ? formatDate(contract.startDate) : '—'}
                           {contract.endDate ? ` – ${formatDate(contract.endDate)}` : ''}
                           {units !== null ? ` (${rentalUnitsLabel(contract.rentalFrequency, units)})` : ''}
                         </p>
+                        <RentalDueBadge contract={contract} />
                         <p className="mt-0.5 text-[12px] text-[var(--muted)]">
                           {contract.purchaseOption ? 'Parcela' : frequencyLabel(contract.rentalFrequency)}:{' '}
                           {periodValue !== null ? formatCurrency(periodValue) : '—'}
@@ -715,6 +772,7 @@ export function VehicleRentalsPage({ session, company, onCreate, onEdit }: Vehic
                     const units = rentalUnits(contract)
                     const periodValue = rentalPeriodValue(contract)
                     const total = rentalTotalValue(contract)
+                    const dueInfo = rentalDueInfo(contract)
                     return (
                       <tr
                         key={sale.id}
@@ -751,7 +809,7 @@ export function VehicleRentalsPage({ session, company, onCreate, onEdit }: Vehic
                           </div>
                         </td>
                         <td className="px-2 py-2.5 text-[var(--ink-soft)]">
-                          <p>
+                          <p className={dueInfo?.status === 'vencido' ? 'font-semibold text-[var(--red-500)]' : undefined}>
                             {contract.startDate ? formatDate(contract.startDate) : '—'}
                             {contract.endDate ? ` – ${formatDate(contract.endDate)}` : ''}
                           </p>
@@ -760,6 +818,7 @@ export function VehicleRentalsPage({ session, company, onCreate, onEdit }: Vehic
                               {rentalUnitsLabel(contract.rentalFrequency, units)}
                             </p>
                           )}
+                          <RentalDueBadge contract={contract} />
                         </td>
                         <td className="px-2 py-2.5 text-right font-semibold text-[var(--ink)]">
                           {periodValue !== null ? formatCurrency(periodValue) : '—'}
