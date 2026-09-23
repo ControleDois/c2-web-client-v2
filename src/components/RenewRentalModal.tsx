@@ -113,15 +113,32 @@ export function RenewRentalModal({ open, session, company, sale, onClose, onSucc
 
   const quantityNum = Number(quantity) || 0
   const rate = parseAmount(ratePerPeriod)
-  const newEndDate = useMemo(() => {
+
+  // addPeriodsToDate soma N períodos "estilo checkout" (fim exclusivo — o
+  // mesmo jeito que um contrato novo guarda início/fim, ver
+  // computeRentalUnits em rentalPlots.ts): renovar por 7 diárias a partir de
+  // amanhã dá checkout daqui a 8 dias, não 7. É o valor certo pra alimentar
+  // buildPeriodPlots (senão sai uma parcela a menos), mas NÃO é o que o
+  // cliente entende como "vencimento".
+  const plotsEndDate = useMemo(() => {
     if (!contract || !newStartDate || quantityNum <= 0) return ''
     return addPeriodsToDate(contract.rentalFrequency, newStartDate, quantityNum)
   }, [contract, newStartDate, quantityNum])
 
+  // Último dia de uso de fato (checkout - 1 dia) - é isso que aparece pro
+  // usuário e que é salvo como fim do período renovado. Bug relatado:
+  // renovar um contrato que vencia hoje por mais 7 dias tem que vencer
+  // daqui a 7 dias, e o cálculo antigo (baseado só no checkout) jogava o
+  // vencimento um dia além do esperado.
+  const newEndDate = useMemo(() => {
+    if (!plotsEndDate) return ''
+    return addDaysToDate(plotsEndDate, -1)
+  }, [plotsEndDate])
+
   const plotsPreview = useMemo(() => {
-    if (!contract || !newStartDate || !newEndDate || !rate) return []
-    return buildPeriodPlots(contract.rentalFrequency, newStartDate, newEndDate, rate)
-  }, [contract, newStartDate, newEndDate, rate])
+    if (!contract || !newStartDate || !plotsEndDate || !rate) return []
+    return buildPeriodPlots(contract.rentalFrequency, newStartDate, plotsEndDate, rate)
+  }, [contract, newStartDate, plotsEndDate, rate])
 
   const previewTotal = plotsPreview.reduce((sum, plot) => sum + plot.amount, 0)
 
