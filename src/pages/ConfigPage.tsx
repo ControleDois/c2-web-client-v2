@@ -154,6 +154,7 @@ function buildConfigPayload(companyId: string, config: ConfigRecord | null): Con
 
     billing_whatsapp_enabled: config?.billing_whatsapp_enabled ?? false,
     billing_whatsapp_ai_mode: config?.billing_whatsapp_ai_mode ?? false,
+    billing_auto_generate_pix: config?.billing_auto_generate_pix ?? false,
     billing_whatsapp_start_time: config?.billing_whatsapp_start_time ?? undefined,
     billing_whatsapp_min_interval_minutes: config?.billing_whatsapp_min_interval_minutes ?? undefined,
     billing_whatsapp_max_interval_minutes: config?.billing_whatsapp_max_interval_minutes ?? undefined,

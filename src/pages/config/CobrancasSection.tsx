@@ -185,6 +185,22 @@ export function CobrancasSection({ value, onChange }: CobrancasSectionProps) {
                 Usar IA para gerar as mensagens (os textos abaixo passam a servir apenas como referência de tom)
               </span>
             </label>
+            <label className="flex items-center gap-2.5">
+              <input
+                type="checkbox"
+                checked={Boolean(value.billing_auto_generate_pix)}
+                onChange={(event) => onChange({ billing_auto_generate_pix: event.target.checked })}
+                className="h-4 w-4 accent-[var(--blue-500)]"
+              />
+              <span className="text-[13.5px] font-semibold text-[var(--ink)]">
+                Gerar PIX e enviar na cobrança
+              </span>
+            </label>
+            <p className="pl-7 text-[12px] text-[var(--ink-soft)]">
+              Se marcado, ao disparar o lembrete de cobrança o sistema gera o PIX automaticamente (quando o título
+              ainda não tiver PIX nem boleto) e manda o botão de pagamento junto, sem precisar gerar manualmente
+              antes em Contas a Receber.
+            </p>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

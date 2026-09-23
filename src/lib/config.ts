@@ -180,6 +180,7 @@ export interface ConfigRecord {
   // Cobranças
   billing_whatsapp_enabled?: boolean
   billing_whatsapp_ai_mode?: boolean
+  billing_auto_generate_pix?: boolean
   billing_whatsapp_start_time?: string | null
   billing_whatsapp_min_interval_minutes?: number | null
   billing_whatsapp_max_interval_minutes?: number | null
@@ -335,6 +336,7 @@ export interface ConfigPayload {
 
   billing_whatsapp_enabled?: boolean
   billing_whatsapp_ai_mode?: boolean
+  billing_auto_generate_pix?: boolean
   billing_whatsapp_start_time?: string
   billing_whatsapp_min_interval_minutes?: number
   billing_whatsapp_max_interval_minutes?: number
