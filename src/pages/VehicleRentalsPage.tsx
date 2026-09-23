@@ -249,7 +249,7 @@ export function VehicleRentalsPage({ session, company, onCreate, onEdit }: Vehic
     }
     setError(null)
 
-    fetchSales(session.token.token, company.id, { limit: 5000 })
+    fetchSales(session.token.token, company.id, { limit: 5000, scope: 'rental' })
       .then((res) => {
         if (cancelled) return
         const rentals = (res.data || []).filter((sale) => sale.vehicleRentalContract)
@@ -276,7 +276,7 @@ export function VehicleRentalsPage({ session, company, onCreate, onEdit }: Vehic
   }, [search, statusFilter, vehicleFilter, personFilter, dateFrom, dateTo, dateType, sortField, sortDirection])
 
   function reload() {
-    fetchSales(session.token.token, company.id, { limit: 5000 })
+    fetchSales(session.token.token, company.id, { limit: 5000, scope: 'rental' })
       .then((res) => {
         const rentals = (res.data || []).filter((sale) => sale.vehicleRentalContract)
         setSales(rentals)

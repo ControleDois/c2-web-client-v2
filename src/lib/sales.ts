@@ -259,7 +259,18 @@ export const VEHICLE_SALE_STATUS_LABELS: Record<number, string> = {
 export function fetchSales(
   token: string,
   companyId: string,
-  options: { search?: string; page?: number; limit?: number; vehicleId?: string; withBills?: boolean } = {}
+  options: {
+    search?: string
+    page?: number
+    limit?: number
+    vehicleId?: string
+    withBills?: boolean
+    // 'rental' pula os preloads de venda de veículo/expedição/NFe no
+    // backend (não usados nas telas de Locação) - deixa a listagem bem
+    // mais rápida em empresas com muitas vendas. Só usar em telas que
+    // realmente não precisam desses dados.
+    scope?: 'rental'
+  } = {}
 ) {
   return apiGet<Paginated<SaleRecord>>(
     '/sale',
@@ -270,6 +281,7 @@ export function fetchSales(
       limit: options.limit ? String(options.limit) : '5000',
       vehicleId: options.vehicleId,
       withBills: options.withBills ? 'true' : undefined,
+      scope: options.scope,
     },
     token
   )
