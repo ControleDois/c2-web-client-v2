@@ -51,6 +51,15 @@ export interface VehicleRentalContractRecord {
   owner?: SalePerson | null
   driver?: SalePerson | null
   vehicle?: SaleVehicleRef | null
+  // Só vem preenchido na resposta de updateVehicleRentalOperation quando a
+  // devolução registrada é antes do fim contratado e ainda existem parcelas
+  // pendentes de dias que não vão mais acontecer.
+  earlyReturn?: {
+    contractedEndDate: string
+    actualReturnDate: string
+    pendingBillsCount: number
+    pendingBillsTotal: number
+  } | null
 }
 
 export interface VehicleSaleContractRecord {
@@ -317,6 +326,17 @@ export function sendSaleContractLink(token: string, id: string, whatsappId: stri
 
 export function updateVehicleRentalOperation(token: string, id: string, payload: VehicleRentalOperationPayload) {
   return apiPut<VehicleRentalContractRecord>(`/sale/${id}/vehicle-rental-operation`, payload, token)
+}
+
+// Cancela as parcelas pendentes referentes a dias após a devolução - só
+// deve ser chamado depois que o usuário confirma o aviso de devolução
+// antecipada (ver VehicleRentalContractRecord.earlyReturn).
+export function recalculateRentalBills(token: string, saleId: string) {
+  return apiPost<{ message: string; cancelled_count: number; cancelled_total: number }>(
+    `/sale/${saleId}/recalculate-rental-bills`,
+    {},
+    token
+  )
 }
 
 export function updateVehicleSaleOperation(token: string, id: string, payload: VehicleSaleOperationPayload) {

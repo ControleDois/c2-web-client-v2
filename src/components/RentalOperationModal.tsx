@@ -1,11 +1,18 @@
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type TouchEvent as ReactTouchEvent } from 'react'
-import { updateVehicleRentalOperation, FUEL_LEVEL_OPTIONS, type SaleRecord } from '../lib/sales'
+import {
+  updateVehicleRentalOperation,
+  recalculateRentalBills,
+  FUEL_LEVEL_OPTIONS,
+  type SaleRecord,
+  type VehicleRentalContractRecord,
+} from '../lib/sales'
 import { createVehicleInspection, fetchVehicleInspections, type VehicleInspectionRecord } from '../lib/vehicleInspections'
 import { ApiError } from '../lib/api'
-import { formatDateTime } from '../lib/format'
+import { formatDate, formatDateTime, formatCurrency } from '../lib/format'
 import { CameraIcon, PaperclipIcon, CheckCircleIcon, CloseIcon, TrashIcon } from './icons'
 import { useMyCompanyPerson } from '../hooks/useMyCompanyPerson'
 import { SelectField } from './form/SelectField'
+import { ConfirmDialog } from './ConfirmDialog'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
 export type OperationMode = 'pickup' | 'return'
@@ -62,6 +69,14 @@ export function RentalOperationModal({ session, company, sale, mode, detailedReq
   const [slots, setSlots] = useState<PhotoSlot[]>(() => (detailedRequired ? buildInitialSlots() : []))
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Devolução antecipada (veículo voltou antes do fim contratado) - vem
+  // preenchido pelo backend junto com a resposta de updateVehicleRentalOperation
+  // quando ainda existem parcelas pendentes de dias que não vão mais
+  // acontecer. Fica pendente de resposta do usuário antes de fechar o modal.
+  const [earlyReturnInfo, setEarlyReturnInfo] = useState<NonNullable<VehicleRentalContractRecord['earlyReturn']> | null>(null)
+  const [recalculating, setRecalculating] = useState(false)
+  const [recalculateError, setRecalculateError] = useState<string | null>(null)
 
   const [inspectionMode, setInspectionMode] = useState<'new' | 'existing'>('new')
   const [existingInspections, setExistingInspections] = useState<VehicleInspectionRecord[]>([])
@@ -400,7 +415,7 @@ export function RentalOperationModal({ session, company, sale, mode, detailedReq
           status: 1,
         })
       } else {
-        await updateVehicleRentalOperation(session.token.token, sale.id, {
+        const updated = await updateVehicleRentalOperation(session.token.token, sale.id, {
           returnDate: nowISO,
           returnOdometer: odometer ? Number(odometer) : undefined,
           returnFuelLevel: fuelLevel || undefined,
@@ -408,6 +423,15 @@ export function RentalOperationModal({ session, company, sale, mode, detailedReq
           returnInspectionId: inspectionId,
           status: 2,
         })
+
+        // Devolução antecipada com parcelas pendentes de dias que não vão
+        // mais acontecer - pergunta antes de fechar, em vez de sair
+        // direto (ver handleConfirmRecalculate/handleSkipRecalculate).
+        if (updated.earlyReturn && updated.earlyReturn.pendingBillsCount > 0) {
+          setEarlyReturnInfo(updated.earlyReturn)
+          setSubmitting(false)
+          return
+        }
       }
 
       onCompleted()
@@ -416,6 +440,26 @@ export function RentalOperationModal({ session, company, sale, mode, detailedReq
     } finally {
       setSubmitting(false)
     }
+  }
+
+  async function handleConfirmRecalculate() {
+    setRecalculating(true)
+    setRecalculateError(null)
+    try {
+      await recalculateRentalBills(session.token.token, sale.id)
+      setEarlyReturnInfo(null)
+      onCompleted()
+    } catch (err) {
+      setRecalculateError(err instanceof ApiError ? err.message : 'Não foi possível recalcular as parcelas.')
+    } finally {
+      setRecalculating(false)
+    }
+  }
+
+  function handleSkipRecalculate() {
+    // A devolução já foi registrada - só não mexe nas parcelas pendentes.
+    setEarlyReturnInfo(null)
+    onCompleted()
   }
 
   return (
@@ -807,6 +851,30 @@ export function RentalOperationModal({ session, company, sale, mode, detailedReq
     )}
 
     <canvas ref={canvasRef} className="hidden" />
+
+    <ConfirmDialog
+      open={Boolean(earlyReturnInfo)}
+      title="Devolução antecipada"
+      message={
+        earlyReturnInfo
+          ? `O veículo foi devolvido em ${formatDate(earlyReturnInfo.actualReturnDate)} — antes do fim contratado (${formatDate(
+              earlyReturnInfo.contractedEndDate
+            )}). Existe${earlyReturnInfo.pendingBillsCount === 1 ? '' : 'm'} ${earlyReturnInfo.pendingBillsCount} parcela${
+              earlyReturnInfo.pendingBillsCount === 1 ? '' : 's'
+            } pendente${earlyReturnInfo.pendingBillsCount === 1 ? '' : 's'} referente${
+              earlyReturnInfo.pendingBillsCount === 1 ? '' : 's'
+            } a dias que não vão mais acontecer, totalizando ${formatCurrency(earlyReturnInfo.pendingBillsTotal)}. Deseja recalcular (cancelar essas parcelas)?${
+              recalculateError ? `\n\n${recalculateError}` : ''
+            }`
+          : ''
+      }
+      confirmLabel={recalculating ? 'Recalculando…' : 'Recalcular parcelas'}
+      cancelLabel="Manter como está"
+      danger={false}
+      loading={recalculating}
+      onConfirm={handleConfirmRecalculate}
+      onCancel={handleSkipRecalculate}
+    />
     </>
   )
 }
