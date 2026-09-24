@@ -61,14 +61,17 @@ function buildConfigPayload(companyId: string, config: ConfigRecord | null): Con
     central_box_active: config?.central_box_active ?? 0,
     central_box_payment_methods: parseCentralBoxPaymentMethods(config?.central_box_payment_methods),
 
-    terminals: (config?.company?.terminals ?? []).map((terminal) => ({
-      id: terminal.id,
-      name: terminal.name ?? '',
-      active: terminal.active ?? true,
-      api_url: terminal.api_url ?? undefined,
-      nfe_active: terminal.nfe_active ?? 0,
-      nfce_active: terminal.nfce_active ?? 0,
-    })),
+    // Espelha todo terminal recebido (menos code/natureOperation, só
+    // leitura) - undefined vira ausência do campo no objeto, então cada
+    // seção pode continuar usando `?? valorPadrão` normalmente.
+    terminals: (config?.company?.terminals ?? []).map((terminal) => {
+      const { code: _code, natureOperation: _natureOperation, ...rest } = terminal
+      return {
+        ...rest,
+        name: terminal.name ?? '',
+        active: terminal.active ?? true,
+      }
+    }),
 
     vehicle_inspection_detailed_required: config?.vehicle_inspection_detailed_required ?? false,
     purchase_management_enabled: config?.purchase_management_enabled ?? false,
@@ -417,7 +420,9 @@ export function ConfigPage({ session, company, onNavigate, onSaved }: ConfigPage
               {activeTab === 'fiscal' && (
                 <FiscalSection value={formState} onChange={handleChange} config={config} session={session} company={company} />
               )}
-              {activeTab === 'terminais' && <TerminaisSection value={formState} onChange={handleChange} />}
+              {activeTab === 'terminais' && (
+                <TerminaisSection value={formState} onChange={handleChange} config={config} session={session} company={company} />
+              )}
               {activeTab === 'ponto' && (
                 <PontoSection
                   value={formState}

@@ -213,29 +213,74 @@ export interface ConfigRecord {
   company?: { system_type?: number; shop?: ShopRecord | null; terminals?: CompanyTerminalRecord[] } | null
 }
 
-// Terminal (PDV) - o operador escolhe um desses ao entrar no PDV; quando o
-// terminal tem api_url próprio (servidor Delphi rodando na máquina do
-// cliente), a emissão da NF-e/NFC-e passa a usar esse link em vez do
-// servidor padrão. Só os campos usados pelo vínculo com o PDV - o cadastro
-// completo (impressora, certificado, TEF, balança) é legado do sistema
-// desktop e continua existindo só no banco.
+// Terminal (PDV) - o operador escolhe um desses ao entrar no PDV. Espelha
+// 1:1 as colunas de company_terminals (campos NF-e/NFC-e/impressora/
+// certificado/balança/TEF são do sistema desktop legado - continuam
+// existindo aqui pra edição centralizada, mesmo que o PDV web hoje só use
+// name/active/api_url).
 export interface CompanyTerminalRecord {
   id: string
   code?: number
   name?: string | null
   active?: boolean
+
   api_url?: string | null
+  path_server?: string | null
+
+  nfeNatureOperationId?: string | null
+  natureOperation?: { id: string; description: string } | null
   nfe_active?: number
+  nfe_serie?: number
+  nfe_numero?: number
+  nfe_ambiente?: number
+  nfe_nome_impressora?: string | null
+
   nfce_active?: number
+  nfce_serie?: number
+  nfce_numero?: number
+  nfce_ambiente?: number
+  nfce_id_token?: number | null
+  nfce_csc?: string | null
+  nfce_nome_impressora?: string | null
+  nfce_impressora_largura_bonina?: number
+
+  printer_path?: string | null
+  certificate_path?: string | null
+  certificate_password?: string | null
+
+  balance_model?: number
+  balance_hand_shake?: number
+  balance_parity?: number
+  balance_stop?: number
+  balance_data?: number
+  balance_baud?: number
+  balance_path?: string | null
+
+  tef_cnpj?: string | null
+  tef_ponto_captura?: number | null
+  tef_paygo_modelo?: number
+  tef_paygo_transacao_pendente?: number
+  tef_paygo_transacao_inicializacao?: number
+  tef_paygo_auto_atendimento?: boolean
+  tef_paygo_imprime_via_cliente_reduzida?: boolean
+  tef_paygo_confirma_transacao_autonomamente?: boolean
+  tef_paygo_suporta_desconto?: boolean
+  tef_paygo_suporta_saque?: boolean
+  tef_paygo_exibicao_qrcode?: number
+  tef_paygo_posprinter_modelo?: number
+  tef_paygo_posprinter_pagina_de_codigo?: number
+  tef_paygo_posprinter_porta?: string | null
+  tef_paygo_posprinter_colunas?: number
+  tef_paygo_posprinter_linhas?: number
+  tef_paygo_posprinter_espaco?: number
 }
 
-export interface CompanyTerminalPayload {
+// Mesmos campos do record, em payload de escrita (sem `code`/`natureOperation`
+// que são só leitura; `id` fica opcional - ausente = terminal novo).
+export type CompanyTerminalPayload = Omit<CompanyTerminalRecord, 'code' | 'natureOperation' | 'id'> & {
   id?: string
   name: string
   active: boolean
-  api_url?: string
-  nfe_active?: number
-  nfce_active?: number
 }
 
 export interface ShopPayload {
