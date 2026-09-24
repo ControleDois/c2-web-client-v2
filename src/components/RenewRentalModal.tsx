@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { createSale, fetchSale, VEHICLE_RENTAL_STATUS_LABELS, type SaleRecord } from '../lib/sales'
+import { createSale, fetchSale, VEHICLE_RENTAL_STATUS_LABELS, RENTAL_FREQUENCY_LABELS, type SaleRecord } from '../lib/sales'
 import { FORM_PAYMENT_LABELS } from '../lib/bills'
 import { fetchVehicles, type VehicleRecord } from '../lib/vehicles'
 import { addPeriodsToDate, buildPeriodPlots, rentalUnitsLabel } from '../lib/rentalPlots'
@@ -47,6 +47,10 @@ export function RenewRentalModal({ open, session, company, sale, onClose, onSucc
   const [loadError, setLoadError] = useState<string | null>(null)
 
   const [quantity, setQuantity] = useState('1')
+  // Cliente às vezes muda de ideia na renovação (ex: contrato era mensal,
+  // agora quer diária) - editável aqui igual na venda, em vez de travado na
+  // frequência do contrato anterior.
+  const [rentalFrequency, setRentalFrequency] = useState('monthly')
   const [ratePerPeriod, setRatePerPeriod] = useState('')
   const [formPayment, setFormPayment] = useState(9)
   const [newStartDate, setNewStartDate] = useState('')
@@ -63,6 +67,7 @@ export function RenewRentalModal({ open, session, company, sale, onClose, onSucc
     setError(null)
     setQuantity('1')
     setFormPayment(9)
+    setRentalFrequency('monthly')
     setLoadingDetail(true)
 
     fetchSale(session.token.token, sale.id)
@@ -70,6 +75,7 @@ export function RenewRentalModal({ open, session, company, sale, onClose, onSucc
         const contract = full.vehicleRentalContract
         setDetail(full)
         setRatePerPeriod(contract?.monthlyValue ? String(contract.monthlyValue) : '')
+        setRentalFrequency(contract?.rentalFrequency ?? 'monthly')
         // O fim do contrato já é o dia de checkout (exclusivo - é assim que
         // todo contrato guarda início/fim, ver computeRentalUnits em
         // rentalPlots.ts: as diárias vão do início até o dia ANTES do fim).
@@ -128,13 +134,13 @@ export function RenewRentalModal({ open, session, company, sale, onClose, onSucc
   // extra.
   const newEndDate = useMemo(() => {
     if (!contract || !newStartDate || quantityNum <= 0) return ''
-    return addPeriodsToDate(contract.rentalFrequency, newStartDate, quantityNum)
-  }, [contract, newStartDate, quantityNum])
+    return addPeriodsToDate(rentalFrequency, newStartDate, quantityNum)
+  }, [contract, newStartDate, quantityNum, rentalFrequency])
 
   const plotsPreview = useMemo(() => {
     if (!contract || !newStartDate || !newEndDate || !rate) return []
-    return buildPeriodPlots(contract.rentalFrequency, newStartDate, newEndDate, rate)
-  }, [contract, newStartDate, newEndDate, rate])
+    return buildPeriodPlots(rentalFrequency, newStartDate, newEndDate, rate)
+  }, [contract, newStartDate, newEndDate, rate, rentalFrequency])
 
   const previewTotal = plotsPreview.reduce((sum, plot) => sum + plot.amount, 0)
 
@@ -194,7 +200,7 @@ export function RenewRentalModal({ open, session, company, sale, onClose, onSucc
           startDate: newStartDate,
           endDate: newEndDate,
           billingDay: contract.billingDay || undefined,
-          rentalFrequency: contract.rentalFrequency,
+          rentalFrequency: rentalFrequency,
           monthlyValue: rate,
           pickupOdometer: pickupOdometerInput ? Number(pickupOdometerInput) : undefined,
         },
@@ -293,9 +299,20 @@ export function RenewRentalModal({ open, session, company, sale, onClose, onSucc
               )}
 
               <div className="grid gap-4 sm:grid-cols-2">
+                <SelectField
+                  label="Frequência"
+                  value={rentalFrequency}
+                  onChange={(event) => setRentalFrequency(event.target.value)}
+                >
+                  {Object.entries(RENTAL_FREQUENCY_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </SelectField>
                 <label className="flex flex-col gap-1.5">
                   <span className="text-[12px] font-semibold text-[var(--ink-soft)]">
-                    Renovar por quantos {frequencyUnitLabel(contract.rentalFrequency)}?
+                    Renovar por quantos {frequencyUnitLabel(rentalFrequency)}?
                   </span>
                   <input
                     type="number"
@@ -360,7 +377,7 @@ export function RenewRentalModal({ open, session, company, sale, onClose, onSucc
                     Novo período: {formatDate(newStartDate)} a {formatDate(newEndDate)}
                   </p>
                   <p className="mt-1 text-[12.5px] text-[var(--blue-700)]">
-                    {rentalUnitsLabel(contract.rentalFrequency, plotsPreview.length)} de {formatCurrency(rate)} = Total{' '}
+                    {rentalUnitsLabel(rentalFrequency, plotsPreview.length)} de {formatCurrency(rate)} = Total{' '}
                     {formatCurrency(previewTotal)}
                   </p>
                 </div>

@@ -189,6 +189,15 @@ export function VehicleRentalFormPage({ session, company, saleId, onBack, onSave
                 status: bill.status ?? 0,
               }))
             setPlots(loaded)
+            // Forma de pagamento das parcelas não vinha do contrato - ao editar,
+            // o seletor sempre voltava pro padrão (Dinheiro) mesmo quando as
+            // parcelas já existentes foram lançadas com outra forma, e clicar em
+            // "Atualizar parcelas pendentes" trocava todas de volta sem querer.
+            const existingFormPayment = res.data?.find((bill) => bill.form_payment !== undefined && bill.form_payment !== null)
+              ?.form_payment
+            if (existingFormPayment !== undefined && existingFormPayment !== null) {
+              setPlotsFormPayment(Number(existingFormPayment))
+            }
             setPlotsBaseline({
               startDate: contract?.startDate ? contract.startDate.slice(0, 10) : '',
               endDate: contract?.endDate ? contract.endDate.slice(0, 10) : '',

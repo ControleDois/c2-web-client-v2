@@ -23,6 +23,13 @@ function vehicleLabel(sale: SaleRecord) {
   return [vehicle.brand, vehicle.model, vehicle.license_plate].filter(Boolean).join(' · ') || '—'
 }
 
+// Valor pro input datetime-local (sempre em horário local, sem timezone) -
+// diferente de toISOString(), que converte pra UTC.
+function toDatetimeLocalValue(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
 interface PhotoSlot {
   id: string
   label: string
@@ -65,6 +72,10 @@ export function RentalOperationModal({ session, company, sale, mode, detailedReq
   const [odometer, setOdometer] = useState('')
   const [fuelLevel, setFuelLevel] = useState('')
   const [location, setLocation] = useState('')
+  // Só usado na devolução - deixa o operador registrar uma devolução que
+  // aconteceu antes (esqueceu de mexer no sistema na hora) em vez de sempre
+  // cravar o momento exato do clique.
+  const [returnDateInput, setReturnDateInput] = useState(() => toDatetimeLocalValue(new Date()))
 
   const [slots, setSlots] = useState<PhotoSlot[]>(() => (detailedRequired ? buildInitialSlots() : []))
   const [submitting, setSubmitting] = useState(false)
@@ -415,8 +426,12 @@ export function RentalOperationModal({ session, company, sale, mode, detailedReq
           status: 1,
         })
       } else {
+        // returnDateInput vem do <input type="datetime-local">, sempre em
+        // horário local - new Date(...) já interpreta certo (sem o bug de
+        // data pura tratada como UTC) e toISOString() converte pra gravar.
+        const returnDateISO = returnDateInput ? new Date(returnDateInput).toISOString() : nowISO
         const updated = await updateVehicleRentalOperation(session.token.token, sale.id, {
-          returnDate: nowISO,
+          returnDate: returnDateISO,
           returnOdometer: odometer ? Number(odometer) : undefined,
           returnFuelLevel: fuelLevel || undefined,
           returnLocation: location || undefined,
@@ -483,6 +498,23 @@ export function RentalOperationModal({ session, company, sale, mode, detailedReq
       </div>
 
       <div className="mx-auto flex w-full min-h-0 max-w-[900px] flex-1 flex-col overflow-y-auto px-4 py-6 sm:px-6">
+        {!isPickup && (
+          <div className="mb-4">
+            <label className="flex flex-col gap-1.5 sm:w-72">
+              <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Data e hora da devolução</span>
+              <input
+                type="datetime-local"
+                value={returnDateInput}
+                onChange={(event) => setReturnDateInput(event.target.value)}
+                className="w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
+              />
+            </label>
+            <p className="mt-1 text-[11px] text-[var(--muted)]">
+              Use se o veículo já foi devolvido antes e ninguém registrou na hora — o contrato fica marcado como
+              devolvido nessa data.
+            </p>
+          </div>
+        )}
         <div className="grid gap-4 sm:grid-cols-3">
           <label className="flex flex-col gap-1.5">
             <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Quilometragem</span>
