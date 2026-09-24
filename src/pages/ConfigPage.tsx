@@ -16,6 +16,7 @@ import { LojaOnlineSection } from './config/LojaOnlineSection'
 import { ComprasSection } from './config/ComprasSection'
 import { PontoSection } from './config/PontoSection'
 import { FiscalSection } from './config/FiscalSection'
+import { TerminaisSection } from './config/TerminaisSection'
 import { CategoriasProdutoSection } from './config/CategoriasProdutoSection'
 import { CheckCircleIcon } from '../components/icons'
 import type { AuthSession, AuthCompany } from '../lib/auth'
@@ -42,6 +43,7 @@ type ConfigTab =
   | 'compras'
   | 'categorias-produto'
   | 'fiscal'
+  | 'terminais'
   | 'ponto'
 
 interface TabDefinition {
@@ -58,6 +60,15 @@ function buildConfigPayload(companyId: string, config: ConfigRecord | null): Con
     sale_bank_account_default_id: config?.sale_bank_account_default_id ?? undefined,
     central_box_active: config?.central_box_active ?? 0,
     central_box_payment_methods: parseCentralBoxPaymentMethods(config?.central_box_payment_methods),
+
+    terminals: (config?.company?.terminals ?? []).map((terminal) => ({
+      id: terminal.id,
+      name: terminal.name ?? '',
+      active: terminal.active ?? true,
+      api_url: terminal.api_url ?? undefined,
+      nfe_active: terminal.nfe_active ?? 0,
+      nfce_active: terminal.nfce_active ?? 0,
+    })),
 
     vehicle_inspection_detailed_required: config?.vehicle_inspection_detailed_required ?? false,
     purchase_management_enabled: config?.purchase_management_enabled ?? false,
@@ -223,6 +234,7 @@ export function ConfigPage({ session, company, onNavigate, onSaved }: ConfigPage
       { key: 'compras', label: 'Compras', visible: true },
       { key: 'categorias-produto', label: 'Categorias de Produto', visible: true },
       { key: 'fiscal', label: 'Fiscal', visible: true },
+      { key: 'terminais', label: 'Terminais (PDV)', visible: true },
       { key: 'ponto', label: 'Ponto', visible: true },
     ],
     [systemType, company.is_master]
@@ -405,6 +417,7 @@ export function ConfigPage({ session, company, onNavigate, onSaved }: ConfigPage
               {activeTab === 'fiscal' && (
                 <FiscalSection value={formState} onChange={handleChange} config={config} session={session} company={company} />
               )}
+              {activeTab === 'terminais' && <TerminaisSection value={formState} onChange={handleChange} />}
               {activeTab === 'ponto' && (
                 <PontoSection
                   value={formState}

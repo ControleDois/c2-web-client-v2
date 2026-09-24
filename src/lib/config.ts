@@ -210,7 +210,32 @@ export interface ConfigRecord {
   time_clock_hours_month_divisor?: number
 
   // Loja Online (leitura — vem via preload company.shop no GET /config)
-  company?: { system_type?: number; shop?: ShopRecord | null } | null
+  company?: { system_type?: number; shop?: ShopRecord | null; terminals?: CompanyTerminalRecord[] } | null
+}
+
+// Terminal (PDV) - o operador escolhe um desses ao entrar no PDV; quando o
+// terminal tem api_url próprio (servidor Delphi rodando na máquina do
+// cliente), a emissão da NF-e/NFC-e passa a usar esse link em vez do
+// servidor padrão. Só os campos usados pelo vínculo com o PDV - o cadastro
+// completo (impressora, certificado, TEF, balança) é legado do sistema
+// desktop e continua existindo só no banco.
+export interface CompanyTerminalRecord {
+  id: string
+  code?: number
+  name?: string | null
+  active?: boolean
+  api_url?: string | null
+  nfe_active?: number
+  nfce_active?: number
+}
+
+export interface CompanyTerminalPayload {
+  id?: string
+  name: string
+  active: boolean
+  api_url?: string
+  nfe_active?: number
+  nfce_active?: number
 }
 
 export interface ShopPayload {
@@ -235,6 +260,10 @@ export interface ConfigPayload {
   sale_bank_account_default_id?: string
   central_box_active?: number
   central_box_payment_methods?: number[]
+
+  // Terminais (PDV) - lista completa substitui a atual (o backend
+  // deleta os que sumirem e faz upsert pelo id dos que ficarem).
+  terminals?: CompanyTerminalPayload[]
 
   vehicle_inspection_detailed_required?: boolean
 
@@ -442,7 +471,8 @@ function buildConfigForm(payload: ConfigPayload): FormData {
     if (
       key === 'protection_cancel_tracker_task_users' ||
       key === 'billing_whatsapp_rules' ||
-      key === 'central_box_payment_methods'
+      key === 'central_box_payment_methods' ||
+      key === 'terminals'
     ) {
       if (value !== undefined) form.append(key, JSON.stringify(value))
       continue
