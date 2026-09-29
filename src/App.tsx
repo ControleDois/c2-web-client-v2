@@ -57,6 +57,8 @@ import { LicensesPage } from './pages/LicensesPage'
 import { LicenseFormPage } from './pages/LicenseFormPage'
 import { AuditLogsPage } from './pages/AuditLogsPage'
 import { VehicleInspectionsPage } from './pages/VehicleInspectionsPage'
+import { SupportContractsPage } from './pages/SupportContractsPage'
+import { SupportVisitsPage } from './pages/SupportVisitsPage'
 import { LoanCustomerVerificationsPage } from './pages/LoanCustomerVerificationsPage'
 import { FinancingSalesPage } from './pages/FinancingSalesPage'
 import { FinancingFormPage } from './pages/FinancingFormPage'
@@ -704,6 +706,10 @@ function App() {
       pageContent = <AuditLogsPage session={session} company={activeCompany} />
     } else if (page === 'vehicle-inspections') {
       pageContent = <VehicleInspectionsPage session={session} company={activeCompany} />
+    } else if (page === 'support-contracts') {
+      pageContent = <SupportContractsPage session={session} company={activeCompany} />
+    } else if (page === 'support-visits') {
+      pageContent = <SupportVisitsPage session={session} company={activeCompany} />
     } else if (page === 'loan-customer-verifications') {
       pageContent = <LoanCustomerVerificationsPage session={session} company={activeCompany} />
     } else if (page === 'towing-collection') {

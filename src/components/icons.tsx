@@ -521,3 +521,12 @@ export function RefreshIcon(props: SVGProps<SVGSVGElement>) {
     </svg>
   )
 }
+
+export function CalendarIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" {...props}>
+      <rect x="3.5" y="4" width="13" height="12.5" rx="1.5" />
+      <path d="M3.5 8h13M7 2.5v3M13 2.5v3" strokeLinecap="round" />
+    </svg>
+  )
+}

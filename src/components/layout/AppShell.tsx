@@ -26,7 +26,7 @@ import {
   ClockIcon,
 } from '../icons'
 import { getCompanyName, type AuthCompany, type AuthSession } from '../../lib/auth'
-import { isLocacaoVeiculos, isEmprestimo, isPadaria, isNoVehicleNiche } from '../../lib/systemTypes'
+import { isLocacaoVeiculos, isEmprestimo, isPadaria, isNoVehicleNiche, isSoftwareHouse } from '../../lib/systemTypes'
 
 export type AppPage =
   | 'dashboard'
@@ -67,6 +67,8 @@ export type AppPage =
   | 'nfe-taxations'
   | 'licenses'
   | 'time-clock'
+  | 'support-contracts'
+  | 'support-visits'
 
 interface AppShellProps {
   session: AuthSession
@@ -146,6 +148,21 @@ function buildNavGroups(
       ],
     },
   ]
+
+  // Grupo exclusivo do nicho SoftwareHouse/TI - contratos de suporte
+  // recorrente e visitas técnicas (coleta de equipamento/atendimento no
+  // local), o equivalente de vistoria só que vinculado à pessoa, não ao
+  // veículo. Gate específico (não usa noVehicleNiche) pra não vazar pra
+  // Pizzaria/Lanchonete/Hamburgeria/Padaria.
+  if (isSoftwareHouse(systemType)) {
+    groups.push({
+      title: 'Suporte Técnico',
+      items: [
+        { page: 'support-contracts', label: 'Contratos de Suporte', icon: FileTextIcon },
+        { page: 'support-visits', label: 'Visitas Técnicas', icon: ClipboardCheckIcon },
+      ],
+    })
+  }
 
   // Empréstimo e os nichos sem veículo (Pizzaria/Lanchonete/Hamburgeria/
   // Padaria) não usam o grupo "Operação" (que é todo sobre vistoria/busca/

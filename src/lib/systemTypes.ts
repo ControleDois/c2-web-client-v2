@@ -1,5 +1,5 @@
 export const SYSTEM_TYPE_LABELS: Record<number, string> = {
-  0: 'SoftwareHouse / TI',
+  0: 'Padrão Geral',
   1: 'Proteção Veicular',
   2: 'Financeiro',
   3: 'Juros / Empréstimos',
@@ -17,6 +17,7 @@ export const SYSTEM_TYPE_LABELS: Record<number, string> = {
   15: 'Lanchonete',
   16: 'Hamburgeria',
   17: 'Padaria',
+  18: 'SoftwareHouse / TI',
 }
 
 export const SYSTEM_TYPE_PROTECAO_VEICULAR = 1
@@ -26,6 +27,7 @@ export const SYSTEM_TYPE_PIZZARIA = 14
 export const SYSTEM_TYPE_LANCHONETE = 15
 export const SYSTEM_TYPE_HAMBURGUERIA = 16
 export const SYSTEM_TYPE_PADARIA = 17
+export const SYSTEM_TYPE_SOFTWARE_HOUSE = 18
 // Loja Online cobre qualquer nicho com delivery/cardápio próprio (inclui os
 // 4 nichos de comida - Pizzaria/Lanchonete ficavam de fora antes por omissão,
 // não por design; corrigido junto da criação de Hamburgeria/Padaria).
@@ -65,12 +67,26 @@ export function isPadaria(systemType?: number): boolean {
   return systemType === SYSTEM_TYPE_PADARIA
 }
 
-// Pizzaria, Lanchonete, Hamburgeria e Padaria compartilham o traço "sem
-// veículo" (sem grupo Operação, sem relatório de faturamento do guincho) —
-// ficam como nichos distintos porque o menu Principal de cada um pode
-// divergir (ver Padaria acima).
+// Não confundir com o nicho 0 "Padrão Geral" (default histórico usado por
+// dezenas de empresas sem niche definido, de ramos bem diferentes) - esse
+// aqui é um nicho próprio e isolado, só pra empresa que presta serviço de
+// TI/software (ex: Prime Tech).
+export function isSoftwareHouse(systemType?: number): boolean {
+  return systemType === SYSTEM_TYPE_SOFTWARE_HOUSE
+}
+
+// Pizzaria, Lanchonete, Hamburgeria, Padaria e SoftwareHouse/TI compartilham
+// o traço "sem veículo" (sem grupo Operação, sem relatório de faturamento
+// do guincho) — ficam como nichos distintos porque o menu Principal de cada
+// um pode divergir (ver Padaria acima).
 export function isNoVehicleNiche(systemType?: number): boolean {
-  return isPizzaria(systemType) || isLanchonete(systemType) || isHamburgueria(systemType) || isPadaria(systemType)
+  return (
+    isPizzaria(systemType) ||
+    isLanchonete(systemType) ||
+    isHamburgueria(systemType) ||
+    isPadaria(systemType) ||
+    isSoftwareHouse(systemType)
+  )
 }
 
 export function isLojaOnline(systemType?: number): boolean {
