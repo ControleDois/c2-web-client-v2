@@ -27,6 +27,9 @@ export interface SupportVisitRecord {
   customer_signature_url?: string | null
   customer_signer_name?: string | null
   customer_signed_at?: string | null
+  technician_signature_url?: string | null
+  technician_signer_name?: string | null
+  technician_signed_at?: string | null
   created_at?: string
   people?: SupportVisitPerson | null
   user?: { id: string; name: string } | null
@@ -103,6 +106,8 @@ export interface CreateSupportVisitPayload {
   photos: CreateVisitPhoto[]
   customer_signature?: File
   customer_signer_name?: string
+  technician_signature?: File
+  technician_signer_name?: string
 }
 
 export function createSupportVisit(token: string, payload: CreateSupportVisitPayload) {
@@ -128,6 +133,11 @@ export function createSupportVisit(token: string, payload: CreateSupportVisitPay
   if (payload.customer_signature) {
     form.append('customer_signature', payload.customer_signature)
     if (payload.customer_signer_name) form.append('customer_signer_name', payload.customer_signer_name)
+  }
+
+  if (payload.technician_signature) {
+    form.append('technician_signature', payload.technician_signature)
+    if (payload.technician_signer_name) form.append('technician_signer_name', payload.technician_signer_name)
   }
 
   return apiPostForm<{ message: string; data: SupportVisitRecord }>('/support-visit', form, token)

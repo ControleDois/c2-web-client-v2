@@ -34,6 +34,9 @@ export interface SupportContractRecord {
   user?: { id: string; name: string } | null
   bills?: SupportContractBill[]
   created_at?: string
+  autentique_id?: string | null
+  autentique_public_id?: string | null
+  autentique_short_link?: string | null
 }
 
 interface Paginated<T> {
@@ -98,4 +101,33 @@ export function updateSupportContract(
 
 export function deleteSupportContract(token: string, id: string) {
   return apiDelete<{ id: string }>(`/support-contract/${id}`, token)
+}
+
+export function printSupportContract(token: string, id: string) {
+  return apiPost<{ url: string; html: string }>(`/support-contract/print-contract/${id}`, {}, token)
+}
+
+export function sendSupportContract(
+  token: string,
+  id: string,
+  payload: { contractTemplateId: string; whatsappId?: string }
+) {
+  return apiPost<{
+    fileUrl: string
+    contractLink: string
+    whatsappQueued: boolean
+    whatsappError: string | null
+  }>(`/support-contract/send-contract/${id}`, payload, token)
+}
+
+export function sendSupportContractLink(token: string, id: string, whatsappId: string) {
+  return apiPost<{ message: string; whatsappQueued: boolean }>(
+    `/support-contract/send-contract-link/${id}`,
+    { whatsappId },
+    token
+  )
+}
+
+export function getContractLink(contract: SupportContractRecord): string {
+  return contract.autentique_short_link || ''
 }

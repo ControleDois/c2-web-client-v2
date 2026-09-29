@@ -1,337 +1,72 @@
 import { useEffect, useState } from 'react'
 import {
   fetchSupportContracts,
-  createSupportContract,
-  updateSupportContract,
   deleteSupportContract,
+  updateSupportContract,
   SUPPORT_CONTRACT_STATUS_LABELS,
   type SupportContractRecord,
 } from '../lib/supportContracts'
-import { fetchPeople, type PersonRecord } from '../lib/people'
-import { fetchCategories, type CategoryRecord } from '../lib/categories'
-import { fetchBankAccounts, type BankAccountRecord } from '../lib/bankAccounts'
-import { FORM_PAYMENT_LABELS } from '../lib/bills'
 import { ApiError } from '../lib/api'
 import { formatCurrency, formatDate } from '../lib/format'
-import { SearchSelectField } from '../components/form/SearchSelectField'
-import { SelectField } from '../components/form/SelectField'
-import { TextField } from '../components/form/TextField'
+import { SearchIcon, PlusIcon, PencilIcon, TrashIcon, XCircleIcon, PrinterIcon, WhatsappIcon } from '../components/icons'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { RowActionsMenu, type RowAction } from '../components/RowActionsMenu'
-import {
-  PlusIcon,
-  WrenchIcon,
-  UserIcon,
-  WalletIcon,
-  CloseIcon,
-  XCircleIcon,
-  TrashIcon,
-  CalendarIcon,
-} from '../components/icons'
+import { SupportContractPreviewModal } from '../components/SupportContractPreviewModal'
+import { SupportContractSendModal } from '../components/SupportContractSendModal'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
 interface SupportContractsPageProps {
   session: AuthSession
   company: AuthCompany
-}
-
-function parseAmount(value: string): number {
-  if (!value) return 0
-  const normalized = value.includes(',') ? value.replace(/\./g, '').replace(',', '.') : value
-  const num = Number(normalized)
-  return Number.isNaN(num) ? 0 : num
+  onCreate: () => void
+  onEdit: (contract: SupportContractRecord) => void
 }
 
 function statusTone(status: number): string {
   return status === 1 ? 'bg-[var(--page)] text-[var(--muted)]' : 'bg-[var(--green-100)] text-[var(--green-600)]'
 }
 
-function NewContractModal({
-  session,
-  company,
-  onClose,
-  onCreated,
-}: {
-  session: AuthSession
-  company: AuthCompany
-  onClose: () => void
-  onCreated: () => void
-}) {
-  const [person, setPerson] = useState<PersonRecord | null>(null)
-  const [title, setTitle] = useState('Suporte Técnico Mensal')
-  const [monthlyValue, setMonthlyValue] = useState('')
-  const [billingDay, setBillingDay] = useState('10')
-  const [formPayment, setFormPayment] = useState(10)
-  const [categoryId, setCategoryId] = useState('')
-  const [categories, setCategories] = useState<CategoryRecord[]>([])
-  const [bankAccountId, setBankAccountId] = useState('')
-  const [bankAccounts, setBankAccounts] = useState<BankAccountRecord[]>([])
-  const [startDate, setStartDate] = useState(() => new Date().toISOString().slice(0, 10))
-  const [occurrences, setOccurrences] = useState('60')
-  const [notes, setNotes] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    fetchCategories(session.token.token, company.id, { role: 1, limit: 100 })
-      .then((res) => {
-        setCategories(res.data)
-        if (res.data.length) setCategoryId(res.data[0].id)
-      })
-      .catch(() => setCategories([]))
-    fetchBankAccounts(session.token.token, company.id, { limit: 100 })
-      .then((res) => {
-        setBankAccounts(res.data)
-        if (res.data.length) setBankAccountId(res.data[0].id)
-      })
-      .catch(() => setBankAccounts([]))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  async function handleSave() {
-    setError(null)
-    if (!person) {
-      setError('Selecione o cliente do contrato.')
-      return
-    }
-    if (!categoryId) {
-      setError('Selecione a categoria financeira.')
-      return
-    }
-    const value = parseAmount(monthlyValue)
-    if (!value) {
-      setError('Informe o valor mensal do suporte.')
-      return
-    }
-
-    setSaving(true)
-    try {
-      await createSupportContract(session.token.token, {
-        company_id: company.id,
-        people_id: person.id,
-        category_id: categoryId,
-        bank_account_id: bankAccountId || undefined,
-        title: title.trim() || 'Suporte Técnico',
-        monthly_value: value,
-        billing_day: Number(billingDay) || 10,
-        form_payment: formPayment,
-        start_date: startDate,
-        occurrences: Number(occurrences) || 60,
-        notes: notes.trim() || undefined,
-      })
-      onCreated()
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Não foi possível criar o contrato.')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div
-        className="flex max-h-[90vh] w-full max-w-[560px] flex-col overflow-hidden rounded-2xl bg-[var(--surface)] shadow-[var(--card-shadow)]"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="flex items-center justify-between border-b border-[var(--border)] px-6 py-4">
-          <h2 className="text-[15px] font-bold text-[var(--ink)]">Novo Contrato de Suporte</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--muted)] hover:bg-[var(--page)] hover:text-[var(--ink)]"
-          >
-            <CloseIcon className="h-4 w-4" />
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto px-6 py-5">
-          <div className="flex flex-col gap-4">
-            <SearchSelectField
-              label="Cliente"
-              placeholder="Buscar por nome…"
-              selectedLabel={person?.name ?? null}
-              selectedSubLabel={person?.document ?? undefined}
-              onSearch={(query) =>
-                fetchPeople(session.token.token, company.id, { search: query, role: 2, limit: 8 }).then(
-                  (res) => res.data
-                )
-              }
-              getOptionLabel={(item: PersonRecord) => item.name}
-              getOptionSubLabel={(item: PersonRecord) => item.document ?? undefined}
-              onSelect={(item: PersonRecord) => setPerson(item)}
-              onClear={() => setPerson(null)}
-            />
-
-            <TextField
-              label="Título do contrato"
-              icon={<WrenchIcon className="h-4 w-4" />}
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-            />
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="flex flex-col gap-1.5">
-                <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Valor mensal</span>
-                <div className="flex items-center gap-2 rounded-xl bg-[var(--page)] px-3.5 py-2.5 ring-1 ring-transparent transition focus-within:ring-[var(--blue-300)]">
-                  <WalletIcon className="h-4 w-4 flex-none text-[var(--muted)]" />
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    placeholder="0,00"
-                    value={monthlyValue}
-                    onChange={(event) => setMonthlyValue(event.target.value.replace(/[^\d.,]/g, ''))}
-                    className="min-w-0 w-full bg-[var(--page)] text-[14px] text-[var(--ink)] placeholder:text-[var(--muted)] focus:outline-none"
-                  />
-                </div>
-              </label>
-              <TextField
-                label="Dia de vencimento"
-                icon={<CalendarIcon className="h-4 w-4" />}
-                type="number"
-                min={1}
-                max={28}
-                value={billingDay}
-                onChange={(event) => setBillingDay(event.target.value)}
-              />
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <SelectField
-                label="Categoria"
-                value={categoryId}
-                onChange={(event) => setCategoryId(event.target.value)}
-              >
-                <option value="">Selecione</option>
-                {categories.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </SelectField>
-              <SelectField
-                label="Conta bancária"
-                value={bankAccountId}
-                onChange={(event) => setBankAccountId(event.target.value)}
-              >
-                <option value="">Selecione</option>
-                {bankAccounts.map((account) => (
-                  <option key={account.id} value={account.id}>
-                    {account.name}
-                  </option>
-                ))}
-              </SelectField>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <SelectField
-                label="Forma de pagamento"
-                value={formPayment}
-                onChange={(event) => setFormPayment(Number(event.target.value))}
-              >
-                {Object.entries(FORM_PAYMENT_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </SelectField>
-              <label className="flex flex-col gap-1.5">
-                <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Início</span>
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(event) => setStartDate(event.target.value)}
-                  className="min-w-0 w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
-                />
-              </label>
-            </div>
-
-            <label className="flex flex-col gap-1.5">
-              <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Gerar quantas parcelas já?</span>
-              <input
-                type="number"
-                min={1}
-                max={120}
-                value={occurrences}
-                onChange={(event) => setOccurrences(event.target.value)}
-                className="min-w-0 w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
-              />
-              <span className="text-[11px] text-[var(--ink-soft)]">
-                As parcelas mensais já nascem lançadas em Contas a Receber - sem precisar de renovação toda hora.
-              </span>
-            </label>
-
-            <label className="flex flex-col gap-1.5">
-              <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Observações (opcional)</span>
-              <textarea
-                value={notes}
-                onChange={(event) => setNotes(event.target.value)}
-                rows={2}
-                className="w-full resize-none rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
-              />
-            </label>
-
-            {error && (
-              <p className="rounded-xl bg-[var(--red-100)] px-3.5 py-2.5 text-[13px] font-medium text-[var(--red-500)]">
-                {error}
-              </p>
-            )}
-          </div>
-        </div>
-
-        <div className="flex items-center justify-end gap-3 border-t border-[var(--border)] px-6 py-4">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={saving}
-            className="rounded-xl px-4 py-2 text-[13.5px] font-semibold text-[var(--ink-soft)] hover:text-[var(--ink)] disabled:opacity-60"
-          >
-            Cancelar
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving}
-            className="rounded-xl bg-[var(--blue-500)] px-5 py-2.5 text-[13.5px] font-bold text-white transition hover:bg-[var(--blue-700)] disabled:opacity-60"
-          >
-            {saving ? 'Criando…' : 'Criar contrato'}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-export function SupportContractsPage({ session, company }: SupportContractsPageProps) {
+export function SupportContractsPage({ session, company, onCreate, onEdit }: SupportContractsPageProps) {
   const token = session.token.token
-  const [contracts, setContracts] = useState<SupportContractRecord[]>([])
+  const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const [items, setItems] = useState<SupportContractRecord[]>([])
+  const [meta, setMeta] = useState({ total: 0, lastPage: 1 })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [search, setSearch] = useState('')
-  const [showNew, setShowNew] = useState(false)
+
   const [cancelTarget, setCancelTarget] = useState<SupportContractRecord | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<SupportContractRecord | null>(null)
+  const [contractTarget, setContractTarget] = useState<SupportContractRecord | null>(null)
+  const [sendContractTarget, setSendContractTarget] = useState<SupportContractRecord | null>(null)
   const [busy, setBusy] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [feedback, setFeedback] = useState<string | null>(null)
 
   function load() {
     setLoading(true)
     setError(null)
-    fetchSupportContracts(token, company.id, { search: search || undefined, limit: 50 })
-      .then((res) => setContracts(res.data))
+    fetchSupportContracts(token, company.id, { search: search || undefined, page, limit: 10 })
+      .then((res) => {
+        setItems(res.data)
+        setMeta({ total: res.meta?.total ?? res.data.length, lastPage: res.meta?.last_page ?? 1 })
+      })
       .catch((err) => setError(err instanceof ApiError ? err.message : 'Não foi possível carregar os contratos.'))
       .finally(() => setLoading(false))
   }
 
-  useEffect(load, [token, company.id, search])
+  useEffect(load, [token, company.id, search, page])
 
   async function handleCancel() {
     if (!cancelTarget) return
     setBusy(true)
+    setActionError(null)
     try {
       await updateSupportContract(token, cancelTarget.id, { status: 1 })
       setCancelTarget(null)
       load()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Não foi possível cancelar o contrato.')
+      setActionError(err instanceof ApiError ? err.message : 'Não foi possível cancelar o contrato.')
     } finally {
       setBusy(false)
     }
@@ -340,19 +75,34 @@ export function SupportContractsPage({ session, company }: SupportContractsPageP
   async function handleDelete() {
     if (!deleteTarget) return
     setBusy(true)
+    setActionError(null)
     try {
       await deleteSupportContract(token, deleteTarget.id)
       setDeleteTarget(null)
       load()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Não foi possível excluir o contrato.')
+      setActionError(err instanceof ApiError ? err.message : 'Não foi possível excluir o contrato.')
     } finally {
       setBusy(false)
     }
   }
 
   function buildActions(contract: SupportContractRecord): RowAction[] {
-    const actions: RowAction[] = []
+    const actions: RowAction[] = [
+      { key: 'edit', label: 'Editar', icon: <PencilIcon className="h-4 w-4" />, onClick: () => onEdit(contract) },
+      {
+        key: 'contract',
+        label: 'Visualizar contrato',
+        icon: <PrinterIcon className="h-4 w-4" />,
+        onClick: () => setContractTarget(contract),
+      },
+      {
+        key: 'send-contract',
+        label: 'Contrato e envio',
+        icon: <WhatsappIcon className="h-4 w-4" />,
+        onClick: () => setSendContractTarget(contract),
+      },
+    ]
     if (contract.status === 0) {
       actions.push({
         key: 'cancel',
@@ -367,7 +117,7 @@ export function SupportContractsPage({ session, company }: SupportContractsPageP
       label: 'Excluir',
       icon: <TrashIcon className="h-4 w-4" />,
       tone: 'danger',
-      dividerBefore: contract.status === 0,
+      dividerBefore: true,
       onClick: () => setDeleteTarget(contract),
     })
     return actions
@@ -377,87 +127,151 @@ export function SupportContractsPage({ session, company }: SupportContractsPageP
     <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-[20px] font-bold text-[var(--ink)]">Contratos de Suporte</h1>
-          <p className="mt-1 text-[13px] text-[var(--muted)]">
-            Cliente + valor mensal de suporte técnico - gera as parcelas automaticamente em Contas a Receber.
-          </p>
+          <p className="text-[12px] font-semibold tracking-wide text-[var(--blue-700)] uppercase">Suporte Técnico</p>
+          <h1 className="mt-0.5 text-[22px] font-bold tracking-tight text-[var(--ink)]">Contratos de Suporte</h1>
         </div>
         <button
           type="button"
-          onClick={() => setShowNew(true)}
-          className="flex items-center gap-2 rounded-xl bg-[var(--blue-500)] px-4 py-2.5 text-[13px] font-bold text-white transition hover:bg-[var(--blue-700)]"
+          onClick={onCreate}
+          className="flex items-center gap-2 rounded-xl bg-[var(--blue-500)] px-4 py-2.5 text-[13.5px] font-bold text-white transition hover:bg-[var(--blue-700)]"
         >
           <PlusIcon className="h-4 w-4" />
           Novo Contrato
         </button>
       </div>
 
-      <input
-        type="text"
-        placeholder="Buscar por cliente…"
-        value={search}
-        onChange={(event) => setSearch(event.target.value)}
-        className="w-full max-w-sm rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2.5 text-[13px] text-[var(--ink)] focus:outline-none"
-      />
+      <div className="flex min-w-[240px] items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2.5">
+        <SearchIcon className="h-4 w-4 flex-none text-[var(--muted)]" />
+        <input
+          type="text"
+          placeholder="Buscar por cliente"
+          value={search}
+          onChange={(event) => {
+            setPage(1)
+            setSearch(event.target.value)
+          }}
+          className="w-full bg-transparent text-[13.5px] text-[var(--ink)] placeholder:text-[var(--muted)] focus:outline-none"
+        />
+      </div>
 
       {error && (
-        <p className="rounded-xl bg-[var(--red-100)] px-3.5 py-2.5 text-[13px] font-medium text-[var(--red-500)]">
+        <div className="rounded-2xl bg-[var(--red-100)] p-4 text-[13.5px] font-medium text-[var(--red-500)]">
           {error}
-        </p>
+        </div>
       )}
 
-      {loading ? (
-        <div className="flex flex-col gap-2">
-          {Array.from({ length: 4 }).map((_, index) => (
-            <div key={index} className="h-20 animate-pulse rounded-2xl bg-[var(--surface)]" />
-          ))}
-        </div>
-      ) : contracts.length === 0 ? (
-        <p className="py-10 text-center text-[13px] text-[var(--muted)]">Nenhum contrato de suporte cadastrado.</p>
-      ) : (
-        <div className="flex flex-col gap-2.5">
-          {contracts.map((contract) => (
-            <div
-              key={contract.id}
-              className="flex flex-col gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 sm:flex-row sm:items-center sm:justify-between"
-            >
-              <div className="flex items-start gap-3">
-                <span className="flex h-10 w-10 flex-none items-center justify-center rounded-xl bg-[var(--blue-100)] text-[var(--blue-700)]">
-                  <UserIcon className="h-4.5 w-4.5" />
-                </span>
-                <div className="min-w-0">
-                  <p className="truncate text-[13.5px] font-bold text-[var(--ink)]">{contract.people?.name ?? '—'}</p>
-                  <p className="text-[12px] text-[var(--muted)]">
-                    {contract.title} · vence dia {contract.billing_day} · desde {formatDate(contract.start_date)}
-                  </p>
+      <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
+        {loading ? (
+          <div className="flex flex-col gap-2.5">
+            {Array.from({ length: 5 }).map((_, index) => (
+              <div key={index} className="h-11 animate-pulse rounded-xl bg-[var(--page)]" />
+            ))}
+          </div>
+        ) : items.length === 0 ? (
+          <p className="py-10 text-center text-[13.5px] text-[var(--muted)]">
+            Nenhum contrato de suporte encontrado{search ? ` para "${search}"` : ''}.
+          </p>
+        ) : (
+          <>
+            <div className="flex flex-col gap-2.5 sm:hidden">
+              {items.map((contract) => (
+                <div key={contract.id} className="rounded-xl border border-[var(--border)] p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="min-w-0 truncate text-[13.5px] font-bold text-[var(--ink)]">
+                        {contract.people?.name ?? '—'}
+                      </p>
+                      <p className="mt-0.5 text-[12px] text-[var(--muted)]">
+                        {contract.title} · vence dia {contract.billing_day}
+                      </p>
+                      <p className="mt-0.5 text-[12px] text-[var(--ink-soft)]">desde {formatDate(contract.start_date)}</p>
+                    </div>
+                    <div className="flex flex-none items-start gap-1.5">
+                      <div className="flex flex-col items-end gap-1.5">
+                        <span className={`rounded-full px-2.5 py-1 text-[10.5px] font-bold ${statusTone(contract.status)}`}>
+                          {SUPPORT_CONTRACT_STATUS_LABELS[contract.status] ?? '—'}
+                        </span>
+                        <span className="text-[13.5px] font-bold text-[var(--ink)]">
+                          {formatCurrency(Number(contract.monthly_value))}
+                        </span>
+                      </div>
+                      <RowActionsMenu actions={buildActions(contract)} />
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-3 sm:flex-none">
-                <span className={`rounded-full px-2.5 py-1 text-[10.5px] font-bold ${statusTone(contract.status)}`}>
-                  {SUPPORT_CONTRACT_STATUS_LABELS[contract.status] ?? '—'}
-                </span>
-                <span className="text-[14px] font-bold text-[var(--ink)]">
-                  {formatCurrency(Number(contract.monthly_value))}
-                  <span className="text-[11px] font-normal text-[var(--muted)]">/mês</span>
-                </span>
-                <RowActionsMenu actions={buildActions(contract)} />
-              </div>
+              ))}
             </div>
-          ))}
-        </div>
-      )}
+            <div className="hidden overflow-x-auto sm:block">
+              <table className="w-full border-collapse text-[13px]">
+                <thead>
+                  <tr className="border-b border-[var(--border)] text-left text-[11px] font-semibold tracking-wide text-[var(--muted)] uppercase">
+                    <th className="pb-2.5 pl-3">Cliente</th>
+                    <th className="pb-2.5">Contrato</th>
+                    <th className="pb-2.5">Vencimento</th>
+                    <th className="pb-2.5">Início</th>
+                    <th className="pb-2.5 text-right">Valor mensal</th>
+                    <th className="pb-2.5">Status</th>
+                    <th className="pb-2.5 pr-3 text-right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((contract, index) => (
+                    <tr
+                      key={contract.id}
+                      className={`border-b border-[var(--border)] transition-colors last:border-none hover:bg-[var(--blue-100)] ${
+                        index % 2 === 1 ? 'bg-[var(--page)]' : ''
+                      }`}
+                    >
+                      <td className="py-2.5 pl-3 font-medium text-[var(--ink)]">{contract.people?.name ?? '—'}</td>
+                      <td className="py-2.5 text-[var(--ink-soft)]">{contract.title}</td>
+                      <td className="py-2.5 text-[var(--ink-soft)]">Dia {contract.billing_day}</td>
+                      <td className="py-2.5 whitespace-nowrap text-[var(--ink-soft)]">{formatDate(contract.start_date)}</td>
+                      <td className="py-2.5 text-right font-mono font-semibold text-[var(--ink)]">
+                        {formatCurrency(Number(contract.monthly_value))}
+                      </td>
+                      <td className="py-2.5">
+                        <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${statusTone(contract.status)}`}>
+                          {SUPPORT_CONTRACT_STATUS_LABELS[contract.status] ?? '—'}
+                        </span>
+                      </td>
+                      <td className="py-2.5 pr-3 text-right">
+                        <RowActionsMenu actions={buildActions(contract)} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
 
-      {showNew && (
-        <NewContractModal
-          session={session}
-          company={company}
-          onClose={() => setShowNew(false)}
-          onCreated={() => {
-            setShowNew(false)
-            load()
-          }}
-        />
-      )}
+        {!loading && meta.lastPage > 1 && (
+          <div className="mt-4 flex items-center justify-between">
+            <p className="text-[12px] text-[var(--muted)]">{meta.total} contratos no total</p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-[12.5px] font-semibold text-[var(--ink-soft)] disabled:opacity-40"
+              >
+                Anterior
+              </button>
+              <span className="text-[12.5px] text-[var(--ink-soft)]">
+                {page} / {meta.lastPage}
+              </span>
+              <button
+                type="button"
+                disabled={page >= meta.lastPage}
+                onClick={() => setPage((p) => Math.min(meta.lastPage, p + 1))}
+                className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-[12.5px] font-semibold text-[var(--ink-soft)] disabled:opacity-40"
+              >
+                Próxima
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
 
       <ConfirmDialog
         open={Boolean(cancelTarget)}
@@ -478,6 +292,38 @@ export function SupportContractsPage({ session, company }: SupportContractsPageP
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
       />
+
+      <SupportContractPreviewModal
+        open={Boolean(contractTarget)}
+        session={session}
+        contract={contractTarget}
+        onClose={() => setContractTarget(null)}
+      />
+
+      <SupportContractSendModal
+        open={Boolean(sendContractTarget)}
+        session={session}
+        company={company}
+        contract={sendContractTarget}
+        onClose={() => setSendContractTarget(null)}
+        onSent={(message) => {
+          setFeedback(message)
+          setTimeout(() => setFeedback(null), 4000)
+          load()
+        }}
+      />
+
+      {actionError && (
+        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-xl bg-[var(--red-500)] px-4 py-2.5 text-[13px] font-semibold text-white shadow-lg">
+          {actionError}
+        </div>
+      )}
+
+      {feedback && (
+        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-xl bg-[var(--green-600)] px-4 py-2.5 text-[13px] font-semibold text-white shadow-lg">
+          {feedback}
+        </div>
+      )}
     </div>
   )
 }

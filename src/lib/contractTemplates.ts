@@ -58,6 +58,7 @@ export const TARGET_TYPE_LABELS: Record<string, string> = {
   towing_sale: 'Guincho / Cegonha',
   general: 'Geral',
   ti: 'TI',
+  support_contract: 'Contrato de Suporte',
 }
 
 export const TARGET_TYPE_VARIABLES: Record<string, string[]> = {
@@ -118,6 +119,14 @@ export const TARGET_TYPE_VARIABLES: Record<string, string[]> = {
   // não há dado dinâmico do cliente pra puxar automaticamente - só as
   // variáveis comuns (empresa, CNPJ, data), como no Geral.
   ti: [],
+  support_contract: [
+    '{{people.name}}',
+    '{{people.document}}',
+    '{{values.title}}',
+    '{{values.monthly_value_formatted}}',
+    '{{values.billing_day}}',
+    '{{values.start_date_formatted}}',
+  ],
 }
 
 export const COMMON_VARIABLES = ['{{company.name}}', '{{company_people.document}}', '{{today}}', '{{now}}']

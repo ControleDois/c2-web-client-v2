@@ -58,7 +58,9 @@ import { LicenseFormPage } from './pages/LicenseFormPage'
 import { AuditLogsPage } from './pages/AuditLogsPage'
 import { VehicleInspectionsPage } from './pages/VehicleInspectionsPage'
 import { SupportContractsPage } from './pages/SupportContractsPage'
+import { SupportContractFormPage } from './pages/SupportContractFormPage'
 import { SupportVisitsPage } from './pages/SupportVisitsPage'
+import { SupportVisitFormPage } from './pages/SupportVisitFormPage'
 import { LoanCustomerVerificationsPage } from './pages/LoanCustomerVerificationsPage'
 import { FinancingSalesPage } from './pages/FinancingSalesPage'
 import { FinancingFormPage } from './pages/FinancingFormPage'
@@ -153,6 +155,8 @@ function App() {
   const nfesView = useEntityView()
   const nfeNatureOperationsView = useEntityView()
   const nfeTaxationsView = useEntityView()
+  const supportContractsView = useEntityView()
+  const supportVisitsView = useEntityView()
 
   const entityViews = {
     people: peopleView,
@@ -179,6 +183,8 @@ function App() {
     nfes: nfesView,
     'nfe-nature-operations': nfeNatureOperationsView,
     'nfe-taxations': nfeTaxationsView,
+    'support-contracts': supportContractsView,
+    'support-visits': supportVisitsView,
   } as const
 
   function handleLoginSuccess(newSession: AuthSession) {
@@ -707,9 +713,35 @@ function App() {
     } else if (page === 'vehicle-inspections') {
       pageContent = <VehicleInspectionsPage session={session} company={activeCompany} />
     } else if (page === 'support-contracts') {
-      pageContent = <SupportContractsPage session={session} company={activeCompany} />
+      pageContent =
+        supportContractsView.view.mode === 'form' ? (
+          <SupportContractFormPage
+            session={session}
+            company={activeCompany}
+            contractId={supportContractsView.view.id}
+            onBack={supportContractsView.reset}
+            onSaved={supportContractsView.reset}
+          />
+        ) : (
+          <SupportContractsPage
+            session={session}
+            company={activeCompany}
+            onCreate={supportContractsView.create}
+            onEdit={(contract) => supportContractsView.edit(contract.id)}
+          />
+        )
     } else if (page === 'support-visits') {
-      pageContent = <SupportVisitsPage session={session} company={activeCompany} />
+      pageContent =
+        supportVisitsView.view.mode === 'form' ? (
+          <SupportVisitFormPage
+            session={session}
+            company={activeCompany}
+            onBack={supportVisitsView.reset}
+            onSaved={supportVisitsView.reset}
+          />
+        ) : (
+          <SupportVisitsPage session={session} company={activeCompany} onCreate={supportVisitsView.create} />
+        )
     } else if (page === 'loan-customer-verifications') {
       pageContent = <LoanCustomerVerificationsPage session={session} company={activeCompany} />
     } else if (page === 'towing-collection') {
