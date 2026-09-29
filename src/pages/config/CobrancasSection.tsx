@@ -203,6 +203,12 @@ export function CobrancasSection({ value, onChange }: CobrancasSectionProps) {
             </p>
           </div>
 
+          <p className="text-[12px] text-[var(--ink-soft)]">
+            Esse horário e intervalo valem só pro disparo automático em lote (cobrança agendada) — mensagem manual
+            (botão "Enviar" num contrato ou numa cobrança específica) sai assim que o sistema pegar a fila, sem
+            esperar esse intervalo.
+          </p>
+
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <label className="flex flex-col gap-1.5">
               <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Horário de início</span>
