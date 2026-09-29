@@ -1,5 +1,5 @@
 export const SYSTEM_TYPE_LABELS: Record<number, string> = {
-  0: 'Padrão Geral',
+  0: 'SoftwareHouse / TI',
   1: 'Proteção Veicular',
   2: 'Financeiro',
   3: 'Juros / Empréstimos',
