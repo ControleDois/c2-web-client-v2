@@ -57,6 +57,7 @@ export const TARGET_TYPE_LABELS: Record<string, string> = {
   vehicle_sale: 'Venda de Veículo',
   towing_sale: 'Guincho / Cegonha',
   general: 'Geral',
+  ti: 'TI',
 }
 
 export const TARGET_TYPE_VARIABLES: Record<string, string[]> = {
@@ -113,6 +114,10 @@ export const TARGET_TYPE_VARIABLES: Record<string, string[]> = {
     '{{#if values.has_purchase_option}}…{{/if}}',
   ],
   general: [],
+  // TI (SoftwareHouse) não tem venda/entidade própria vinculada ainda, então
+  // não há dado dinâmico do cliente pra puxar automaticamente - só as
+  // variáveis comuns (empresa, CNPJ, data), como no Geral.
+  ti: [],
 }
 
 export const COMMON_VARIABLES = ['{{company.name}}', '{{company_people.document}}', '{{today}}', '{{now}}']
