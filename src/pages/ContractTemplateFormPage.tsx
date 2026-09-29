@@ -395,9 +395,9 @@ export function ContractTemplateFormPage({ session, company, templateId, onBack,
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6">
             <h2 className="mb-1 text-[14px] font-bold text-[var(--ink)]">Posição da assinatura da empresa</h2>
             <p className="mb-4 text-[12px] text-[var(--muted)]">
-              Página e posição (%) da assinatura de quem assina pela empresa no Autentique — só entra no documento
-              se o e-mail estiver preenchido em Configurações → Assinatura Digital. Como esse e-mail já tem uma
-              assinatura padrão configurada na própria conta Autentique, ela é aplicada automaticamente aqui.
+              Página e posição (%) onde a assinatura da empresa é carimbada no PDF do contrato — só entra no
+              documento se a imagem estiver enviada em Configurações → Assinatura Digital. A empresa não é
+              assinante no Autentique (ninguém recebe e-mail pra aceitar/assinar); só o cliente assina de verdade.
             </p>
 
             <label className="mb-4 flex items-start gap-2.5 rounded-xl bg-[var(--page)] p-3">

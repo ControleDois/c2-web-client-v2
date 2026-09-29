@@ -122,10 +122,14 @@ export interface ConfigRecord {
   autentique_folder_id?: string | null
   autentique_pdf_converter_url?: string | null
   autentique_webhook_secret?: string | null
-  // E-mail de quem assina pela empresa no Autentique (já tem assinatura
-  // padrão configurada na própria conta) - entra como 2º assinante de todo
-  // contrato, na posição definida no modelo (ContractTemplate).
+  // Deprecado - chegou a ser usado pra adicionar a empresa como 2º
+  // assinante vivo no Autentique, mas isso gerava e-mail de aceite pra
+  // quem só queria carimbar. Ver autentique_signer_signature_url.
   autentique_signer_email?: string | null
+  // URL (S3) da imagem da assinatura da empresa - carimbada direto no PDF
+  // do contrato (posição definida em cada Modelo de Contrato), sem passar
+  // por assinante nenhum no Autentique.
+  autentique_signer_signature_url?: string | null
 
   // Sicredi Pix
   sicredi_chave_pix?: string | null
@@ -366,6 +370,9 @@ export interface ConfigPayload {
   autentique_pdf_converter_url?: string
   autentique_webhook_secret?: string
   autentique_signer_email?: string
+  // '' explícito remove a assinatura salva; undefined mantém a atual.
+  autentique_signer_signature_url?: string
+  autentique_signature_file?: File
 
   sicredi_chave_pix?: string
   sicredi_escopos?: string
@@ -515,7 +522,13 @@ function appendScalar(form: FormData, key: string, value: unknown) {
 function buildConfigForm(payload: ConfigPayload): FormData {
   const form = new FormData()
 
-  const { shop, sicredi_cert_file: sicrediCertFile, sicredi_key_file: sicrediKeyFile, ...scalars } = payload
+  const {
+    shop,
+    sicredi_cert_file: sicrediCertFile,
+    sicredi_key_file: sicrediKeyFile,
+    autentique_signature_file: autentiqueSignatureFile,
+    ...scalars
+  } = payload
 
   for (const [key, value] of Object.entries(scalars)) {
     if (
@@ -552,6 +565,7 @@ function buildConfigForm(payload: ConfigPayload): FormData {
 
   if (sicrediCertFile) form.append('sicredi_cert_file', sicrediCertFile)
   if (sicrediKeyFile) form.append('sicredi_key_file', sicrediKeyFile)
+  if (autentiqueSignatureFile) form.append('autentique_signature_file', autentiqueSignatureFile)
 
   return form
 }

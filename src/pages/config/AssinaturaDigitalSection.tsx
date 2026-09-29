@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { ConfigPayload } from '../../lib/config'
 import { API_BASE_URL } from '../../lib/api'
 import { SectionCard } from '../../components/SectionCard'
 import { TextField } from '../../components/form/TextField'
-import { LinkIcon, LockIcon, TagIcon, CheckCircleIcon, MailIcon } from '../../components/icons'
+import { LinkIcon, LockIcon, TagIcon, CheckCircleIcon, PenIcon, PaperclipIcon, TrashIcon } from '../../components/icons'
 
 interface AssinaturaDigitalSectionProps {
   value: ConfigPayload
@@ -13,6 +13,21 @@ interface AssinaturaDigitalSectionProps {
 export function AssinaturaDigitalSection({ value, onChange }: AssinaturaDigitalSectionProps) {
   const [copied, setCopied] = useState(false)
   const webhookUrl = `${API_BASE_URL}/connect/autentique/webhook`
+
+  const signaturePreviewUrl = useMemo(
+    () => (value.autentique_signature_file ? URL.createObjectURL(value.autentique_signature_file) : null),
+    [value.autentique_signature_file]
+  )
+  useEffect(() => {
+    return () => {
+      if (signaturePreviewUrl) URL.revokeObjectURL(signaturePreviewUrl)
+    }
+  }, [signaturePreviewUrl])
+
+  // Mostra o arquivo recém-escolhido (ainda não salvo) se tiver, senão a
+  // imagem já salva (a menos que tenha marcado pra remover, ''), senão nada.
+  const currentSignatureUrl =
+    signaturePreviewUrl ?? (value.autentique_signer_signature_url === '' ? null : value.autentique_signer_signature_url)
 
   function handleCopy() {
     navigator.clipboard.writeText(webhookUrl).then(() => {
@@ -61,21 +76,49 @@ export function AssinaturaDigitalSection({ value, onChange }: AssinaturaDigitalS
           value={value.autentique_webhook_secret ?? ''}
           onChange={(event) => onChange({ autentique_webhook_secret: event.target.value })}
         />
-        <TextField
-          label="E-mail de quem assina pela empresa"
-          icon={<MailIcon className="h-4 w-4" />}
-          type="email"
-          placeholder="Opcional - ex: dono@empresa.com"
-          value={value.autentique_signer_email ?? ''}
-          onChange={(event) => onChange({ autentique_signer_email: event.target.value })}
-        />
+        <div className="sm:col-span-2 rounded-xl bg-[var(--page)] p-4">
+          <div className="mb-3 flex items-center gap-2">
+            <PenIcon className="h-4 w-4 flex-none text-[var(--ink-soft)]" />
+            <span className="text-[13px] font-bold text-[var(--ink)]">Assinatura da empresa</span>
+          </div>
 
-        <div className="sm:col-span-2">
-          <p className="text-[11.5px] text-[var(--ink-soft)]">
-            Se preenchido, esse e-mail entra como 2º assinante em todo contrato enviado pra assinatura — como ele já
-            tem uma assinatura padrão configurada na própria conta Autentique, ela é aplicada automaticamente, sem
-            precisar assinar manualmente cada contrato. A posição dessa assinatura no PDF é definida em Modelos de
-            Contrato, junto com a posição da assinatura do cliente.
+          <div className="flex items-center gap-4">
+            <span className="flex h-16 w-28 flex-none items-center justify-center overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--muted)]">
+              {currentSignatureUrl ? (
+                <img src={currentSignatureUrl} alt="Assinatura da empresa" className="h-full w-full object-contain" />
+              ) : (
+                <PaperclipIcon className="h-5 w-5" />
+              )}
+            </span>
+            <div className="flex flex-col gap-1.5">
+              <label className="flex w-fit cursor-pointer items-center gap-2 rounded-xl border border-[var(--border)] px-3.5 py-2 text-[12.5px] font-bold text-[var(--ink-soft)] hover:text-[var(--ink)]">
+                <PaperclipIcon className="h-3.5 w-3.5 flex-none" />
+                {value.autentique_signature_file ? value.autentique_signature_file.name : 'Selecionar imagem'}
+                <input
+                  type="file"
+                  accept=".png,.jpg,.jpeg"
+                  className="hidden"
+                  onChange={(event) =>
+                    onChange({ autentique_signature_file: event.target.files?.[0], autentique_signer_signature_url: undefined })
+                  }
+                />
+              </label>
+              {currentSignatureUrl && (
+                <button
+                  type="button"
+                  onClick={() => onChange({ autentique_signature_file: undefined, autentique_signer_signature_url: '' })}
+                  className="flex w-fit items-center gap-1.5 text-[11.5px] font-bold text-[var(--red-500)] hover:underline"
+                >
+                  <TrashIcon className="h-3 w-3" /> Remover
+                </button>
+              )}
+            </div>
+          </div>
+
+          <p className="mt-3 text-[11.5px] text-[var(--ink-soft)]">
+            Imagem (PNG/JPG, fundo transparente de preferência) da assinatura de quem assina pela empresa. Ela é
+            carimbada direto no PDF do contrato, na posição definida em Modelos de Contrato — o cliente é o único
+            assinante de verdade no Autentique, ninguém do lado da empresa recebe e-mail nenhum pra aceitar/assinar.
           </p>
         </div>
 
