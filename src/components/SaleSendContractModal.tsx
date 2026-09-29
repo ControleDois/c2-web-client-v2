@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { sendSaleContract, sendSaleContractLink, getContractLink, type SaleRecord } from '../lib/sales'
 import { fetchContractTemplates, type ContractTemplateRecord } from '../lib/contractTemplates'
+import { fetchRentalType } from '../lib/rentalTypes'
 import { fetchCompanyWhatsapps, type CompanyWhatsappRecord } from '../lib/companyWhatsapp'
 import { ApiError } from '../lib/api'
-import { CloseIcon, WhatsappIcon } from './icons'
+import { CloseIcon, WhatsappIcon, CheckCircleIcon } from './icons'
 import { SelectField } from './form/SelectField'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
@@ -31,6 +32,11 @@ export function SaleSendContractModal({
   const [useAutentique, setUseAutentique] = useState(true)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Quando o aluguel tem um Tipo de Aluguel vinculado a um modelo específico
+  // (ex: "Starlink"), não faz sentido perguntar de novo qual modelo enviar —
+  // o vínculo já foi feito lá em Tipos de Aluguel.
+  const [rentalTypeTemplate, setRentalTypeTemplate] = useState<{ id: string; title: string } | null>(null)
+  const [loadingRentalType, setLoadingRentalType] = useState(false)
 
   useEffect(() => {
     if (!open || !sale) return
@@ -38,16 +44,36 @@ export function SaleSendContractModal({
     setWhatsappId('')
     setUseAutentique(true)
     setError(null)
+    setRentalTypeTemplate(null)
 
     const targetType = sale.vehicleRentalContract?.purchaseOption
       ? 'vehicle_rental_purchase_option'
       : 'vehicle_rental'
 
+    const rentalTypeId = sale.vehicleRentalContract?.rentalTypeId
+
+    if (rentalTypeId) {
+      setLoadingRentalType(true)
+      fetchRentalType(session.token.token, rentalTypeId)
+        .then((rentalType) => {
+          if (rentalType.contractTemplate) {
+            setRentalTypeTemplate({ id: rentalType.contractTemplate.id, title: rentalType.contractTemplate.title })
+            setTemplateId(rentalType.contractTemplate.id)
+          }
+        })
+        .catch(() => undefined)
+        .finally(() => setLoadingRentalType(false))
+    }
+
     fetchContractTemplates(session.token.token, company.id, { targetType, limit: 100 })
       .then((res) => {
         const active = (res.data || []).filter((template) => template.is_active)
         setTemplates(active)
-        if (active.length) setTemplateId(active[0].id)
+        // Só usa o primeiro modelo ativo como padrão se o tipo de aluguel não
+        // tiver um vinculado - o efeito acima pode preencher templateId
+        // depois (a busca do tipo é assíncrona), então só entra aqui se
+        // ainda não tiver rentalTypeId nenhum pra tentar.
+        if (active.length && !rentalTypeId) setTemplateId(active[0].id)
       })
       .catch(() => setTemplates([]))
 
@@ -154,22 +180,44 @@ export function SaleSendContractModal({
         )}
 
         <div className="mt-4 flex flex-col gap-1.5">
-          <SelectField
-            label="Modelo de contrato"
-            value={templateId}
-            onChange={(event) => setTemplateId(event.target.value)}
-          >
-            <option value="">Selecione</option>
-            {templates.map((template) => (
-              <option key={template.id} value={template.id}>
-                {template.title}
-              </option>
-            ))}
-          </SelectField>
-          {templates.length === 0 && (
-            <p className="text-[11.5px] font-medium text-[var(--amber-500)]">
-              Cadastre um modelo ativo de contrato de locação.
-            </p>
+          {rentalTypeTemplate ? (
+            <div className="flex items-center justify-between gap-3 rounded-xl bg-[var(--green-100)] p-3.5">
+              <div className="flex items-center gap-2.5">
+                <CheckCircleIcon className="h-4 w-4 flex-none text-[var(--green-600)]" />
+                <div>
+                  <p className="text-[13px] font-bold text-[var(--green-600)]">{rentalTypeTemplate.title}</p>
+                  <p className="text-[11.5px] text-[var(--green-600)]">Modelo definido pelo tipo de aluguel</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRentalTypeTemplate(null)}
+                className="flex-none text-[11.5px] font-bold text-[var(--green-600)] hover:underline"
+              >
+                Trocar
+              </button>
+            </div>
+          ) : (
+            <>
+              <SelectField
+                label="Modelo de contrato"
+                value={templateId}
+                disabled={loadingRentalType}
+                onChange={(event) => setTemplateId(event.target.value)}
+              >
+                <option value="">Selecione</option>
+                {templates.map((template) => (
+                  <option key={template.id} value={template.id}>
+                    {template.title}
+                  </option>
+                ))}
+              </SelectField>
+              {templates.length === 0 && (
+                <p className="text-[11.5px] font-medium text-[var(--amber-500)]">
+                  Cadastre um modelo ativo de contrato de locação.
+                </p>
+              )}
+            </>
           )}
         </div>
 
