@@ -26,7 +26,7 @@ import {
   ClockIcon,
 } from '../icons'
 import { getCompanyName, type AuthCompany, type AuthSession } from '../../lib/auth'
-import { isLocacaoVeiculos, isEmprestimo, isPizzaria, isLanchonete } from '../../lib/systemTypes'
+import { isLocacaoVeiculos, isEmprestimo, isPadaria, isNoVehicleNiche } from '../../lib/systemTypes'
 
 export type AppPage =
   | 'dashboard'
@@ -91,9 +91,11 @@ function buildNavGroups(
   timeClockEnabled?: boolean
 ): NavGroup[] {
   const emprestimo = isEmprestimo(systemType)
-  const pizzaria = isPizzaria(systemType)
-  const lanchonete = isLanchonete(systemType)
-  const noVehicleNiche = pizzaria || lanchonete
+  const padaria = isPadaria(systemType)
+  // Cobre Pizzaria/Lanchonete/Hamburgeria/Padaria - todo nicho "sem veículo"
+  // (sem grupo Operação, sem relatório de faturamento do guincho). Padaria
+  // ainda tem um menu Principal próprio (sem Vendas), tratado à parte abaixo.
+  const noVehicleNiche = isNoVehicleNiche(systemType)
 
   const principalItems = emprestimo
     ? [
@@ -111,19 +113,25 @@ function buildNavGroups(
           { page: 'vehicle-sales' as const, label: 'Venda', icon: SaleIcon },
           { page: 'order-services' as const, label: 'Ordens de Serviço', icon: WrenchIcon },
         ]
-      : noVehicleNiche
+      : padaria
         ? [
             { page: 'dashboard' as const, label: 'Dashboard', icon: GridIcon },
             { page: 'people' as const, label: 'Pessoas', icon: UserIcon },
-            { page: 'products' as const, label: 'Produtos e Serviços', icon: BoxIcon },
-            { page: 'towing-sales' as const, label: 'Vendas', icon: CoinIcon },
+            { page: 'products' as const, label: 'Produtos', icon: BoxIcon },
           ]
-        : [
-            { page: 'dashboard' as const, label: 'Dashboard', icon: GridIcon },
-            { page: 'people' as const, label: 'Pessoas', icon: UserIcon },
-            { page: 'vehicles' as const, label: 'Veículos', icon: TruckIcon },
-            { page: 'towing-sales' as const, label: 'Vendas', icon: CoinIcon },
-          ]
+        : noVehicleNiche
+          ? [
+              { page: 'dashboard' as const, label: 'Dashboard', icon: GridIcon },
+              { page: 'people' as const, label: 'Pessoas', icon: UserIcon },
+              { page: 'products' as const, label: 'Produtos e Serviços', icon: BoxIcon },
+              { page: 'towing-sales' as const, label: 'Vendas', icon: CoinIcon },
+            ]
+          : [
+              { page: 'dashboard' as const, label: 'Dashboard', icon: GridIcon },
+              { page: 'people' as const, label: 'Pessoas', icon: UserIcon },
+              { page: 'vehicles' as const, label: 'Veículos', icon: TruckIcon },
+              { page: 'towing-sales' as const, label: 'Vendas', icon: CoinIcon },
+            ]
 
   const groups: NavGroup[] = [
     { title: 'Principal', items: principalItems },
@@ -139,9 +147,9 @@ function buildNavGroups(
     },
   ]
 
-  // Empréstimo e os nichos sem veículo (Pizzaria/Lanchonete) não usam o
-  // grupo "Operação" (que é todo sobre vistoria/busca/entrega de veículo) —
-  // empréstimo não tem nenhum grupo extra próprio.
+  // Empréstimo e os nichos sem veículo (Pizzaria/Lanchonete/Hamburgeria/
+  // Padaria) não usam o grupo "Operação" (que é todo sobre vistoria/busca/
+  // entrega de veículo) — empréstimo não tem nenhum grupo extra próprio.
   if (!emprestimo && !noVehicleNiche) {
     groups.push({
       title: 'Operação',
@@ -181,8 +189,8 @@ function buildNavGroups(
   }
 
   // O relatório de faturamento é específico do fluxo de guincho (TowingSale)
-  // — não se aplica a nichos sem veículo (Pizzaria/Lanchonete) nem ao
-  // Empréstimo (venda financiada, sem TowingSale nenhum).
+  // — não se aplica a nichos sem veículo (Pizzaria/Lanchonete/Hamburgeria/
+  // Padaria) nem ao Empréstimo (venda financiada, sem TowingSale nenhum).
   if (!noVehicleNiche && !emprestimo) {
     groups.push({
       title: 'Relatórios',
