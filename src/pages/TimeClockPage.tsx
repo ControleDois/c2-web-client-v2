@@ -9,6 +9,7 @@ import {
   deleteTimeClockEnrollment,
   fetchTimeClockEvents,
   fetchTimeClockStatus,
+  manualTimeClockCheckout,
   fetchTimeClockReport,
   fetchTimeClockPayroll,
   fetchNotificationRules,
@@ -19,6 +20,7 @@ import {
   type TimeClockEnrollmentRecord,
   type TimeClockEventRecord,
   type TimeClockStatusResult,
+  type TimeClockStatusPerson,
   type TimeClockEmployeeReport,
   type TimeClockPayrollRow,
   type NotificationRuleRecord,
@@ -669,7 +671,10 @@ function RelatorioTab({ session, company }: { session: AuthSession; company: Aut
                 />
               </div>
 
-              <div className="overflow-x-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
+              {/* Tabela só em telas largas - em mobile essa densidade de coluna
+                  (6 colunas, várias com texto livre) fica ilegível mesmo com
+                  scroll horizontal, por isso vira cartão por dia abaixo. */}
+              <div className="hidden overflow-x-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)] sm:block">
                 <table className="w-full border-collapse text-[12.5px]">
                   <thead>
                     <tr className="border-b border-[var(--border)] text-left text-[10.5px] font-semibold tracking-wide text-[var(--muted)] uppercase">
@@ -712,6 +717,38 @@ function RelatorioTab({ session, company }: { session: AuthSession; company: Aut
                     ))}
                   </tbody>
                 </table>
+              </div>
+
+              <div className="flex flex-col gap-2 sm:hidden">
+                {selected.days.map((day) => (
+                  <div key={day.date} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-[13px] font-bold text-[var(--ink)]">
+                        {formatDayLong(day.date)} <span className="text-[var(--muted)]">{WEEKDAY_SHORT[day.weekday]}</span>
+                        {!day.is_work_day && <span className="ml-1 text-[10px] text-[var(--muted)]">(folga)</span>}
+                      </p>
+                      <span className={`flex-none rounded-full px-2 py-0.5 text-[10px] font-bold ${dayStatusTone(day.status)}`}>
+                        {DAY_STATUS_LABELS[day.status]}
+                      </span>
+                    </div>
+                    <p className="mt-1.5 text-[11.5px] text-[var(--ink-soft)]">
+                      {day.punches.length === 0 ? 'Sem batidas' : day.punches.map((p) => formatClockTime(p.occurred_at)).join(' · ')}
+                    </p>
+                    <div className="mt-2 flex items-center gap-4 text-[11.5px]">
+                      <span>
+                        <span className="text-[var(--muted)]">Trabalhado </span>
+                        <span className="font-bold text-[var(--ink)]">{formatMinutes(day.worked_minutes)}</span>
+                      </span>
+                      <span>
+                        <span className="text-[var(--muted)]">Carga </span>
+                        <span className="text-[var(--ink-soft)]">{formatMinutes(day.expected_minutes)}</span>
+                      </span>
+                    </div>
+                    {day.observations.length > 0 && (
+                      <p className="mt-1.5 text-[11px] text-[var(--ink-soft)]">{day.observations.join(' ')}</p>
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
           )}
@@ -1169,6 +1206,13 @@ function PainelTab({ session, company }: { session: AuthSession; company: AuthCo
   const [error, setError] = useState<string | null>(null)
   const flashIds = useRef<Set<string>>(new Set())
 
+  // Fechar manualmente quem esqueceu de bater a saída - complementa o
+  // fechamento automático (Configurações → Ponto), pra resolver na hora sem
+  // esperar a próxima rodada do cron.
+  const [checkoutTarget, setCheckoutTarget] = useState<TimeClockStatusPerson | null>(null)
+  const [checkingOut, setCheckingOut] = useState(false)
+  const [checkoutError, setCheckoutError] = useState<string | null>(null)
+
   function load() {
     setLoading(true)
     setError(null)
@@ -1201,6 +1245,19 @@ function PainelTab({ session, company }: { session: AuthSession; company: AuthCo
       return { inside_count: updated.filter((p) => p.direction === 'in').length, people: updated }
     })
   })
+
+  function handleConfirmCheckout() {
+    if (!checkoutTarget) return
+    setCheckingOut(true)
+    setCheckoutError(null)
+    manualTimeClockCheckout(token, company.id, checkoutTarget.people_id)
+      .then(() => {
+        setCheckoutTarget(null)
+        load()
+      })
+      .catch((err) => setCheckoutError(err instanceof ApiError ? err.message : 'Não foi possível registrar a saída.'))
+      .finally(() => setCheckingOut(false))
+  }
 
   const insideCount = status?.inside_count ?? 0
 
@@ -1236,37 +1293,80 @@ function PainelTab({ session, company }: { session: AuthSession; company: AuthCo
           </p>
         ) : (
           <div className="flex flex-col gap-1.5">
-            {status.people.map((person) => (
-              <div
-                key={person.people_id}
-                className="flex items-center justify-between gap-2 rounded-xl bg-[var(--page)] px-3.5 py-2.5"
-              >
-                <span className="flex items-center gap-2 text-[13px] font-semibold text-[var(--ink)]">
-                  <UserIcon className="h-4 w-4 text-[var(--muted)]" />
-                  {person.people_name}
-                </span>
-                <span className="flex items-center gap-2 text-[12px] text-[var(--muted)]">
-                  {timeAgo(person.occurred_at)}
-                  <span
-                    className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[10.5px] font-bold ${
-                      person.direction === 'in'
-                        ? 'bg-[var(--green-100)] text-[var(--green-600)]'
-                        : 'bg-[var(--page)] text-[var(--ink-soft)]'
-                    }`}
-                  >
-                    {person.direction === 'in' ? (
-                      <ArrowDownCircleIcon className="h-3 w-3" />
-                    ) : (
-                      <ArrowUpCircleIcon className="h-3 w-3" />
-                    )}
-                    {person.direction === 'in' ? 'Dentro' : 'Fora'}
+            {status.people.map((person) => {
+              const hoursOpen =
+                person.direction === 'in' ? (Date.now() - new Date(person.occurred_at).getTime()) / 3600000 : 0
+              const stale = person.direction === 'in' && hoursOpen >= 12
+
+              return (
+                <div
+                  key={person.people_id}
+                  className={`flex flex-col gap-2 rounded-xl px-3.5 py-2.5 sm:flex-row sm:items-center sm:justify-between ${
+                    stale ? 'bg-[var(--amber-100)]' : 'bg-[var(--page)]'
+                  }`}
+                >
+                  <span className="flex items-center gap-2 text-[13px] font-semibold text-[var(--ink)]">
+                    <UserIcon className="h-4 w-4 flex-none text-[var(--muted)]" />
+                    <span className="min-w-0 truncate">{person.people_name}</span>
                   </span>
-                </span>
-              </div>
-            ))}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="flex items-center gap-2 text-[12px] text-[var(--muted)]">
+                      {timeAgo(person.occurred_at)}
+                      <span
+                        className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[10.5px] font-bold ${
+                          stale
+                            ? 'bg-[var(--amber-500)] text-white'
+                            : person.direction === 'in'
+                              ? 'bg-[var(--green-100)] text-[var(--green-600)]'
+                              : 'bg-[var(--surface)] text-[var(--ink-soft)]'
+                        }`}
+                      >
+                        {person.direction === 'in' ? (
+                          <ArrowDownCircleIcon className="h-3 w-3" />
+                        ) : (
+                          <ArrowUpCircleIcon className="h-3 w-3" />
+                        )}
+                        {person.direction === 'in' ? 'Dentro' : 'Fora'}
+                      </span>
+                    </span>
+                    {person.direction === 'in' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCheckoutError(null)
+                          setCheckoutTarget(person)
+                        }}
+                        className="flex-none rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1 text-[11px] font-bold text-[var(--ink-soft)] hover:text-[var(--ink)]"
+                      >
+                        Registrar saída
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={Boolean(checkoutTarget)}
+        title="Registrar saída"
+        message={
+          checkoutTarget
+            ? `Vai registrar a saída de ${checkoutTarget.people_name} agora (${timeAgo(checkoutTarget.occurred_at)} desde a entrada). Use quando o funcionário esqueceu de bater o ponto de saída.${
+                checkoutError ? `\n\n${checkoutError}` : ''
+              }`
+            : ''
+        }
+        confirmLabel="Registrar saída"
+        loading={checkingOut}
+        onConfirm={handleConfirmCheckout}
+        onCancel={() => {
+          setCheckoutTarget(null)
+          setCheckoutError(null)
+        }}
+      />
 
       <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
         <h4 className="mb-3 text-[13px] font-bold text-[var(--ink)]">Últimas batidas</h4>
@@ -1334,21 +1434,23 @@ export function TimeClockPage({ session, company, onBack }: TimeClockPageProps) 
         </button>
       </div>
 
-      <div className="flex w-fit gap-1 rounded-xl bg-[var(--page)] p-1">
-        {tabs.map((item) => (
-          <button
-            key={item.key}
-            type="button"
-            onClick={() => setTab(item.key)}
-            className={`rounded-lg px-4 py-2 text-[12.5px] font-bold transition ${
-              tab === item.key
-                ? 'bg-[var(--surface)] text-[var(--blue-700)] shadow-sm'
-                : 'text-[var(--ink-soft)] hover:text-[var(--ink)]'
-            }`}
-          >
-            {item.label}
-          </button>
-        ))}
+      <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+        <div className="flex w-fit gap-1 rounded-xl bg-[var(--page)] p-1">
+          {tabs.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => setTab(item.key)}
+              className={`flex-none whitespace-nowrap rounded-lg px-4 py-2 text-[12.5px] font-bold transition ${
+                tab === item.key
+                  ? 'bg-[var(--surface)] text-[var(--blue-700)] shadow-sm'
+                  : 'text-[var(--ink-soft)] hover:text-[var(--ink)]'
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {tab === 'painel' && <PainelTab session={session} company={company} />}

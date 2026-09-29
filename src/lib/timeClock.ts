@@ -127,6 +127,21 @@ export function fetchTimeClockStatus(token: string, companyId: string) {
   return apiGet<TimeClockStatusResult>('/time-clock/events/status', { companyId }, token)
 }
 
+// Fecha manualmente a marcação de quem esqueceu de bater a saída - sem
+// occurredAt fecha agora mesmo.
+export function manualTimeClockCheckout(
+  token: string,
+  companyId: string,
+  peopleId: string,
+  occurredAt?: string
+) {
+  return apiPost<{ id: string; occurred_at: string }>(
+    '/time-clock/events/manual-checkout',
+    { companyId, peopleId, occurredAt },
+    token
+  )
+}
+
 export interface TimeClockDayReport {
   date: string
   weekday: number

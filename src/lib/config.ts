@@ -216,6 +216,7 @@ export interface ConfigRecord {
   time_clock_overtime_percent?: number
   time_clock_absence_discount_enabled?: boolean
   time_clock_hours_month_divisor?: number
+  time_clock_auto_checkout_hours?: number | null
 
   // Loja Online (leitura — vem via preload company.shop no GET /config)
   company?: { system_type?: number; shop?: ShopRecord | null; terminals?: CompanyTerminalRecord[] } | null
@@ -446,6 +447,7 @@ export interface ConfigPayload {
   time_clock_overtime_percent?: number
   time_clock_absence_discount_enabled?: boolean
   time_clock_hours_month_divisor?: number
+  time_clock_auto_checkout_hours?: number | null
 
   shop?: ShopPayload
   sicredi_cert_file?: File

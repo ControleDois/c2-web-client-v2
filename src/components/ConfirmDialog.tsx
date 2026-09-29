@@ -41,7 +41,7 @@ export function ConfirmDialog({
           </span>
           <div>
             <h2 className="text-[15px] font-bold text-[var(--ink)]">{title}</h2>
-            <p className="mt-1 text-[13.5px] leading-relaxed text-[var(--ink-soft)]">{message}</p>
+            <p className="mt-1 whitespace-pre-line text-[13.5px] leading-relaxed text-[var(--ink-soft)]">{message}</p>
           </div>
         </div>
 

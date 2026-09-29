@@ -127,6 +127,34 @@ export function PontoSection({ value, onChange, onOpenTimeClock }: PontoSectionP
           </div>
 
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--page)] p-4">
+            <h3 className="text-[13px] font-bold text-[var(--ink)]">Fechamento automático de ponto</h3>
+            <p className="mt-1 text-[12px] text-[var(--ink-soft)]">
+              Se um funcionário esquecer de bater a saída, ele fica "dentro" indefinidamente e cada dia sem
+              batida vira falta no relatório. Com um limite configurado, o sistema fecha a marcação sozinho
+              depois desse tempo (verifica a cada 15 min).
+            </p>
+            <div className="mt-3 max-w-xs">
+              <label className="flex flex-col gap-1.5">
+                <span className="text-[12px] font-semibold text-[var(--ink-soft)]">
+                  Fechar saída automaticamente após (horas)
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  placeholder="Vazio = desativado"
+                  value={value.time_clock_auto_checkout_hours ?? ''}
+                  onChange={(event) =>
+                    onChange({
+                      time_clock_auto_checkout_hours: event.target.value ? Number(event.target.value) : null,
+                    })
+                  }
+                  className="min-w-0 w-full rounded-xl bg-[var(--surface)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
+                />
+              </label>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--page)] p-4">
             <h3 className="text-[13px] font-bold text-[var(--ink)]">Folha de pagamento estimada</h3>
             <p className="mt-1 text-[12px] text-[var(--ink-soft)]">
               Parâmetros usados pra calcular a folha com base nas horas trabalhadas. O salário/valor-hora

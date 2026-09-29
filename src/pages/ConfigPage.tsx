@@ -193,6 +193,7 @@ function buildConfigPayload(companyId: string, config: ConfigRecord | null): Con
     time_clock_overtime_percent: config?.time_clock_overtime_percent ?? 50,
     time_clock_absence_discount_enabled: config?.time_clock_absence_discount_enabled ?? true,
     time_clock_hours_month_divisor: config?.time_clock_hours_month_divisor ?? 220,
+    time_clock_auto_checkout_hours: config?.time_clock_auto_checkout_hours ?? undefined,
 
     shop: config?.company?.shop
       ? {
