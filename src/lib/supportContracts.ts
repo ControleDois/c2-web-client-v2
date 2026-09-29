@@ -103,8 +103,12 @@ export function deleteSupportContract(token: string, id: string) {
   return apiDelete<{ id: string }>(`/support-contract/${id}`, token)
 }
 
-export function printSupportContract(token: string, id: string) {
-  return apiPost<{ url: string; html: string }>(`/support-contract/print-contract/${id}`, {}, token)
+export function printSupportContract(token: string, id: string, contractTemplateId?: string) {
+  return apiPost<{ url: string; html: string }>(
+    `/support-contract/print-contract/${id}`,
+    contractTemplateId ? { contractTemplateId } : {},
+    token
+  )
 }
 
 export function sendSupportContract(

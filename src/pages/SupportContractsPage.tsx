@@ -296,6 +296,7 @@ export function SupportContractsPage({ session, company, onCreate, onEdit }: Sup
       <SupportContractPreviewModal
         open={Boolean(contractTarget)}
         session={session}
+        company={company}
         contract={contractTarget}
         onClose={() => setContractTarget(null)}
       />
