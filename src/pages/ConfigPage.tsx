@@ -119,6 +119,7 @@ function buildConfigPayload(companyId: string, config: ConfigRecord | null): Con
     autentique_folder_id: config?.autentique_folder_id ?? undefined,
     autentique_pdf_converter_url: config?.autentique_pdf_converter_url ?? undefined,
     autentique_webhook_secret: config?.autentique_webhook_secret ?? undefined,
+    autentique_signer_email: config?.autentique_signer_email ?? undefined,
 
     sicredi_chave_pix: config?.sicredi_chave_pix ?? undefined,
     sicredi_escopos: config?.sicredi_escopos ?? undefined,

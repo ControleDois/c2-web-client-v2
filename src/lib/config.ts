@@ -122,6 +122,10 @@ export interface ConfigRecord {
   autentique_folder_id?: string | null
   autentique_pdf_converter_url?: string | null
   autentique_webhook_secret?: string | null
+  // E-mail de quem assina pela empresa no Autentique (já tem assinatura
+  // padrão configurada na própria conta) - entra como 2º assinante de todo
+  // contrato, na posição definida no modelo (ContractTemplate).
+  autentique_signer_email?: string | null
 
   // Sicredi Pix
   sicredi_chave_pix?: string | null
@@ -361,6 +365,7 @@ export interface ConfigPayload {
   autentique_folder_id?: string
   autentique_pdf_converter_url?: string
   autentique_webhook_secret?: string
+  autentique_signer_email?: string
 
   sicredi_chave_pix?: string
   sicredi_escopos?: string

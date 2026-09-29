@@ -109,6 +109,13 @@ export function ContractTemplateFormPage({ session, company, templateId, onBack,
   const [signatureX, setSignatureX] = useState(15)
   const [signatureY, setSignatureY] = useState(80)
   const [signatureAllPages, setSignatureAllPages] = useState(false)
+  // Posição da assinatura da empresa (2º assinante no Autentique) - só entra
+  // no documento se Config.autentique_signer_email estiver preenchido
+  // (Configurações → Assinatura Digital); aqui só a posição no PDF.
+  const [companySignaturePage, setCompanySignaturePage] = useState(1)
+  const [companySignatureX, setCompanySignatureX] = useState(65)
+  const [companySignatureY, setCompanySignatureY] = useState(80)
+  const [companySignatureAllPages, setCompanySignatureAllPages] = useState(false)
   const [isActive, setIsActive] = useState(true)
 
   const [copiedVariable, setCopiedVariable] = useState<string | null>(null)
@@ -131,6 +138,10 @@ export function ContractTemplateFormPage({ session, company, templateId, onBack,
         setSignatureX(template.signature_x ?? 15)
         setSignatureY(template.signature_y ?? 80)
         setSignatureAllPages(template.signature_all_pages ?? false)
+        setCompanySignaturePage(template.company_signature_page ?? 1)
+        setCompanySignatureX(template.company_signature_x ?? 65)
+        setCompanySignatureY(template.company_signature_y ?? 80)
+        setCompanySignatureAllPages(template.company_signature_all_pages ?? false)
         setIsActive(template.is_active !== false)
       })
       .catch((err) => {
@@ -178,6 +189,10 @@ export function ContractTemplateFormPage({ session, company, templateId, onBack,
       signature_x: signatureX,
       signature_y: signatureY,
       signature_all_pages: signatureAllPages,
+      company_signature_page: companySignaturePage,
+      company_signature_x: companySignatureX,
+      company_signature_y: companySignatureY,
+      company_signature_all_pages: companySignatureAllPages,
       is_active: isActive,
     }
 
@@ -372,6 +387,75 @@ export function ContractTemplateFormPage({ session, company, templateId, onBack,
                 onChange={(patch) => {
                   if (patch.x !== undefined) setSignatureX(patch.x)
                   if (patch.y !== undefined) setSignatureY(patch.y)
+                }}
+              />
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6">
+            <h2 className="mb-1 text-[14px] font-bold text-[var(--ink)]">Posição da assinatura da empresa</h2>
+            <p className="mb-4 text-[12px] text-[var(--muted)]">
+              Página e posição (%) da assinatura de quem assina pela empresa no Autentique — só entra no documento
+              se o e-mail estiver preenchido em Configurações → Assinatura Digital. Como esse e-mail já tem uma
+              assinatura padrão configurada na própria conta Autentique, ela é aplicada automaticamente aqui.
+            </p>
+
+            <label className="mb-4 flex items-start gap-2.5 rounded-xl bg-[var(--page)] p-3">
+              <input
+                type="checkbox"
+                checked={companySignatureAllPages}
+                onChange={(event) => setCompanySignatureAllPages(event.target.checked)}
+                className="mt-0.5 h-4 w-4 flex-none rounded border-[var(--border)] accent-[var(--blue-500)]"
+              />
+              <span>
+                <span className="block text-[13px] font-semibold text-[var(--ink)]">
+                  Assinar em todas as páginas
+                </span>
+                <span className="mt-0.5 block text-[11.5px] text-[var(--ink-soft)]">
+                  Repete a marcação de assinatura em todas as páginas do PDF, na mesma
+                  posição X/Y. O campo "Página" fica sem efeito.
+                </span>
+              </span>
+            </label>
+
+            <div className="grid gap-6 sm:grid-cols-[1fr_auto]">
+              <div className="grid gap-4 sm:grid-cols-3">
+                <TextField
+                  label="Página"
+                  icon={<FileTextIcon className="h-4 w-4" />}
+                  type="number"
+                  min={1}
+                  value={companySignaturePage}
+                  disabled={companySignatureAllPages}
+                  onChange={(event) => setCompanySignaturePage(Number(event.target.value))}
+                />
+                <TextField
+                  label="Posição X (%)"
+                  icon={<FileTextIcon className="h-4 w-4" />}
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={companySignatureX}
+                  onChange={(event) => setCompanySignatureX(Number(event.target.value))}
+                />
+                <TextField
+                  label="Posição Y (%)"
+                  icon={<FileTextIcon className="h-4 w-4" />}
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={companySignatureY}
+                  onChange={(event) => setCompanySignatureY(Number(event.target.value))}
+                />
+              </div>
+              <SignaturePositionPreview
+                page={companySignaturePage}
+                x={companySignatureX}
+                y={companySignatureY}
+                allPages={companySignatureAllPages}
+                onChange={(patch) => {
+                  if (patch.x !== undefined) setCompanySignatureX(patch.x)
+                  if (patch.y !== undefined) setCompanySignatureY(patch.y)
                 }}
               />
             </div>

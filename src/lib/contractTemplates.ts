@@ -13,6 +13,11 @@ export interface ContractTemplateRecord {
   signature_x: number
   signature_y: number
   signature_all_pages: boolean
+  // Posição da assinatura da empresa (2º assinante, ver Config.autentique_signer_email)
+  company_signature_page?: number
+  company_signature_x?: number
+  company_signature_y?: number
+  company_signature_all_pages?: boolean
   is_active: boolean
   created_at?: string
 }
@@ -28,6 +33,10 @@ export interface ContractTemplatePayload {
   signature_x: number
   signature_y: number
   signature_all_pages: boolean
+  company_signature_page?: number
+  company_signature_x?: number
+  company_signature_y?: number
+  company_signature_all_pages?: boolean
   is_active: boolean
 }
 

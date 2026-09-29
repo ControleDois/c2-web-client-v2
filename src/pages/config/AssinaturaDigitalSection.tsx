@@ -3,7 +3,7 @@ import type { ConfigPayload } from '../../lib/config'
 import { API_BASE_URL } from '../../lib/api'
 import { SectionCard } from '../../components/SectionCard'
 import { TextField } from '../../components/form/TextField'
-import { LinkIcon, LockIcon, TagIcon, CheckCircleIcon } from '../../components/icons'
+import { LinkIcon, LockIcon, TagIcon, CheckCircleIcon, MailIcon } from '../../components/icons'
 
 interface AssinaturaDigitalSectionProps {
   value: ConfigPayload
@@ -61,6 +61,23 @@ export function AssinaturaDigitalSection({ value, onChange }: AssinaturaDigitalS
           value={value.autentique_webhook_secret ?? ''}
           onChange={(event) => onChange({ autentique_webhook_secret: event.target.value })}
         />
+        <TextField
+          label="E-mail de quem assina pela empresa"
+          icon={<MailIcon className="h-4 w-4" />}
+          type="email"
+          placeholder="Opcional - ex: dono@empresa.com"
+          value={value.autentique_signer_email ?? ''}
+          onChange={(event) => onChange({ autentique_signer_email: event.target.value })}
+        />
+
+        <div className="sm:col-span-2">
+          <p className="text-[11.5px] text-[var(--ink-soft)]">
+            Se preenchido, esse e-mail entra como 2º assinante em todo contrato enviado pra assinatura — como ele já
+            tem uma assinatura padrão configurada na própria conta Autentique, ela é aplicada automaticamente, sem
+            precisar assinar manualmente cada contrato. A posição dessa assinatura no PDF é definida em Modelos de
+            Contrato, junto com a posição da assinatura do cliente.
+          </p>
+        </div>
 
         <div className="sm:col-span-2">
           <div className="flex flex-col gap-1.5">
