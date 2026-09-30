@@ -35,6 +35,69 @@ function dataURLtoFile(dataUrl: string, filename: string): File {
   return new File([bytes], filename, { type: mime })
 }
 
+// Carimba data/hora no canto da foto tirada pela câmera - a mesma ideia da
+// vistoria de veículo (que carimba data + GPS), só que sem geolocalização
+// aqui (a visita de suporte não pede localização, só o "quando").
+function stampPhotoTimestamp(file: File): Promise<File> {
+  return new Promise((resolve) => {
+    const objectUrl = URL.createObjectURL(file)
+    const img = new Image()
+
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl)
+      const canvas = document.createElement('canvas')
+      canvas.width = img.naturalWidth
+      canvas.height = img.naturalHeight
+      const ctx = canvas.getContext('2d')
+
+      if (!ctx) {
+        resolve(file)
+        return
+      }
+
+      ctx.drawImage(img, 0, 0)
+
+      const timestamp = new Intl.DateTimeFormat('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      }).format(new Date())
+
+      const fontSize = Math.max(Math.floor(canvas.height * 0.028), 22)
+      ctx.font = `${fontSize}px sans-serif`
+      ctx.fillStyle = 'white'
+      ctx.textAlign = 'right'
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.8)'
+      ctx.shadowBlur = 6
+      ctx.shadowOffsetX = 2
+      ctx.shadowOffsetY = 2
+      ctx.fillText(timestamp, canvas.width - 20, canvas.height - 20)
+
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            resolve(file)
+            return
+          }
+          resolve(new File([blob], file.name, { type: 'image/jpeg' }))
+        },
+        'image/jpeg',
+        0.9
+      )
+    }
+
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl)
+      resolve(file)
+    }
+
+    img.src = objectUrl
+  })
+}
+
 export function SupportVisitFormPage({ session, company, onBack, onSaved }: SupportVisitFormPageProps) {
   const myCompanyPerson = useMyCompanyPerson(session, company)
 
@@ -44,6 +107,7 @@ export function SupportVisitFormPage({ session, company, onBack, onSaved }: Supp
   const [contractId, setContractId] = useState('')
   const [description, setDescription] = useState('')
   const [slots, setSlots] = useState<PhotoSlot[]>([])
+  const photoCounterRef = useRef(0)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -151,11 +215,13 @@ export function SupportVisitFormPage({ session, company, onBack, onSaved }: Supp
     setSlots((prev) => prev.map((slot, i) => (i === index ? { ...slot, label } : slot)))
   }
 
+  // Nova foto entra no topo da lista (não no fim) - quem está fazendo a
+  // visita no celular quer tocar em "Adicionar foto" e já ter o slot novo
+  // na mão, sem precisar rolar a tela até o final toda vez.
   function addSlot() {
-    setSlots((prev) => [
-      ...prev,
-      { id: `foto_${Date.now()}`, label: `Foto ${prev.length + 1}`, file: null, previewUrl: null, observation: '' },
-    ])
+    photoCounterRef.current += 1
+    const label = `Foto ${photoCounterRef.current}`
+    setSlots((prev) => [{ id: `foto_${Date.now()}`, label, file: null, previewUrl: null, observation: '' }, ...prev])
   }
 
   function removeSlot(index: number) {
@@ -327,7 +393,10 @@ export function SupportVisitFormPage({ session, company, onBack, onSaved }: Supp
                           accept="image/*"
                           capture="environment"
                           className="hidden"
-                          onChange={(event) => updateSlotFile(index, event.target.files?.[0] ?? null)}
+                          onChange={async (event) => {
+                            const file = event.target.files?.[0] ?? null
+                            updateSlotFile(index, file ? await stampPhotoTimestamp(file) : null)
+                          }}
                         />
                       </label>
                       <label className="flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-[var(--page)] px-3 py-2 text-[11.5px] font-semibold text-[var(--ink-soft)] hover:text-[var(--ink)]">
