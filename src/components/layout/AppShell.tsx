@@ -65,6 +65,7 @@ export type AppPage =
   | 'nfe-manifests'
   | 'nfe-nature-operations'
   | 'nfe-taxations'
+  | 'nfses'
   | 'licenses'
   | 'time-clock'
   | 'support-contracts'
@@ -80,6 +81,7 @@ interface AppShellProps {
   onLogout: () => void
   purchaseManagementEnabled?: boolean
   nfeModuleEnabled?: boolean
+  nfseModuleEnabled?: boolean
   timeClockEnabled?: boolean
   children: ReactNode
 }
@@ -90,7 +92,8 @@ function buildNavGroups(
   systemType?: number,
   purchaseManagementEnabled?: boolean,
   nfeModuleEnabled?: boolean,
-  timeClockEnabled?: boolean
+  timeClockEnabled?: boolean,
+  nfseModuleEnabled?: boolean
 ): NavGroup[] {
   const emprestimo = isEmprestimo(systemType)
   const padaria = isPadaria(systemType)
@@ -193,14 +196,21 @@ function buildNavGroups(
     })
   }
 
-  if (nfeModuleEnabled) {
+  if (nfeModuleEnabled || nfseModuleEnabled) {
     groups.push({
       title: 'Fiscal',
       items: [
-        { page: 'nfes', label: 'Notas Fiscais', icon: FileTextIcon },
-        { page: 'nfe-manifests', label: 'Manifesto NF-e', icon: MailIcon },
-        { page: 'nfe-nature-operations', label: 'Natureza de Operação', icon: TagIcon },
-        { page: 'nfe-taxations', label: 'Tributação', icon: TargetIcon },
+        ...(nfeModuleEnabled
+          ? [
+              { page: 'nfes' as const, label: 'Notas Fiscais', icon: FileTextIcon },
+              { page: 'nfe-manifests' as const, label: 'Manifesto NF-e', icon: MailIcon },
+              { page: 'nfe-nature-operations' as const, label: 'Natureza de Operação', icon: TagIcon },
+              { page: 'nfe-taxations' as const, label: 'Tributação', icon: TargetIcon },
+            ]
+          : []),
+        ...(nfseModuleEnabled
+          ? [{ page: 'nfses' as const, label: 'Notas de Serviço', icon: FileTextIcon }]
+          : []),
       ],
     })
   }
@@ -228,11 +238,18 @@ export function AppShell({
   onLogout,
   purchaseManagementEnabled,
   nfeModuleEnabled,
+  nfseModuleEnabled,
   timeClockEnabled,
   children,
 }: AppShellProps) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
-  const navGroups = buildNavGroups(company.system_type, purchaseManagementEnabled, nfeModuleEnabled, timeClockEnabled)
+  const navGroups = buildNavGroups(
+    company.system_type,
+    purchaseManagementEnabled,
+    nfeModuleEnabled,
+    timeClockEnabled,
+    nfseModuleEnabled
+  )
 
   function handleNavigate(page: AppPage) {
     onNavigate(page)

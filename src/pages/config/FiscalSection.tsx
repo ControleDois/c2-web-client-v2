@@ -269,6 +269,100 @@ export function FiscalSection({ value, onChange, config, session, company }: Fis
           </div>
         )}
       </SectionCard>
+
+      <SectionCard title="Módulo de NFS-e" subtitle="Nota fiscal de serviço eletrônica (Ambiente Nacional)">
+        <div className="flex flex-col gap-5">
+          <label className="flex items-center gap-2.5">
+            <input
+              type="checkbox"
+              checked={Boolean(value.nfse_module_enabled)}
+              onChange={(event) => onChange({ nfse_module_enabled: event.target.checked })}
+              className="h-4 w-4 accent-[var(--blue-500)]"
+            />
+            <span className="text-[13.5px] font-semibold text-[var(--ink)]">Ativar módulo de NFS-e</span>
+          </label>
+
+          {value.nfse_module_enabled && (
+            <>
+              <SelectField
+                label="Provedor de emissão"
+                value={value.nfse_provider ?? 'focus'}
+                onChange={(event) => onChange({ nfse_provider: event.target.value })}
+              >
+                <option value="focus">Focus NFe</option>
+                <option value="delphi">Servidor próprio</option>
+              </SelectField>
+
+              {value.nfe_module_enabled ? (
+                <p className="text-[12px] text-[var(--muted)]">
+                  Usa as mesmas credenciais Focus NFe configuradas no módulo de NFe acima.
+                </p>
+              ) : (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <TextField
+                    label="Token Focus NFe (produção)"
+                    icon={<KeyIcon className="h-4 w-4" />}
+                    type="password"
+                    value={value.focus_nfe_token_producao ?? ''}
+                    onChange={(event) => onChange({ focus_nfe_token_producao: event.target.value })}
+                  />
+                  <TextField
+                    label="Token Focus NFe (homologação)"
+                    icon={<KeyIcon className="h-4 w-4" />}
+                    type="password"
+                    value={value.focus_nfe_token_homologacao ?? ''}
+                    onChange={(event) => onChange({ focus_nfe_token_homologacao: event.target.value })}
+                  />
+                  <TextField
+                    label="URL da API (produção)"
+                    icon={<LinkIcon className="h-4 w-4" />}
+                    placeholder="https://api.focusnfe.com.br"
+                    value={value.focus_nfe_api_producao ?? ''}
+                    onChange={(event) => onChange({ focus_nfe_api_producao: event.target.value })}
+                  />
+                  <TextField
+                    label="URL da API (homologação)"
+                    icon={<LinkIcon className="h-4 w-4" />}
+                    placeholder="https://homologacao.focusnfe.com.br"
+                    value={value.focus_nfe_api_homologacao ?? ''}
+                    onChange={(event) => onChange({ focus_nfe_api_homologacao: event.target.value })}
+                  />
+                </div>
+              )}
+
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                <SelectField
+                  label="Ambiente"
+                  value={value.nfse_ambiente ?? ''}
+                  onChange={(event) =>
+                    onChange({ nfse_ambiente: event.target.value === '' ? undefined : Number(event.target.value) })
+                  }
+                >
+                  <option value="">Selecione</option>
+                  <option value={0}>Produção</option>
+                  <option value={1}>Homologação</option>
+                </SelectField>
+                <NumberField label="Série" value={value.nfse_serie} onChange={(v) => onChange({ nfse_serie: v })} />
+                <NumberField
+                  label="Próximo número"
+                  value={value.nfse_numero}
+                  onChange={(v) => onChange({ nfse_numero: v })}
+                />
+                <NumberField
+                  label="Série (homologação)"
+                  value={value.nfse_homologacao_serie}
+                  onChange={(v) => onChange({ nfse_homologacao_serie: v })}
+                />
+                <NumberField
+                  label="Próximo número (homologação)"
+                  value={value.nfse_homologacao_numero}
+                  onChange={(v) => onChange({ nfse_homologacao_numero: v })}
+                />
+              </div>
+            </>
+          )}
+        </div>
+      </SectionCard>
     </div>
   )
 }

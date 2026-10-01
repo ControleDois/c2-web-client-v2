@@ -42,6 +42,8 @@ import { RentalTypesPage } from './pages/RentalTypesPage'
 import { RentalTypeFormPage } from './pages/RentalTypeFormPage'
 import { NfesPage } from './pages/NfesPage'
 import { NfeFormPage } from './pages/NfeFormPage'
+import { NfsesPage } from './pages/NfsesPage'
+import { NfseFormPage } from './pages/NfseFormPage'
 import { NfeManifestsPage } from './pages/NfeManifestsPage'
 import { NfeNatureOperationsPage } from './pages/NfeNatureOperationsPage'
 import { NfeNatureOperationFormPage } from './pages/NfeNatureOperationFormPage'
@@ -98,6 +100,7 @@ function App() {
   const [switchingCompany, setSwitchingCompany] = useState(false)
   const [purchaseManagementEnabled, setPurchaseManagementEnabled] = useState(false)
   const [nfeModuleEnabled, setNfeModuleEnabled] = useState(false)
+  const [nfseModuleEnabled, setNfseModuleEnabled] = useState(false)
   const [timeClockEnabled, setTimeClockEnabled] = useState(false)
   const [configVersion, setConfigVersion] = useState(0)
 
@@ -105,6 +108,7 @@ function App() {
     if (!session || !activeCompany) {
       setPurchaseManagementEnabled(false)
       setNfeModuleEnabled(false)
+      setNfseModuleEnabled(false)
       setTimeClockEnabled(false)
       return
     }
@@ -114,6 +118,7 @@ function App() {
         if (!cancelled) {
           setPurchaseManagementEnabled(Boolean(config.purchase_management_enabled))
           setNfeModuleEnabled(Boolean(config.nfe_module_enabled))
+          setNfseModuleEnabled(Boolean(config.nfse_module_enabled))
           setTimeClockEnabled(Boolean(config.time_clock_enabled))
         }
       })
@@ -121,6 +126,7 @@ function App() {
         if (!cancelled) {
           setPurchaseManagementEnabled(false)
           setNfeModuleEnabled(false)
+          setNfseModuleEnabled(false)
           setTimeClockEnabled(false)
         }
       })
@@ -155,6 +161,7 @@ function App() {
   const nfesView = useEntityView()
   const nfeNatureOperationsView = useEntityView()
   const nfeTaxationsView = useEntityView()
+  const nfsesView = useEntityView()
   const supportContractsView = useEntityView()
   const supportVisitsView = useEntityView()
 
@@ -183,6 +190,7 @@ function App() {
     nfes: nfesView,
     'nfe-nature-operations': nfeNatureOperationsView,
     'nfe-taxations': nfeTaxationsView,
+    nfses: nfsesView,
     'support-contracts': supportContractsView,
     'support-visits': supportVisitsView,
   } as const
@@ -670,6 +678,24 @@ function App() {
         ) : (
           <NfesPage session={session} company={activeCompany} onCreate={nfesView.create} onEdit={(nfe) => nfesView.edit(nfe.id)} />
         )
+    } else if (page === 'nfses') {
+      pageContent =
+        nfsesView.view.mode === 'form' ? (
+          <NfseFormPage
+            session={session}
+            company={activeCompany}
+            nfseId={nfsesView.view.id}
+            onBack={nfsesView.reset}
+            onSaved={nfsesView.reset}
+          />
+        ) : (
+          <NfsesPage
+            session={session}
+            company={activeCompany}
+            onCreate={nfsesView.create}
+            onEdit={(nfse) => nfsesView.edit(nfse.id)}
+          />
+        )
     } else if (page === 'nfe-manifests') {
       pageContent = <NfeManifestsPage session={session} company={activeCompany} />
     } else if (page === 'nfe-nature-operations') {
@@ -815,6 +841,7 @@ function App() {
         onLogout={handleLogout}
         purchaseManagementEnabled={purchaseManagementEnabled}
         nfeModuleEnabled={nfeModuleEnabled}
+        nfseModuleEnabled={nfseModuleEnabled}
         timeClockEnabled={timeClockEnabled}
       >
         {pageContent}

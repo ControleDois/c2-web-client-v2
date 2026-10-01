@@ -81,6 +81,17 @@ export interface ConfigRecord {
   // com o resto da resposta em snake_case (confirmado direto na API).
   natureOperation?: { id: string; description: string } | null
 
+  // Fiscal / NFS-e - usa o mesmo provedor e credenciais Focus NFe do NFe
+  // acima quando o módulo de NFe também está ativo (focus_nfe_token_*/
+  // focus_nfe_api_* são compartilhados entre os dois).
+  nfse_module_enabled?: boolean
+  nfse_provider?: string | null
+  nfse_ambiente?: number | null
+  nfse_serie?: number | null
+  nfse_numero?: number | null
+  nfse_homologacao_serie?: number | null
+  nfse_homologacao_numero?: number | null
+
   // NFC-e - usa o mesmo provedor e credenciais (Focus/servidor próprio) do
   // módulo de NFe, mas com série/numeração/CSC próprios. Ambiente: 0 =
   // produção, 1 = homologação (igual ao NFe). A natureza de operação vem em
@@ -349,6 +360,14 @@ export interface ConfigPayload {
   nfce_csc_homologacao?: string
   nfce_csc_producao?: string
   nfceNatureOperationId?: string
+
+  nfse_module_enabled?: boolean
+  nfse_provider?: string
+  nfse_ambiente?: number
+  nfse_serie?: number
+  nfse_numero?: number
+  nfse_homologacao_serie?: number
+  nfse_homologacao_numero?: number
 
   multa_modalidade?: number
   multa_valor?: number
