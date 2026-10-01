@@ -9,10 +9,22 @@ import {
   type NfseRecord,
   type NfseSendLogRecord,
 } from '../lib/nfse'
+import { formatNfeProviderError, formatNfeMensagemSefaz } from '../lib/nfes'
 import { useNfseStatusUpdates } from '../hooks/useNfseStatusUpdates'
 import { ApiError } from '../lib/api'
 import { formatCurrency, formatDateTime } from '../lib/format'
-import { SearchIcon, PlusIcon, PencilIcon, TrashIcon, RefreshIcon, FileTextIcon, CloseIcon } from '../components/icons'
+import {
+  SearchIcon,
+  PlusIcon,
+  PencilIcon,
+  TrashIcon,
+  RefreshIcon,
+  FileTextIcon,
+  CloseIcon,
+  AlertTriangleIcon,
+  XCircleIcon,
+  CopyIcon,
+} from '../components/icons'
 import { Select } from '../components/form/Select'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { RowActionsMenu, type RowAction } from '../components/RowActionsMenu'
@@ -50,6 +62,7 @@ export function NfsesPage({ session, company, onCreate, onEdit }: NfsesPageProps
   const [logsTarget, setLogsTarget] = useState<NfseRecord | null>(null)
   const [logs, setLogs] = useState<NfseSendLogRecord[]>([])
   const [loadingLogs, setLoadingLogs] = useState(false)
+  const [errorTarget, setErrorTarget] = useState<NfseRecord | null>(null)
 
   function load() {
     setLoading(true)
@@ -72,6 +85,7 @@ export function NfsesPage({ session, company, onCreate, onEdit }: NfsesPageProps
 
   useNfseStatusUpdates(company.id, (updated) => {
     setItems((prev) => prev.map((item) => (item.id === updated.id ? { ...item, ...(updated as Partial<NfseRecord>) } : item)))
+    setErrorTarget((prev) => (prev && prev.id === updated.id ? { ...prev, ...(updated as Partial<NfseRecord>) } : prev))
   })
 
   async function handleSend(nfse: NfseRecord) {
@@ -81,7 +95,7 @@ export function NfsesPage({ session, company, onCreate, onEdit }: NfsesPageProps
       await sendNfse(token, nfse.id)
       load()
     } catch (err) {
-      setActionError(err instanceof ApiError ? err.message : 'Não foi possível enviar a NFS-e.')
+      setActionError(formatNfeProviderError(err, 'Não foi possível enviar a NFS-e.'))
     } finally {
       setBusyId(null)
     }
@@ -94,7 +108,7 @@ export function NfsesPage({ session, company, onCreate, onEdit }: NfsesPageProps
       await forceSendNfse(token, nfse.id)
       load()
     } catch (err) {
-      setActionError(err instanceof ApiError ? err.message : 'Não foi possível forçar o reenvio.')
+      setActionError(formatNfeProviderError(err, 'Não foi possível forçar o reenvio.'))
     } finally {
       setBusyId(null)
     }
@@ -126,6 +140,15 @@ export function NfsesPage({ session, company, onCreate, onEdit }: NfsesPageProps
 
   function buildActions(nfse: NfseRecord): RowAction[] {
     const actions: RowAction[] = []
+    if (nfse.status === 3) {
+      actions.push({
+        key: 'view-error',
+        label: 'Ver erro',
+        icon: <AlertTriangleIcon className="h-4 w-4" />,
+        tone: 'warning',
+        onClick: () => setErrorTarget(nfse),
+      })
+    }
     if ([0, 3].includes(nfse.status)) {
       actions.push({ key: 'edit', label: 'Editar', icon: <PencilIcon className="h-4 w-4" />, onClick: () => onEdit(nfse) })
       actions.push({
@@ -340,6 +363,87 @@ export function NfsesPage({ session, company, onCreate, onEdit }: NfsesPageProps
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
       />
+
+      {errorTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setErrorTarget(null)}>
+          <div
+            className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-[var(--surface)] shadow-[var(--card-shadow)]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 border-b border-[var(--border)] p-5">
+              <div className="flex items-start gap-2.5">
+                <span className="mt-0.5 flex h-8 w-8 flex-none items-center justify-center rounded-full bg-[var(--amber-100)] text-[var(--amber-500)]">
+                  <AlertTriangleIcon className="h-4 w-4" />
+                </span>
+                <div>
+                  <h2 className="text-[15px] font-bold text-[var(--ink)]">Retorno da NFS-e #{errorTarget.code}</h2>
+                  <p className="text-[12px] text-[var(--muted)]">
+                    {errorTarget.razao_social_tomador ?? errorTarget.people?.name}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setErrorTarget(null)}
+                className="rounded-lg p-1.5 text-[var(--muted)] hover:bg-[var(--page)] hover:text-[var(--ink)]"
+                aria-label="Fechar"
+              >
+                <XCircleIcon className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-5">
+              <div className="mb-4 grid grid-cols-3 gap-2.5">
+                <div className="rounded-xl border border-[var(--border)] p-3">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--muted)]">Status</p>
+                  <p className="mt-1 text-[13px] font-semibold text-[var(--amber-500)]">Erro no envio</p>
+                </div>
+                <div className="rounded-xl border border-[var(--border)] p-3">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--muted)]">Provedor</p>
+                  <p className="mt-1 text-[13px] font-semibold text-[var(--ink)]">
+                    {errorTarget.numero_dps ? `DPS ${errorTarget.serie_dps ?? '—'}/${errorTarget.numero_dps}` : '—'}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-[var(--border)] p-3">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--muted)]">Valor</p>
+                  <p className="mt-1 text-[13px] font-semibold text-[var(--ink)]">
+                    {formatCurrency(Number(errorTarget.valor_servico ?? 0))}
+                  </p>
+                </div>
+              </div>
+
+              <div className="overflow-hidden rounded-xl bg-[var(--amber-100)]">
+                <div className="flex items-center justify-between gap-3 px-4 py-2.5">
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-[var(--amber-500)]">
+                    Mensagem retornada
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => navigator.clipboard?.writeText(formatNfeMensagemSefaz(errorTarget.mensagem_sefaz))}
+                    className="flex items-center gap-1.5 rounded-lg bg-[var(--surface)] px-2.5 py-1.5 text-[11.5px] font-bold text-[var(--amber-500)] hover:bg-white"
+                  >
+                    <CopyIcon className="h-3.5 w-3.5" />
+                    Copiar
+                  </button>
+                </div>
+                <pre className="max-h-[45vh] overflow-auto whitespace-pre-wrap break-words px-4 py-3 text-[12.5px] leading-6 text-[var(--ink)]">
+                  {formatNfeMensagemSefaz(errorTarget.mensagem_sefaz)}
+                </pre>
+              </div>
+            </div>
+
+            <div className="border-t border-[var(--border)] p-4">
+              <button
+                type="button"
+                onClick={() => setErrorTarget(null)}
+                className="w-full rounded-xl bg-[var(--blue-500)] px-4 py-2.5 text-[13.5px] font-bold text-white hover:bg-[var(--blue-700)] sm:w-auto"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {logsTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setLogsTarget(null)}>
