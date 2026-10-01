@@ -99,6 +99,14 @@ function buildConfigPayload(companyId: string, config: ConfigRecord | null): Con
     nfce_csc_producao: config?.nfce_csc_producao ?? undefined,
     nfceNatureOperationId: config?.nfce_nature_operation_id ?? undefined,
 
+    nfse_module_enabled: config?.nfse_module_enabled ?? false,
+    nfse_provider: config?.nfse_provider ?? 'focus',
+    nfse_ambiente: config?.nfse_ambiente ?? undefined,
+    nfse_serie: config?.nfse_serie ?? undefined,
+    nfse_numero: config?.nfse_numero ?? undefined,
+    nfse_homologacao_serie: config?.nfse_homologacao_serie ?? undefined,
+    nfse_homologacao_numero: config?.nfse_homologacao_numero ?? undefined,
+
     multa_modalidade: config?.multa_modalidade ?? undefined,
     multa_valor: config?.multa_valor ?? undefined,
     juros_modalidade: config?.juros_modalidade ?? undefined,

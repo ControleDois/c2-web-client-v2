@@ -293,7 +293,7 @@ export function FiscalSection({ value, onChange, config, session, company }: Fis
                 <option value="delphi">Servidor próprio</option>
               </SelectField>
 
-              {value.nfe_module_enabled ? (
+              {value.nfse_provider === 'delphi' ? null : value.nfe_module_enabled ? (
                 <p className="text-[12px] text-[var(--muted)]">
                   Usa as mesmas credenciais Focus NFe configuradas no módulo de NFe acima.
                 </p>
