@@ -151,7 +151,13 @@ export function NfseFormPage({ session, company, nfseId, onBack, onSaved }: Nfse
         // Prestador (a própria empresa): preenchido automaticamente a partir
         // do cadastro da empresa - não é um campo editável no formulário,
         // mesma ideia de NfsesController.buildDraftFromSale no backend.
-        const issuer = await fetchCompany(session.token.token, company.id)
+        // fetchCompany busca pelo id do People que representa a empresa
+        // (company.people.id), não pelo id do tenant (company.id) -
+        // CompaniesController.show consulta a tabela people, não companies.
+        if (!company.people?.id) {
+          throw new Error('Não foi possível identificar o cadastro da empresa para preencher o prestador.')
+        }
+        const issuer = await fetchCompany(session.token.token, company.people.id)
         const issuerDocument = onlyNumbers(issuer.document)
 
         await createNfse(session.token.token, {
@@ -181,7 +187,13 @@ export function NfseFormPage({ session, company, nfseId, onBack, onSaved }: Nfse
 
       onSaved()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Não foi possível salvar a NFS-e.')
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : 'Não foi possível salvar a NFS-e.'
+      )
     } finally {
       setSubmitting(false)
     }
