@@ -13,8 +13,11 @@ import {
   type VehicleDocumentInput,
 } from '../lib/vehicles'
 import { ApiError } from '../lib/api'
+import { fetchPeople, fetchPerson, type PersonRecord } from '../lib/people'
+import { isGaragemInvestidor } from '../lib/systemTypes'
 import { TextField } from '../components/form/TextField'
 import { SelectField } from '../components/form/SelectField'
+import { SearchSelectField } from '../components/form/SearchSelectField'
 import { DocumentViewerModal } from '../components/DocumentViewerModal'
 import {
   BadgeIcon,
@@ -83,6 +86,11 @@ export function VehicleFormPage({ session, company, vehicleId, onBack, onSaved }
   const [status, setStatus] = useState(0)
   const [note, setNote] = useState('')
 
+  const [purchasePrice, setPurchasePrice] = useState('')
+  const [purchaseDate, setPurchaseDate] = useState('')
+  const [purchasePerson, setPurchasePerson] = useState<PersonRecord | null>(null)
+  const [flipStatus, setFlipStatus] = useState<'em_estoque' | 'vendido'>('em_estoque')
+
   const [searchingPlate, setSearchingPlate] = useState(false)
   const [plateSearchError, setPlateSearchError] = useState<string | null>(null)
 
@@ -123,6 +131,16 @@ export function VehicleFormPage({ session, company, vehicleId, onBack, onSaved }
         setMileage(vehicle.mileage ? String(vehicle.mileage) : '')
         setStatus(vehicle.status?.[0] ?? 0)
         setNote(vehicle.note ?? '')
+        setPurchasePrice(vehicle.purchase_price ? String(vehicle.purchase_price) : '')
+        setPurchaseDate(vehicle.purchase_date ? vehicle.purchase_date.slice(0, 10) : '')
+        setFlipStatus(vehicle.flip_status ?? 'em_estoque')
+        if (vehicle.purchase_people_id) {
+          fetchPerson(session.token.token, vehicle.purchase_people_id)
+            .then((person) => {
+              if (!cancelled) setPurchasePerson(person)
+            })
+            .catch(() => {})
+        }
         setDocuments(
           (vehicle.documents ?? []).map((doc) => ({
             id: doc.id,
@@ -233,6 +251,14 @@ export function VehicleFormPage({ session, company, vehicleId, onBack, onSaved }
       status: [status],
       note: note || undefined,
       documents: documentEntries,
+      ...(isGaragemInvestidor(company.system_type)
+        ? {
+            purchase_price: purchasePrice ? parseAmount(purchasePrice) : undefined,
+            purchase_date: purchaseDate || undefined,
+            purchase_people_id: purchasePerson?.id || undefined,
+            flip_status: flipStatus,
+          }
+        : {}),
     }
 
     setSubmitting(true)
@@ -447,6 +473,57 @@ export function VehicleFormPage({ session, company, vehicleId, onBack, onSaved }
               </div>
             </div>
           </div>
+
+          {isGaragemInvestidor(company.system_type) && (
+            <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6">
+              <h2 className="mb-4 text-[14px] font-bold text-[var(--ink)]">Dados de compra</h2>
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Data da compra</span>
+                  <input
+                    type="date"
+                    value={purchaseDate}
+                    onChange={(event) => setPurchaseDate(event.target.value)}
+                    className="w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
+                  />
+                </label>
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Valor pago (R$)</span>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="0,00"
+                    value={purchasePrice}
+                    onChange={(event) => setPurchasePrice(event.target.value.replace(/[^\d.,]/g, ''))}
+                    className="w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
+                  />
+                </label>
+                <div className="sm:col-span-2 xl:col-span-1">
+                  <SearchSelectField
+                    label="Comprado de (vendedor)"
+                    placeholder="Buscar por nome ou documento…"
+                    selectedLabel={purchasePerson?.name ?? null}
+                    selectedSubLabel={purchasePerson?.document ?? undefined}
+                    onSearch={(query) =>
+                      fetchPeople(session.token.token, company.id, { search: query, limit: 8 }).then((res) => res.data)
+                    }
+                    getOptionLabel={(item: PersonRecord) => item.name}
+                    getOptionSubLabel={(item: PersonRecord) => item.document ?? undefined}
+                    onSelect={(item: PersonRecord) => setPurchasePerson(item)}
+                    onClear={() => setPurchasePerson(null)}
+                  />
+                </div>
+                <SelectField
+                  label="Situação"
+                  value={flipStatus}
+                  onChange={(event) => setFlipStatus(event.target.value as 'em_estoque' | 'vendido')}
+                >
+                  <option value="em_estoque">Em estoque</option>
+                  <option value="vendido">Vendido</option>
+                </SelectField>
+              </div>
+            </div>
+          )}
 
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6">
             <div className="mb-4 flex items-center justify-between">

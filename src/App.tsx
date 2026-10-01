@@ -6,6 +6,7 @@ import { CompanySelectionPage } from './pages/CompanySelectionPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { RentalDashboardPage } from './pages/RentalDashboardPage'
 import { LoanDashboardPage } from './pages/LoanDashboardPage'
+import { GaragemDashboardPage } from './pages/GaragemDashboardPage'
 import { StandaloneInspectionPage } from './pages/StandaloneInspectionPage'
 import { PeoplePage } from './pages/PeoplePage'
 import { PeopleFormPage } from './pages/PeopleFormPage'
@@ -44,6 +45,8 @@ import { NfesPage } from './pages/NfesPage'
 import { NfeFormPage } from './pages/NfeFormPage'
 import { NfsesPage } from './pages/NfsesPage'
 import { NfseFormPage } from './pages/NfseFormPage'
+import { InvestmentsPage } from './pages/InvestmentsPage'
+import { InvestmentFormPage } from './pages/InvestmentFormPage'
 import { NfeManifestsPage } from './pages/NfeManifestsPage'
 import { NfeNatureOperationsPage } from './pages/NfeNatureOperationsPage'
 import { NfeNatureOperationFormPage } from './pages/NfeNatureOperationFormPage'
@@ -88,7 +91,7 @@ import {
   type AuthSession,
   type AuthCompany,
 } from './lib/auth'
-import { isLocacaoVeiculos, isEmprestimo } from './lib/systemTypes'
+import { isLocacaoVeiculos, isEmprestimo, isGaragemInvestidor } from './lib/systemTypes'
 
 type Screen = 'login' | 'forgot-password' | 'signup'
 
@@ -164,6 +167,7 @@ function App() {
   const nfsesView = useEntityView()
   const supportContractsView = useEntityView()
   const supportVisitsView = useEntityView()
+  const investmentsView = useEntityView()
 
   const entityViews = {
     people: peopleView,
@@ -193,6 +197,7 @@ function App() {
     nfses: nfsesView,
     'support-contracts': supportContractsView,
     'support-visits': supportVisitsView,
+    investments: investmentsView,
   } as const
 
   function handleLoginSuccess(newSession: AuthSession) {
@@ -696,6 +701,24 @@ function App() {
             onEdit={(nfse) => nfsesView.edit(nfse.id)}
           />
         )
+    } else if (page === 'investments') {
+      pageContent =
+        investmentsView.view.mode === 'form' ? (
+          <InvestmentFormPage
+            session={session}
+            company={activeCompany}
+            investmentId={investmentsView.view.id}
+            onBack={investmentsView.reset}
+            onSaved={investmentsView.reset}
+          />
+        ) : (
+          <InvestmentsPage
+            session={session}
+            company={activeCompany}
+            onCreate={investmentsView.create}
+            onEdit={(investment) => investmentsView.edit(investment.id)}
+          />
+        )
     } else if (page === 'nfe-manifests') {
       pageContent = <NfeManifestsPage session={session} company={activeCompany} />
     } else if (page === 'nfe-nature-operations') {
@@ -826,6 +849,8 @@ function App() {
           }}
         />
       )
+    } else if (isGaragemInvestidor(activeCompany.system_type)) {
+      pageContent = <GaragemDashboardPage session={session} company={activeCompany} />
     } else {
       pageContent = <DashboardPage session={session} company={activeCompany} />
     }

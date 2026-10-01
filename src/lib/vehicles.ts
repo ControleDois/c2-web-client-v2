@@ -39,6 +39,14 @@ export interface VehicleRecord {
   documents?: VehicleDocument[]
   createdAt?: string
   created_at?: string
+  purchase_price?: number | null
+  purchase_date?: string | null
+  purchase_people_id?: string | null
+  sale_price?: number | null
+  sale_date?: string | null
+  sale_people_id?: string | null
+  flip_status?: 'em_estoque' | 'vendido' | null
+  total_expenses?: number
 }
 
 export interface VehiclePayload {
@@ -61,6 +69,10 @@ export interface VehiclePayload {
   status?: number[]
   note?: string
   documents?: VehicleDocumentInput[]
+  purchase_price?: number
+  purchase_date?: string
+  purchase_people_id?: string
+  flip_status?: 'em_estoque' | 'vendido'
 }
 
 export interface VehicleFipeResult {

@@ -26,7 +26,14 @@ import {
   ClockIcon,
 } from '../icons'
 import { getCompanyName, type AuthCompany, type AuthSession } from '../../lib/auth'
-import { isLocacaoVeiculos, isEmprestimo, isPadaria, isNoVehicleNiche, isSoftwareHouse } from '../../lib/systemTypes'
+import {
+  isLocacaoVeiculos,
+  isEmprestimo,
+  isPadaria,
+  isNoVehicleNiche,
+  isSoftwareHouse,
+  isGaragemInvestidor,
+} from '../../lib/systemTypes'
 
 export type AppPage =
   | 'dashboard'
@@ -70,6 +77,7 @@ export type AppPage =
   | 'time-clock'
   | 'support-contracts'
   | 'support-visits'
+  | 'investments'
 
 interface AppShellProps {
   session: AuthSession
@@ -97,6 +105,7 @@ function buildNavGroups(
 ): NavGroup[] {
   const emprestimo = isEmprestimo(systemType)
   const padaria = isPadaria(systemType)
+  const garagemInvestidor = isGaragemInvestidor(systemType)
   // Cobre Pizzaria/Lanchonete/Hamburgeria/Padaria - todo nicho "sem veículo"
   // (sem grupo Operação, sem relatório de faturamento do guincho). Padaria
   // ainda tem um menu Principal próprio (sem Vendas), tratado à parte abaixo.
@@ -118,6 +127,14 @@ function buildNavGroups(
           { page: 'vehicle-sales' as const, label: 'Venda', icon: SaleIcon },
           { page: 'order-services' as const, label: 'Ordens de Serviço', icon: WrenchIcon },
         ]
+      : garagemInvestidor
+        ? [
+            { page: 'dashboard' as const, label: 'Dashboard', icon: GridIcon },
+            { page: 'people' as const, label: 'Pessoas', icon: UserIcon },
+            { page: 'vehicles' as const, label: 'Veículos', icon: TruckIcon },
+            { page: 'vehicle-sales' as const, label: 'Venda', icon: SaleIcon },
+            { page: 'investments' as const, label: 'Investimentos', icon: TrendUpIcon },
+          ]
       : padaria
         ? [
             { page: 'dashboard' as const, label: 'Dashboard', icon: GridIcon },
@@ -167,10 +184,11 @@ function buildNavGroups(
     })
   }
 
-  // Empréstimo e os nichos sem veículo (Pizzaria/Lanchonete/Hamburgeria/
-  // Padaria) não usam o grupo "Operação" (que é todo sobre vistoria/busca/
-  // entrega de veículo) — empréstimo não tem nenhum grupo extra próprio.
-  if (!emprestimo && !noVehicleNiche) {
+  // Empréstimo, os nichos sem veículo (Pizzaria/Lanchonete/Hamburgeria/
+  // Padaria) e Garagem do Investidor não usam o grupo "Operação" (vistoria/
+  // busca/entrega de veículo é fluxo de locadora/guincho, não de compra e
+  // revenda) — empréstimo não tem nenhum grupo extra próprio.
+  if (!emprestimo && !noVehicleNiche && !garagemInvestidor) {
     groups.push({
       title: 'Operação',
       items: [
@@ -217,8 +235,9 @@ function buildNavGroups(
 
   // O relatório de faturamento é específico do fluxo de guincho (TowingSale)
   // — não se aplica a nichos sem veículo (Pizzaria/Lanchonete/Hamburgeria/
-  // Padaria) nem ao Empréstimo (venda financiada, sem TowingSale nenhum).
-  if (!noVehicleNiche && !emprestimo) {
+  // Padaria), ao Empréstimo (venda financiada, sem TowingSale nenhum) nem à
+  // Garagem do Investidor (usa VehicleSaleContract, não TowingSale).
+  if (!noVehicleNiche && !emprestimo && !garagemInvestidor) {
     groups.push({
       title: 'Relatórios',
       items: [{ page: 'towing-billing-report', label: 'Faturamento', icon: TrendUpIcon }],

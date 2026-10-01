@@ -14,6 +14,8 @@ import { SearchIcon, PlusIcon, PencilIcon, TrashIcon, PrinterIcon } from '../com
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { PrintPreviewModal, type PrintColumn } from '../components/PrintPreviewModal'
 import type { AuthSession, AuthCompany } from '../lib/auth'
+import { isGaragemInvestidor } from '../lib/systemTypes'
+import { formatCurrency } from '../lib/format'
 
 interface VehiclesPageProps {
   session: AuthSession
@@ -299,7 +301,20 @@ export function VehiclesPage({ session, company, onCreate, onEdit }: VehiclesPag
                           {VEHICLE_STATUS_LABELS[vehicle.status?.[0] ?? 0] ?? '—'}
                         </span>
                       </div>
-                      <p className="mt-0.5 text-[12px] text-[var(--ink-soft)]">{vehicleLabel(vehicle)}</p>
+                      <p className="mt-0.5 text-[12px] text-[var(--ink-soft)]">
+                        {vehicleLabel(vehicle)}
+                        {isGaragemInvestidor(company.system_type) && vehicle.flip_status && (
+                          <span
+                            className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                              vehicle.flip_status === 'vendido'
+                                ? 'bg-[var(--green-100)] text-[var(--green-600)]'
+                                : 'bg-[var(--blue-100)] text-[var(--blue-700)]'
+                            }`}
+                          >
+                            {vehicle.flip_status === 'vendido' ? 'Vendido' : 'Em estoque'}
+                          </span>
+                        )}
+                      </p>
                       <p className="text-[12px] text-[var(--muted)]">
                         {vehicle.internal_code != null ? `#${vehicle.internal_code}` : '—'}
                         {vehicle.model_year ? ` · ${vehicle.model_year}` : ''}
@@ -377,7 +392,25 @@ export function VehiclesPage({ session, company, onCreate, onEdit }: VehiclesPag
                         {vehicle.internal_code != null ? `#${vehicle.internal_code}` : '—'}
                       </td>
                       <td className="py-2.5 font-mono font-medium text-[var(--ink)]">{vehicle.license_plate}</td>
-                      <td className="py-2.5 text-[var(--ink-soft)]">{vehicleLabel(vehicle)}</td>
+                      <td className="py-2.5 text-[var(--ink-soft)]">
+                        {vehicleLabel(vehicle)}
+                        {isGaragemInvestidor(company.system_type) && vehicle.flip_status && (
+                          <span
+                            className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                              vehicle.flip_status === 'vendido'
+                                ? 'bg-[var(--green-100)] text-[var(--green-600)]'
+                                : 'bg-[var(--blue-100)] text-[var(--blue-700)]'
+                            }`}
+                          >
+                            {vehicle.flip_status === 'vendido' ? 'Vendido' : 'Em estoque'}
+                          </span>
+                        )}
+                        {isGaragemInvestidor(company.system_type) && vehicle.purchase_price != null && (
+                          <span className="ml-1.5 text-[11.5px] text-[var(--muted)]">
+                            · custo {formatCurrency(Number(vehicle.purchase_price) + Number(vehicle.total_expenses || 0))}
+                          </span>
+                        )}
+                      </td>
                       <td className="py-2.5 text-[var(--ink-soft)]">{vehicle.model_year || '—'}</td>
                       <td className="py-2.5 text-[var(--ink-soft)]">{vehicle.color || '—'}</td>
                       <td className="py-2.5 text-[var(--ink-soft)]">{vehicle.fuel || '—'}</td>

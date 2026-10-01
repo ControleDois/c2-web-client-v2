@@ -18,6 +18,7 @@ export const SYSTEM_TYPE_LABELS: Record<number, string> = {
   16: 'Hamburgeria',
   17: 'Padaria',
   18: 'SoftwareHouse / TI',
+  19: 'Garagem do Investidor',
 }
 
 export const SYSTEM_TYPE_PROTECAO_VEICULAR = 1
@@ -28,6 +29,7 @@ export const SYSTEM_TYPE_LANCHONETE = 15
 export const SYSTEM_TYPE_HAMBURGUERIA = 16
 export const SYSTEM_TYPE_PADARIA = 17
 export const SYSTEM_TYPE_SOFTWARE_HOUSE = 18
+export const SYSTEM_TYPE_GARAGEM_INVESTIDOR = 19
 // Loja Online cobre qualquer nicho com delivery/cardápio próprio (inclui os
 // 4 nichos de comida - Pizzaria/Lanchonete ficavam de fora antes por omissão,
 // não por design; corrigido junto da criação de Hamburgeria/Padaria).
@@ -95,4 +97,13 @@ export function isLojaOnline(systemType?: number): boolean {
 
 export function isVistoriasNiche(systemType?: number): boolean {
   return systemType !== undefined && SYSTEM_TYPES_VISTORIAS.includes(systemType)
+}
+
+// Compra/reforma/revenda de veículos usados visando lucro, mais um módulo
+// de outros investimentos (imóveis, empréstimos a terceiros, aplicações).
+// Reaproveita o mesmo Vehicle/VehicleSaleContract de isLocacaoVeiculos, mas
+// não é locação - por isso tem nav própria (sem vistoria/busca de veículo,
+// que são específicas do fluxo de guincho/locadora).
+export function isGaragemInvestidor(systemType?: number): boolean {
+  return systemType === SYSTEM_TYPE_GARAGEM_INVESTIDOR
 }
