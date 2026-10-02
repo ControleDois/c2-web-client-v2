@@ -1,18 +1,40 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { ConfigPayload } from '../../lib/config'
+import type { ConfigPayload, ConfigRecord } from '../../lib/config'
 import { API_BASE_URL } from '../../lib/api'
+import { fetchCompanyWhatsapps, type CompanyWhatsappRecord } from '../../lib/companyWhatsapp'
+import { formatPhone } from '../../lib/formatPhone'
 import { SectionCard } from '../../components/SectionCard'
 import { TextField } from '../../components/form/TextField'
-import { LinkIcon, LockIcon, TagIcon, CheckCircleIcon, PenIcon, PaperclipIcon, TrashIcon } from '../../components/icons'
+import { SearchSelectField } from '../../components/form/SearchSelectField'
+import {
+  LinkIcon,
+  LockIcon,
+  TagIcon,
+  CheckCircleIcon,
+  PenIcon,
+  PaperclipIcon,
+  TrashIcon,
+  MailIcon,
+  WhatsappIcon,
+} from '../../components/icons'
+import type { AuthSession, AuthCompany } from '../../lib/auth'
 
 interface AssinaturaDigitalSectionProps {
   value: ConfigPayload
   onChange: (patch: Partial<ConfigPayload>) => void
+  config: ConfigRecord | null
+  session: AuthSession
+  company: AuthCompany
 }
 
-export function AssinaturaDigitalSection({ value, onChange }: AssinaturaDigitalSectionProps) {
+export function AssinaturaDigitalSection({ value, onChange, config, session, company }: AssinaturaDigitalSectionProps) {
   const [copied, setCopied] = useState(false)
   const webhookUrl = `${API_BASE_URL}/connect/autentique/webhook`
+  const [signatureWhatsappLabel, setSignatureWhatsappLabel] = useState<string | null>(null)
+
+  useEffect(() => {
+    setSignatureWhatsappLabel(config?.signature_whatsapp?.name ?? null)
+  }, [config])
 
   const signaturePreviewUrl = useMemo(
     () => (value.autentique_signature_file ? URL.createObjectURL(value.autentique_signature_file) : null),
@@ -37,7 +59,84 @@ export function AssinaturaDigitalSection({ value, onChange }: AssinaturaDigitalS
   }
 
   return (
-    <SectionCard title="Autentique" subtitle="Integração com a API de assinatura digital">
+    <div className="flex flex-col gap-6">
+      <SectionCard
+        title="Assinatura própria"
+        subtitle="Cliente confirma por código (e-mail/WhatsApp), tira selfie e desenha a rubrica — sem precisar do Autentique"
+      >
+        <div className="flex flex-col gap-4">
+          <label className="flex items-center gap-2.5">
+            <input
+              type="checkbox"
+              checked={Boolean(value.signature_native_enabled)}
+              onChange={(event) => onChange({ signature_native_enabled: event.target.checked })}
+              className="h-4 w-4 accent-[var(--blue-500)]"
+            />
+            <span className="text-[13.5px] font-semibold text-[var(--ink)]">
+              Usar assinatura própria em vez do Autentique
+            </span>
+          </label>
+
+          {value.signature_native_enabled && (
+            <div className="flex flex-col gap-4 rounded-xl bg-[var(--page)] p-4">
+              <div>
+                <p className="mb-2 text-[12px] font-semibold text-[var(--ink-soft)]">
+                  Canais de verificação permitidos
+                </p>
+                <div className="flex flex-col gap-2 sm:flex-row sm:gap-5">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(value.signature_allow_email)}
+                      onChange={(event) => onChange({ signature_allow_email: event.target.checked })}
+                      className="h-4 w-4 accent-[var(--blue-500)]"
+                    />
+                    <MailIcon className="h-4 w-4 text-[var(--ink-soft)]" />
+                    <span className="text-[13px] text-[var(--ink)]">E-mail</span>
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(value.signature_allow_whatsapp)}
+                      onChange={(event) => onChange({ signature_allow_whatsapp: event.target.checked })}
+                      className="h-4 w-4 accent-[var(--blue-500)]"
+                    />
+                    <WhatsappIcon className="h-4 w-4 text-[var(--ink-soft)]" />
+                    <span className="text-[13px] text-[var(--ink)]">WhatsApp</span>
+                  </label>
+                </div>
+              </div>
+
+              {value.signature_allow_whatsapp && (
+                <SearchSelectField
+                  label="WhatsApp usado para enviar o código"
+                  placeholder="Buscar número"
+                  selectedLabel={signatureWhatsappLabel}
+                  onSearch={(query) =>
+                    fetchCompanyWhatsapps(session.token.token, company.id, { search: query }).then((res) => res.data)
+                  }
+                  getOptionLabel={(item: CompanyWhatsappRecord) => item.name}
+                  getOptionSubLabel={(item: CompanyWhatsappRecord) => formatPhone(item.phone)}
+                  onSelect={(item: CompanyWhatsappRecord) => {
+                    setSignatureWhatsappLabel(item.name)
+                    onChange({ signature_whatsapp_id: item.id })
+                  }}
+                  onClear={() => {
+                    setSignatureWhatsappLabel(null)
+                    onChange({ signature_whatsapp_id: undefined })
+                  }}
+                />
+              )}
+              <p className="text-[11.5px] text-[var(--ink-soft)]">
+                A rubrica desenhada pelo cliente é carimbada no PDF na mesma posição configurada em Modelos de
+                Contrato (campo "Posição da assinatura do cliente").
+              </p>
+            </div>
+          )}
+        </div>
+      </SectionCard>
+
+      <SectionCard title="Autentique" subtitle="Integração com a API de assinatura digital">
       <div className="grid gap-4 sm:grid-cols-2">
         <TextField
           label="URL da API"
@@ -145,6 +244,7 @@ export function AssinaturaDigitalSection({ value, onChange }: AssinaturaDigitalS
           </div>
         </div>
       </div>
-    </SectionCard>
+      </SectionCard>
+    </div>
   )
 }

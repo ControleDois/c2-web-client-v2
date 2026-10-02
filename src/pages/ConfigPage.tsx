@@ -129,6 +129,11 @@ function buildConfigPayload(companyId: string, config: ConfigRecord | null): Con
     autentique_webhook_secret: config?.autentique_webhook_secret ?? undefined,
     autentique_signer_signature_url: config?.autentique_signer_signature_url ?? undefined,
 
+    signature_native_enabled: config?.signature_native_enabled ?? false,
+    signature_allow_email: config?.signature_allow_email ?? true,
+    signature_allow_whatsapp: config?.signature_allow_whatsapp ?? true,
+    signature_whatsapp_id: config?.signature_whatsapp_id ?? undefined,
+
     sicredi_chave_pix: config?.sicredi_chave_pix ?? undefined,
     sicredi_escopos: config?.sicredi_escopos ?? undefined,
     sicredi_client_id: config?.sicredi_client_id ?? undefined,
@@ -403,7 +408,13 @@ export function ConfigPage({ session, company, onNavigate, onSaved }: ConfigPage
               )}
               {activeTab === 'vistorias' && <VistoriasSection value={formState} onChange={handleChange} />}
               {activeTab === 'assinatura-digital' && (
-                <AssinaturaDigitalSection value={formState} onChange={handleChange} />
+                <AssinaturaDigitalSection
+                  value={formState}
+                  onChange={handleChange}
+                  config={config}
+                  session={session}
+                  company={company}
+                />
               )}
               {activeTab === 'emprestimo' && <EmprestimoSection value={formState} onChange={handleChange} />}
               {activeTab === 'protecao-veicular' && (

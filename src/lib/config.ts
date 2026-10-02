@@ -142,6 +142,14 @@ export interface ConfigRecord {
   // por assinante nenhum no Autentique.
   autentique_signer_signature_url?: string | null
 
+  // Assinatura digital própria (alternativa ao Autentique) - link público,
+  // selfie + rubrica desenhada, confirmado por código via e-mail/WhatsApp.
+  signature_native_enabled?: boolean
+  signature_allow_email?: boolean
+  signature_allow_whatsapp?: boolean
+  signature_whatsapp_id?: string | null
+  signature_whatsapp?: { id: string; name: string } | null
+
   // Sicredi Pix
   sicredi_chave_pix?: string | null
   // Escopos pedidos no token OAuth (ex: "cob.write+cob.read+webhook.read+
@@ -393,6 +401,11 @@ export interface ConfigPayload {
   // '' explícito remove a assinatura salva; undefined mantém a atual.
   autentique_signer_signature_url?: string
   autentique_signature_file?: File
+
+  signature_native_enabled?: boolean
+  signature_allow_email?: boolean
+  signature_allow_whatsapp?: boolean
+  signature_whatsapp_id?: string
 
   sicredi_chave_pix?: string
   sicredi_escopos?: string
