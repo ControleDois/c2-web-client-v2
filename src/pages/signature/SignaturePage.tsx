@@ -7,7 +7,8 @@ import {
   submitSignature,
   type SignatureInfo,
 } from '../../lib/signatureApi'
-import { CameraIcon, CheckCircleIcon, AlertCircleIcon, TrashIcon, MailIcon, WhatsappIcon } from '../../components/icons'
+import { CheckCircleIcon, AlertCircleIcon, TrashIcon, MailIcon, WhatsappIcon } from '../../components/icons'
+import { LiveSelfieCapture } from './LiveSelfieCapture'
 
 interface SignaturePageProps {
   token: string
@@ -130,7 +131,7 @@ export function SignaturePage({ token }: SignaturePageProps) {
   const [code, setCode] = useState('')
   const [sentTo, setSentTo] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [selfieFile, setSelfieFile] = useState<File | null>(null)
+  const [selfieBlob, setSelfieBlob] = useState<Blob | null>(null)
   const [signatureBlob, setSignatureBlob] = useState<Blob | null>(null)
   const [fileUrl, setFileUrl] = useState('')
 
@@ -175,14 +176,14 @@ export function SignaturePage({ token }: SignaturePageProps) {
   }
 
   async function handleSubmit() {
-    if (!selfieFile || !signatureBlob) {
-      setError('Tire uma foto e desenhe sua rubrica antes de confirmar.')
+    if (!selfieBlob || !signatureBlob) {
+      setError('Tire a foto e desenhe sua rubrica antes de confirmar.')
       return
     }
     setError(null)
     setSubmitting(true)
     try {
-      const res = await submitSignature(token, selfieFile, signatureBlob)
+      const res = await submitSignature(token, selfieBlob, signatureBlob)
       setFileUrl(res.fileUrl)
       setStep('done')
     } catch (err) {
@@ -225,7 +226,7 @@ export function SignaturePage({ token }: SignaturePageProps) {
               href={info.documentUrl}
               target="_blank"
               rel="noreferrer"
-              className="mt-2 rounded-xl bg-[var(--ink)] px-5 py-2.5 text-[13.5px] font-bold text-white"
+              className="mt-2 rounded-xl bg-[var(--blue-500)] px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-[var(--blue-700)]"
             >
               Ver documento assinado
             </a>
@@ -249,7 +250,7 @@ export function SignaturePage({ token }: SignaturePageProps) {
               href={fileUrl}
               target="_blank"
               rel="noreferrer"
-              className="mt-2 rounded-xl bg-[var(--ink)] px-5 py-2.5 text-[13.5px] font-bold text-white"
+              className="mt-2 rounded-xl bg-[var(--blue-500)] px-5 py-2.5 text-[13.5px] font-bold text-white hover:bg-[var(--blue-700)]"
             >
               Ver documento assinado
             </a>
@@ -263,12 +264,23 @@ export function SignaturePage({ token }: SignaturePageProps) {
     <PageShell>
       <div className="flex flex-col gap-5">
         <div className="text-center">
-          <p className="text-[12px] font-semibold uppercase tracking-wide text-[var(--blue-700)]">
+          <p className="text-[12px] font-semibold uppercase tracking-wide text-[var(--blue-500)]">
             {info?.companyName}
           </p>
           <h1 className="mt-0.5 text-[18px] font-bold text-[var(--ink)]">Assinatura de documento</h1>
           <p className="mt-1 text-[13px] text-[var(--muted)]">Olá, {info?.signerName}</p>
         </div>
+
+        {info?.documentUrl && (
+          <a
+            href={info.documentUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 text-center text-[13px] font-bold text-[var(--blue-500)] hover:bg-[var(--page)]"
+          >
+            Ler o documento antes de assinar
+          </a>
+        )}
 
         {error && (
           <p className="rounded-xl bg-[var(--red-100)] px-3.5 py-2.5 text-center text-[13px] font-medium text-[var(--red-500)]">
@@ -285,7 +297,7 @@ export function SignaturePage({ token }: SignaturePageProps) {
               <button
                 type="button"
                 onClick={() => handleRequestCode('email')}
-                className="flex items-center justify-center gap-2 rounded-xl border border-[var(--border)] px-4 py-3 text-[13.5px] font-bold text-[var(--ink)] hover:bg-[var(--page)]"
+                className="flex items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-[13.5px] font-bold text-[var(--ink)] hover:bg-[var(--page)]"
               >
                 <MailIcon className="h-4 w-4" />
                 E-mail ({info.maskedEmail})
@@ -321,13 +333,13 @@ export function SignaturePage({ token }: SignaturePageProps) {
               value={code}
               onChange={(event) => setCode(event.target.value.replace(/\D/g, ''))}
               placeholder="000000"
-              className="rounded-xl border border-[var(--border)] px-4 py-3 text-center text-[22px] font-bold tracking-[0.3em] text-[var(--ink)]"
+              className="rounded-xl border border-[var(--border)] bg-[var(--page)] px-4 py-3 text-center text-[22px] font-bold tracking-[0.3em] text-[var(--ink)] placeholder:text-[var(--muted)] focus:border-[var(--blue-500)] focus:outline-none"
             />
             <button
               type="button"
               onClick={handleVerifyCode}
               disabled={code.length !== 6}
-              className="rounded-xl bg-[var(--ink)] px-4 py-3 text-[13.5px] font-bold text-white disabled:opacity-50"
+              className="rounded-xl bg-[var(--blue-500)] px-4 py-3 text-[13.5px] font-bold text-white transition hover:bg-[var(--blue-700)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               Confirmar código
             </button>
@@ -344,20 +356,8 @@ export function SignaturePage({ token }: SignaturePageProps) {
         {step === 'sign' && (
           <div className="flex flex-col gap-4">
             <div>
-              <p className="mb-2 text-[12.5px] font-semibold text-[var(--ink-soft)]">1. Tire uma foto sua</p>
-              <label className="flex cursor-pointer flex-col items-center gap-2 rounded-2xl border-2 border-dashed border-[var(--border)] px-4 py-6 text-center">
-                <CameraIcon className="h-7 w-7 text-[var(--muted)]" />
-                <span className="text-[12.5px] font-semibold text-[var(--muted)]">
-                  {selfieFile ? selfieFile.name : 'Toque para abrir a câmera'}
-                </span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="user"
-                  className="hidden"
-                  onChange={(event) => setSelfieFile(event.target.files?.[0] || null)}
-                />
-              </label>
+              <p className="mb-2 text-[12.5px] font-semibold text-[var(--ink-soft)]">1. Tire uma foto sua ao vivo</p>
+              <LiveSelfieCapture onCapture={setSelfieBlob} />
             </div>
 
             <div>
@@ -368,8 +368,8 @@ export function SignaturePage({ token }: SignaturePageProps) {
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={submitting || !selfieFile || !signatureBlob}
-              className="rounded-xl bg-[var(--ink)] px-4 py-3 text-[13.5px] font-bold text-white disabled:opacity-50"
+              disabled={submitting || !selfieBlob || !signatureBlob}
+              className="rounded-xl bg-[var(--blue-500)] px-4 py-3 text-[13.5px] font-bold text-white transition hover:bg-[var(--blue-700)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {submitting ? 'Assinando…' : 'Confirmar assinatura'}
             </button>

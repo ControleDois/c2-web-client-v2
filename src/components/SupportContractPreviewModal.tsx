@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { printSupportContract, type SupportContractRecord } from '../lib/supportContracts'
 import { fetchContractTemplates, type ContractTemplateRecord } from '../lib/contractTemplates'
 import { ApiError } from '../lib/api'
-import { CloseIcon, PrinterIcon } from './icons'
+import { CheckCircleIcon, CloseIcon, PrinterIcon } from './icons'
 import { Select } from './form/Select'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
@@ -26,6 +26,7 @@ export function SupportContractPreviewModal({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [url, setUrl] = useState<string | null>(null)
+  const [signed, setSigned] = useState(false)
 
   useEffect(() => {
     if (!open || !contract) return
@@ -53,11 +54,13 @@ export function SupportContractPreviewModal({
     setLoading(true)
     setError(null)
     setUrl(null)
+    setSigned(false)
 
     printSupportContract(session.token.token, contract.id, templateId || undefined)
       .then((res) => {
         if (cancelled) return
         setUrl(res.url)
+        setSigned(Boolean(res.signed))
       })
       .catch((err) => {
         if (cancelled) return
@@ -78,16 +81,20 @@ export function SupportContractPreviewModal({
     <div className="fixed inset-0 z-50 flex flex-col bg-[var(--surface)]">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] px-6 py-4">
         <div className="flex items-center gap-2.5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--blue-100)] text-[var(--blue-700)]">
-            <PrinterIcon className="h-4.5 w-4.5" />
+          <span
+            className={`flex h-9 w-9 items-center justify-center rounded-full ${
+              signed ? 'bg-[var(--green-100)] text-[var(--green-600)]' : 'bg-[var(--blue-100)] text-[var(--blue-700)]'
+            }`}
+          >
+            {signed ? <CheckCircleIcon className="h-4.5 w-4.5" /> : <PrinterIcon className="h-4.5 w-4.5" />}
           </span>
           <div>
-            <h2 className="text-[15px] font-bold text-[var(--ink)]">Contrato</h2>
+            <h2 className="text-[15px] font-bold text-[var(--ink)]">{signed ? 'Contrato assinado' : 'Contrato'}</h2>
             <p className="text-[12.5px] text-[var(--ink-soft)]">{contract.people?.name ?? 'Contrato de suporte'}</p>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {templates.length > 0 && (
+          {templates.length > 0 && !signed && (
             <div className="w-56">
               <Select value={templateId} onChange={setTemplateId} variant="page">
                 {templates.map((template) => (
@@ -105,7 +112,7 @@ export function SupportContractPreviewModal({
               rel="noreferrer"
               className="rounded-xl bg-[var(--page)] px-3.5 py-2 text-[12.5px] font-bold text-[var(--blue-700)] hover:bg-[var(--blue-100)]"
             >
-              Abrir em nova aba
+              {signed ? 'Abrir contrato assinado' : 'Abrir em nova aba'}
             </a>
           )}
           <button
@@ -119,7 +126,7 @@ export function SupportContractPreviewModal({
         </div>
       </div>
 
-      {templates.length === 0 && (
+      {templates.length === 0 && !signed && (
         <div className="border-b border-[var(--border)] bg-[var(--amber-100)] px-6 py-2.5 text-[12.5px] font-medium text-[var(--amber-500)]">
           Nenhum modelo ativo do tipo "Contrato de Suporte" cadastrado - mostrando um modelo padrão genérico. Cadastre um em
           Modelos de Contrato para personalizar.

@@ -104,7 +104,7 @@ export function deleteSupportContract(token: string, id: string) {
 }
 
 export function printSupportContract(token: string, id: string, contractTemplateId?: string) {
-  return apiPost<{ url: string; html: string }>(
+  return apiPost<{ url: string; html: string | null; signed?: boolean }>(
     `/support-contract/print-contract/${id}`,
     contractTemplateId ? { contractTemplateId } : {},
     token
