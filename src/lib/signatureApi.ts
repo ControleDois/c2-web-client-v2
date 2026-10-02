@@ -45,8 +45,16 @@ export function verifySignatureCode(token: string, code: string) {
   }).then(parseJson) as Promise<{ verified: boolean }>
 }
 
-export function submitSignature(token: string, selfie: Blob, signature: Blob) {
+export function submitSignature(
+  token: string,
+  selfie: Blob,
+  signature: Blob,
+  location: { latitude: number; longitude: number; accuracy: number }
+) {
   const form = new FormData()
+  form.append('latitude', String(location.latitude))
+  form.append('longitude', String(location.longitude))
+  form.append('accuracy', String(location.accuracy))
   form.append('selfie', selfie, 'selfie.jpg')
   form.append('signature', signature, 'rubrica.png')
 

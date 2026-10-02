@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { CameraIcon, CheckCircleIcon } from '../../components/icons'
+import { drawStampBar, formatDateTime, formatFixLine, type GeoFix } from '../../lib/photoWatermark'
 
 interface LiveSelfieCaptureProps {
   onCapture: (blob: Blob | null) => void
+  location: GeoFix
+  addressLine: string | null
 }
 
 type Stage = 'align' | 'closer' | 'back' | 'blink' | 'capture'
@@ -41,22 +44,9 @@ function eyeAspectRatio(p: Point[], start: number) {
   return (dist(p[start + 1], p[start + 5]) + dist(p[start + 2], p[start + 4])) / (2 * dist(p[start], p[start + 3]))
 }
 
-function stampTimestamp(canvas: HTMLCanvasElement) {
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return
-  const text = `Capturado em ${new Date().toLocaleString('pt-BR')}`
-  const fontSize = Math.max(14, Math.round(canvas.width / 26))
-  const barHeight = Math.round(fontSize * 2)
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.62)'
-  ctx.fillRect(0, canvas.height - barHeight, canvas.width, barHeight)
-  ctx.fillStyle = '#ffffff'
-  ctx.font = `600 ${fontSize}px system-ui, sans-serif`
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  ctx.fillText(text, canvas.width / 2, canvas.height - barHeight / 2)
-}
-
-export function LiveSelfieCapture({ onCapture }: LiveSelfieCaptureProps) {
+export function LiveSelfieCapture({ onCapture, location, addressLine }: LiveSelfieCaptureProps) {
+  const stampDataRef = useRef({ location, addressLine })
+  stampDataRef.current = { location, addressLine }
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const aliveRef = useRef(false)
@@ -82,7 +72,12 @@ export function LiveSelfieCapture({ onCapture }: LiveSelfieCaptureProps) {
     canvas.width = Math.round(video.videoWidth * scale)
     canvas.height = Math.round(video.videoHeight * scale)
     canvas.getContext('2d')?.drawImage(video, 0, 0, canvas.width, canvas.height)
-    stampTimestamp(canvas)
+    const stamp = stampDataRef.current
+    drawStampBar(canvas, [
+      `Capturado em ${formatDateTime()}`,
+      formatFixLine(stamp.location),
+      ...(stamp.addressLine ? [stamp.addressLine] : []),
+    ])
     canvas.toBlob(
       (blob) => {
         if (!blob) return
@@ -401,7 +396,7 @@ export function LiveSelfieCapture({ onCapture }: LiveSelfieCaptureProps) {
       )}
 
       <p className="text-center text-[11.5px] text-[var(--muted)]">
-        A foto é tirada na hora, com data e hora registradas. Não é possível enviar uma imagem da galeria.
+        A foto é tirada na hora, com data, hora e localização registradas. Não é possível enviar uma imagem da galeria.
       </p>
     </div>
   )

@@ -9,6 +9,7 @@ import {
   type SignatureInfo,
 } from '../../lib/signatureApi'
 import { CameraIcon, CheckCircleIcon, AlertCircleIcon, TrashIcon, MailIcon, WhatsappIcon } from '../../components/icons'
+import { GeoError, getCurrentFix, reverseGeocodeLine, type GeoFix } from '../../lib/photoWatermark'
 import { LiveSelfieCapture } from './LiveSelfieCapture'
 
 interface SignaturePageProps {
@@ -199,6 +200,9 @@ export function SignaturePage({ token }: SignaturePageProps) {
   const [sentTo, setSentTo] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [cameraStarted, setCameraStarted] = useState(false)
+  const [locating, setLocating] = useState(false)
+  const [location, setLocation] = useState<GeoFix | null>(null)
+  const [addressLine, setAddressLine] = useState<string | null>(null)
   const [selfieBlob, setSelfieBlob] = useState<Blob | null>(null)
   const [signatureBlob, setSignatureBlob] = useState<Blob | null>(null)
   const [fileUrl, setFileUrl] = useState('')
@@ -243,15 +247,35 @@ export function SignaturePage({ token }: SignaturePageProps) {
     }
   }
 
+  async function handleStartCamera() {
+    setError(null)
+    setLocating(true)
+    try {
+      const fix = await getCurrentFix()
+      setLocation(fix)
+      reverseGeocodeLine(fix, 4000).then(setAddressLine)
+      setCameraStarted(true)
+    } catch (err) {
+      const kind = err instanceof GeoError ? err.kind : 'unavailable'
+      setError(
+        kind === 'denied'
+          ? 'Precisamos da sua localização para registrar a assinatura. Libere o acesso à localização nas configurações do navegador (ícone de cadeado) e toque em "Abrir câmera" de novo.'
+          : 'Não conseguimos obter sua localização. Vá para um local com melhor sinal de GPS e tente de novo.'
+      )
+    } finally {
+      setLocating(false)
+    }
+  }
+
   async function handleSubmit() {
-    if (!selfieBlob || !signatureBlob) {
+    if (!selfieBlob || !signatureBlob || !location) {
       setError('Faça a facial e desenhe sua rubrica antes de confirmar.')
       return
     }
     setError(null)
     setSubmitting(true)
     try {
-      const res = await submitSignature(token, selfieBlob, signatureBlob)
+      const res = await submitSignature(token, selfieBlob, signatureBlob, location)
       setFileUrl(res.fileUrl)
       setStep('done')
     } catch (err) {
@@ -413,21 +437,24 @@ export function SignaturePage({ token }: SignaturePageProps) {
                   </span>
                   <h2 className="text-[16px] font-bold text-[var(--ink)]">Vamos confirmar que é você</h2>
                   <p className="text-[13px] text-[var(--muted)]">
-                    Vamos usar a câmera frontal para uma verificação rápida do rosto. Leva uns segundos.
+                    Vamos usar a câmera frontal e a sua localização para uma verificação rápida. Leva uns segundos.
                   </p>
                 </div>
                 <ul className="flex flex-col gap-1.5 rounded-xl bg-[var(--page)] px-4 py-3 text-[12.5px] text-[var(--ink-soft)]">
                   <li>• Fique num lugar bem iluminado</li>
                   <li>• Tire óculos escuros, boné ou máscara</li>
+                  <li>• Permita o acesso à câmera e à localização quando o navegador pedir</li>
                   <li>• Siga as instruções na tela: aproximar, afastar e piscar</li>
                 </ul>
-                <button type="button" onClick={() => setCameraStarted(true)} className={PRIMARY_BUTTON}>
-                  Abrir câmera
+                <button type="button" onClick={handleStartCamera} disabled={locating} className={PRIMARY_BUTTON}>
+                  {locating ? 'Obtendo localização…' : 'Abrir câmera'}
                 </button>
               </>
             ) : (
               <>
-                <LiveSelfieCapture onCapture={setSelfieBlob} />
+                {location && (
+                  <LiveSelfieCapture onCapture={setSelfieBlob} location={location} addressLine={addressLine} />
+                )}
                 {selfieBlob && (
                   <button type="button" onClick={() => setStep('sign')} className={PRIMARY_BUTTON}>
                     Continuar para a assinatura

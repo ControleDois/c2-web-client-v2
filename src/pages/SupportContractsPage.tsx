@@ -8,11 +8,21 @@ import {
 } from '../lib/supportContracts'
 import { ApiError } from '../lib/api'
 import { formatCurrency, formatDate } from '../lib/format'
-import { SearchIcon, PlusIcon, PencilIcon, TrashIcon, XCircleIcon, PrinterIcon, WhatsappIcon } from '../components/icons'
+import {
+  SearchIcon,
+  PlusIcon,
+  PencilIcon,
+  TrashIcon,
+  XCircleIcon,
+  PrinterIcon,
+  WhatsappIcon,
+  CameraIcon,
+} from '../components/icons'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { RowActionsMenu, type RowAction } from '../components/RowActionsMenu'
 import { SupportContractPreviewModal } from '../components/SupportContractPreviewModal'
 import { SupportContractSendModal } from '../components/SupportContractSendModal'
+import { SupportContractSignatureModal } from '../components/SupportContractSignatureModal'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
 interface SupportContractsPageProps {
@@ -39,6 +49,7 @@ export function SupportContractsPage({ session, company, onCreate, onEdit }: Sup
   const [deleteTarget, setDeleteTarget] = useState<SupportContractRecord | null>(null)
   const [contractTarget, setContractTarget] = useState<SupportContractRecord | null>(null)
   const [sendContractTarget, setSendContractTarget] = useState<SupportContractRecord | null>(null)
+  const [signatureTarget, setSignatureTarget] = useState<SupportContractRecord | null>(null)
   const [busy, setBusy] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [feedback, setFeedback] = useState<string | null>(null)
@@ -103,6 +114,14 @@ export function SupportContractsPage({ session, company, onCreate, onEdit }: Sup
         onClick: () => setSendContractTarget(contract),
       },
     ]
+    if (contract.meta?.signed) {
+      actions.push({
+        key: 'signature-evidence',
+        label: 'Facial e assinatura',
+        icon: <CameraIcon className="h-4 w-4" />,
+        onClick: () => setSignatureTarget(contract),
+      })
+    }
     if (contract.status === 0) {
       actions.push({
         key: 'cancel',
@@ -184,11 +203,15 @@ export function SupportContractsPage({ session, company, onCreate, onEdit }: Sup
                       <p className="mt-0.5 text-[12px] text-[var(--muted)]">
                         {contract.title} · vence dia {contract.billing_day}
                       </p>
-                      <p className="mt-0.5 text-[12px] text-[var(--ink-soft)]">desde {formatDate(contract.start_date)}</p>
+                      <p className="mt-0.5 text-[12px] text-[var(--ink-soft)]">
+                        desde {formatDate(contract.start_date)}
+                      </p>
                     </div>
                     <div className="flex flex-none items-start gap-1.5">
                       <div className="flex flex-col items-end gap-1.5">
-                        <span className={`rounded-full px-2.5 py-1 text-[10.5px] font-bold ${statusTone(contract.status)}`}>
+                        <span
+                          className={`rounded-full px-2.5 py-1 text-[10.5px] font-bold ${statusTone(contract.status)}`}
+                        >
                           {SUPPORT_CONTRACT_STATUS_LABELS[contract.status] ?? '—'}
                         </span>
                         <span className="text-[13.5px] font-bold text-[var(--ink)]">
@@ -225,12 +248,16 @@ export function SupportContractsPage({ session, company, onCreate, onEdit }: Sup
                       <td className="py-2.5 pl-3 font-medium text-[var(--ink)]">{contract.people?.name ?? '—'}</td>
                       <td className="py-2.5 text-[var(--ink-soft)]">{contract.title}</td>
                       <td className="py-2.5 text-[var(--ink-soft)]">Dia {contract.billing_day}</td>
-                      <td className="py-2.5 whitespace-nowrap text-[var(--ink-soft)]">{formatDate(contract.start_date)}</td>
+                      <td className="py-2.5 whitespace-nowrap text-[var(--ink-soft)]">
+                        {formatDate(contract.start_date)}
+                      </td>
                       <td className="py-2.5 text-right font-mono font-semibold text-[var(--ink)]">
                         {formatCurrency(Number(contract.monthly_value))}
                       </td>
                       <td className="py-2.5">
-                        <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${statusTone(contract.status)}`}>
+                        <span
+                          className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${statusTone(contract.status)}`}
+                        >
                           {SUPPORT_CONTRACT_STATUS_LABELS[contract.status] ?? '—'}
                         </span>
                       </td>
@@ -299,6 +326,13 @@ export function SupportContractsPage({ session, company, onCreate, onEdit }: Sup
         company={company}
         contract={contractTarget}
         onClose={() => setContractTarget(null)}
+      />
+
+      <SupportContractSignatureModal
+        open={Boolean(signatureTarget)}
+        session={session}
+        contract={signatureTarget}
+        onClose={() => setSignatureTarget(null)}
       />
 
       <SupportContractSendModal

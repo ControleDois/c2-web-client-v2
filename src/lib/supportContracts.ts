@@ -37,6 +37,7 @@ export interface SupportContractRecord {
   autentique_id?: string | null
   autentique_public_id?: string | null
   autentique_short_link?: string | null
+  meta?: { signed?: boolean }
 }
 
 interface Paginated<T> {
@@ -134,4 +135,27 @@ export function sendSupportContractLink(token: string, id: string, whatsappId: s
 
 export function getContractLink(contract: SupportContractRecord): string {
   return contract.autentique_short_link || ''
+}
+
+export interface SignatureEvidence {
+  provider: string
+  status: number
+  signerName?: string | null
+  signerEmail?: string | null
+  signerPhone?: string | null
+  verifiedChannel?: string | null
+  verifiedAt?: string | null
+  signedAt?: string | null
+  selfieUrl?: string | null
+  signatureImageUrl?: string | null
+  fileUrl?: string | null
+  latitude?: number | null
+  longitude?: number | null
+  locationAccuracy?: number | null
+  ipAddress?: string | null
+  userAgent?: string | null
+}
+
+export function fetchSupportContractSignatureEvidence(token: string, id: string) {
+  return apiGet<{ signature: SignatureEvidence | null }>(`/support-contract/${id}/signature-evidence`, {}, token)
 }

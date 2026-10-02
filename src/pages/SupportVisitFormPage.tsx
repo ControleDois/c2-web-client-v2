@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type TouchEvent as ReactTouchEvent } from 'react'
+import { buildStampLines, getCurrentFix, stampPhotoFile } from '../lib/photoWatermark'
 import { createSupportVisit, VISIT_TYPE_LABELS, type CreateVisitPhoto } from '../lib/supportVisits'
 import { fetchSupportContracts, type SupportContractRecord } from '../lib/supportContracts'
 import { fetchPeople, type PersonRecord } from '../lib/people'
@@ -35,67 +36,13 @@ function dataURLtoFile(dataUrl: string, filename: string): File {
   return new File([bytes], filename, { type: mime })
 }
 
-// Carimba data/hora no canto da foto tirada pela câmera - a mesma ideia da
-// vistoria de veículo (que carimba data + GPS), só que sem geolocalização
-// aqui (a visita de suporte não pede localização, só o "quando").
-function stampPhotoTimestamp(file: File): Promise<File> {
-  return new Promise((resolve) => {
-    const objectUrl = URL.createObjectURL(file)
-    const img = new Image()
-
-    img.onload = () => {
-      URL.revokeObjectURL(objectUrl)
-      const canvas = document.createElement('canvas')
-      canvas.width = img.naturalWidth
-      canvas.height = img.naturalHeight
-      const ctx = canvas.getContext('2d')
-
-      if (!ctx) {
-        resolve(file)
-        return
-      }
-
-      ctx.drawImage(img, 0, 0)
-
-      const timestamp = new Intl.DateTimeFormat('pt-BR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-      }).format(new Date())
-
-      const fontSize = Math.max(Math.floor(canvas.height * 0.028), 22)
-      ctx.font = `${fontSize}px sans-serif`
-      ctx.fillStyle = 'white'
-      ctx.textAlign = 'right'
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.8)'
-      ctx.shadowBlur = 6
-      ctx.shadowOffsetX = 2
-      ctx.shadowOffsetY = 2
-      ctx.fillText(timestamp, canvas.width - 20, canvas.height - 20)
-
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) {
-            resolve(file)
-            return
-          }
-          resolve(new File([blob], file.name, { type: 'image/jpeg' }))
-        },
-        'image/jpeg',
-        0.9
-      )
-    }
-
-    img.onerror = () => {
-      URL.revokeObjectURL(objectUrl)
-      resolve(file)
-    }
-
-    img.src = objectUrl
-  })
+// Carimba data/hora + GPS (e endereço, se vier a tempo) na foto tirada pela
+// câmera - mesma evidência da vistoria de veículo. Sem permissão de
+// localização a foto segue com a data e a indicação "Localização não
+// disponível", pra ficar claro no registro.
+async function stampVisitPhoto(file: File): Promise<File> {
+  const fix = await getCurrentFix().catch(() => null)
+  return stampPhotoFile(file, await buildStampLines(fix))
 }
 
 export function SupportVisitFormPage({ session, company, onBack, onSaved }: SupportVisitFormPageProps) {
@@ -108,6 +55,7 @@ export function SupportVisitFormPage({ session, company, onBack, onSaved }: Supp
   const [description, setDescription] = useState('')
   const [slots, setSlots] = useState<PhotoSlot[]>([])
   const photoCounterRef = useRef(0)
+  const [stampingSlotId, setStampingSlotId] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -122,6 +70,12 @@ export function SupportVisitFormPage({ session, company, onBack, onSaved }: Supp
   useEffect(() => {
     if (myCompanyPerson) setTechnicianSignerName((current) => current || myCompanyPerson.name)
   }, [myCompanyPerson])
+
+  useEffect(() => {
+    // Pede a permissão de localização já ao abrir a visita, pra o carimbo das
+    // fotos não depender do usuário aceitar na hora de tirar cada uma.
+    getCurrentFix().catch(() => {})
+  }, [])
 
   useEffect(() => {
     if (!person) {
@@ -381,7 +335,11 @@ export function SupportVisitFormPage({ session, company, onBack, onSaved }: Supp
                     </button>
                   </div>
 
-                  {slot.previewUrl ? (
+                  {stampingSlotId === slot.id ? (
+                    <div className="mt-2 flex h-28 w-full items-center justify-center rounded-lg border border-dashed border-[var(--border)] bg-[var(--surface)] px-3 text-center text-[11.5px] font-semibold text-[var(--ink-soft)]">
+                      Registrando data e localização…
+                    </div>
+                  ) : slot.previewUrl ? (
                     <img src={slot.previewUrl} alt={slot.label} className="mt-2 h-28 w-full rounded-lg object-cover" />
                   ) : (
                     <div className="mt-2 flex h-28 w-full flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-[var(--border)] bg-[var(--surface)] p-2">
@@ -395,7 +353,16 @@ export function SupportVisitFormPage({ session, company, onBack, onSaved }: Supp
                           className="hidden"
                           onChange={async (event) => {
                             const file = event.target.files?.[0] ?? null
-                            updateSlotFile(index, file ? await stampPhotoTimestamp(file) : null)
+                            if (!file) {
+                              updateSlotFile(index, null)
+                              return
+                            }
+                            setStampingSlotId(slot.id)
+                            try {
+                              updateSlotFile(index, await stampVisitPhoto(file))
+                            } finally {
+                              setStampingSlotId(null)
+                            }
                           }}
                         />
                       </label>
