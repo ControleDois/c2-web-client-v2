@@ -17,6 +17,7 @@ import { ApiError } from '../lib/api'
 import { TextField } from '../components/form/TextField'
 import { SelectField } from '../components/form/SelectField'
 import { SearchSelectField } from '../components/form/SearchSelectField'
+import { useQuickPerson } from '../hooks/useQuickPerson'
 import { UserIcon, WalletIcon, PlusIcon, TrashIcon, ChevronLeftIcon } from '../components/icons'
 import { SectionCard } from '../components/SectionCard'
 import { useMyCompanyPerson } from '../hooks/useMyCompanyPerson'
@@ -52,6 +53,7 @@ function parseAmount(value: string): number {
 }
 
 export function VehicleSaleFormPage({ session, company, saleId, onBack, onSaved }: VehicleSaleFormPageProps) {
+  const quickPerson = useQuickPerson(session, company)
   const [loading, setLoading] = useState(Boolean(saleId))
   const [loadError, setLoadError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -350,6 +352,9 @@ export function VehicleSaleFormPage({ session, company, saleId, onBack, onSaved 
                 getOptionLabel={(item: PersonRecord) => item.name}
                 getOptionSubLabel={(item: PersonRecord) => (item.document ? formatDocument(item.document) : undefined)}
                 onSelect={(item: PersonRecord) => setBuyer({ id: item.id, label: item.name, sub: item.document ?? undefined })}
+                onCreate={(typed) =>
+                  quickPerson.request({ role: 2, name: typed, onCreated: (item: PersonRecord) => setBuyer({ id: item.id, label: item.name, sub: item.document ?? undefined }) })
+                }
                 onClear={() => setBuyer(null)}
               />
               <SearchSelectField
@@ -381,6 +386,9 @@ export function VehicleSaleFormPage({ session, company, saleId, onBack, onSaved 
                 onSearch={searchPeople}
                 getOptionLabel={(item: PersonRecord) => item.name}
                 onSelect={(item: PersonRecord) => setWitnessOne({ id: item.id, label: item.name })}
+                onCreate={(typed) =>
+                  quickPerson.request({ role: 2, name: typed, onCreated: (item: PersonRecord) => setWitnessOne({ id: item.id, label: item.name }) })
+                }
                 onClear={() => setWitnessOne(null)}
               />
               <SearchSelectField
@@ -390,6 +398,9 @@ export function VehicleSaleFormPage({ session, company, saleId, onBack, onSaved 
                 onSearch={searchPeople}
                 getOptionLabel={(item: PersonRecord) => item.name}
                 onSelect={(item: PersonRecord) => setWitnessTwo({ id: item.id, label: item.name })}
+                onCreate={(typed) =>
+                  quickPerson.request({ role: 2, name: typed, onCreated: (item: PersonRecord) => setWitnessTwo({ id: item.id, label: item.name }) })
+                }
                 onClear={() => setWitnessTwo(null)}
               />
               <SearchSelectField
@@ -401,6 +412,9 @@ export function VehicleSaleFormPage({ session, company, saleId, onBack, onSaved 
                 getOptionLabel={(item: PersonRecord) => item.name}
                 getOptionSubLabel={(item: PersonRecord) => (item.document ? formatDocument(item.document) : undefined)}
                 onSelect={(item: PersonRecord) => setGuarantor({ id: item.id, label: item.name, sub: item.document ?? undefined })}
+                onCreate={(typed) =>
+                  quickPerson.request({ role: 2, name: typed, onCreated: (item: PersonRecord) => setGuarantor({ id: item.id, label: item.name, sub: item.document ?? undefined }) })
+                }
                 onClear={() => setGuarantor(null)}
               />
             </div>
@@ -585,6 +599,7 @@ export function VehicleSaleFormPage({ session, company, saleId, onBack, onSaved 
           </div>
         </form>
       )}
+      {quickPerson.modal}
     </div>
   )
 }

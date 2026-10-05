@@ -17,6 +17,7 @@ import { ApiError } from '../lib/api'
 import { TextField } from '../components/form/TextField'
 import { SelectField } from '../components/form/SelectField'
 import { SearchSelectField } from '../components/form/SearchSelectField'
+import { useQuickPerson } from '../hooks/useQuickPerson'
 import { WalletIcon, TagIcon, ChevronLeftIcon } from '../components/icons'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
@@ -34,6 +35,7 @@ function todayISO(): string {
 }
 
 export function BillFormPage({ session, company, role, billId, onBack, onSaved }: BillFormPageProps) {
+  const quickPerson = useQuickPerson(session, company)
   const [loading, setLoading] = useState(Boolean(billId))
   const [loadError, setLoadError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -361,6 +363,9 @@ export function BillFormPage({ session, company, role, billId, onBack, onSaved }
                   getOptionLabel={(item: PersonRecord) => item.name}
                   getOptionSubLabel={(item: PersonRecord) => (item.document ? formatDocument(item.document) : undefined)}
                   onSelect={(item: PersonRecord) => setPerson({ id: item.id, label: item.name, sub: item.document ?? undefined })}
+                  onCreate={(typed) =>
+                    quickPerson.request({ role: role === 1 ? 2 : 3, name: typed, onCreated: (item: PersonRecord) => setPerson({ id: item.id, label: item.name, sub: item.document ?? undefined }) })
+                  }
                   onClear={() => setPerson(null)}
                 />
               </div>
@@ -502,6 +507,7 @@ export function BillFormPage({ session, company, role, billId, onBack, onSaved }
           </div>
         </form>
       )}
+      {quickPerson.modal}
     </div>
   )
 }

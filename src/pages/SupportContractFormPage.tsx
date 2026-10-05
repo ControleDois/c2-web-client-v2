@@ -10,6 +10,7 @@ import { fetchBankAccounts, type BankAccountRecord } from '../lib/bankAccounts'
 import { FORM_PAYMENT_LABELS } from '../lib/bills'
 import { ApiError } from '../lib/api'
 import { SearchSelectField } from '../components/form/SearchSelectField'
+import { useQuickPerson } from '../hooks/useQuickPerson'
 import { SelectField } from '../components/form/SelectField'
 import { TextField } from '../components/form/TextField'
 import { ChevronLeftIcon, WrenchIcon, WalletIcon, CalendarIcon } from '../components/icons'
@@ -35,6 +36,7 @@ function parseAmount(value: string): number {
 }
 
 export function SupportContractFormPage({ session, company, contractId, onBack, onSaved }: SupportContractFormPageProps) {
+  const quickPerson = useQuickPerson(session, company)
   const [loading, setLoading] = useState(Boolean(contractId))
   const [loadError, setLoadError] = useState<string | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
@@ -207,6 +209,9 @@ export function SupportContractFormPage({ session, company, contractId, onBack, 
                   getOptionLabel={(item: PersonRecord) => item.name}
                   getOptionSubLabel={(item: PersonRecord) => item.document ?? undefined}
                   onSelect={(item: PersonRecord) => setPerson(item)}
+                  onCreate={(typed) =>
+                    quickPerson.request({ role: 2, name: typed, onCreated: (item: PersonRecord) => setPerson(item) })
+                  }
                   onClear={() => setPerson(null)}
                 />
               </div>
@@ -348,6 +353,7 @@ export function SupportContractFormPage({ session, company, contractId, onBack, 
           </div>
         </form>
       )}
+      {quickPerson.modal}
     </div>
   )
 }

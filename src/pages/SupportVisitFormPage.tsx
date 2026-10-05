@@ -5,6 +5,7 @@ import { fetchSupportContracts, type SupportContractRecord } from '../lib/suppor
 import { fetchPeople, type PersonRecord } from '../lib/people'
 import { ApiError } from '../lib/api'
 import { SearchSelectField } from '../components/form/SearchSelectField'
+import { useQuickPerson } from '../hooks/useQuickPerson'
 import { SelectField } from '../components/form/SelectField'
 import { useMyCompanyPerson } from '../hooks/useMyCompanyPerson'
 import { CameraIcon, PaperclipIcon, ChevronLeftIcon, TrashIcon, PlusIcon } from '../components/icons'
@@ -46,6 +47,7 @@ async function stampVisitPhoto(file: File): Promise<File> {
 }
 
 export function SupportVisitFormPage({ session, company, onBack, onSaved }: SupportVisitFormPageProps) {
+  const quickPerson = useQuickPerson(session, company)
   const myCompanyPerson = useMyCompanyPerson(session, company)
 
   const [person, setPerson] = useState<PersonRecord | null>(null)
@@ -258,6 +260,9 @@ export function SupportVisitFormPage({ session, company, onBack, onSaved }: Supp
                 getOptionLabel={(item: PersonRecord) => item.name}
                 getOptionSubLabel={(item: PersonRecord) => item.document ?? undefined}
                 onSelect={(item: PersonRecord) => setPerson(item)}
+                onCreate={(typed) =>
+                  quickPerson.request({ role: 2, name: typed, onCreated: (item: PersonRecord) => setPerson(item) })
+                }
                 onClear={() => setPerson(null)}
               />
             </div>
@@ -505,6 +510,7 @@ export function SupportVisitFormPage({ session, company, onBack, onSaved }: Supp
           </button>
         </div>
       </div>
+      {quickPerson.modal}
     </div>
   )
 }

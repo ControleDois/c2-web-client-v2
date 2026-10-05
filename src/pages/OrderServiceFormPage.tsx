@@ -21,6 +21,7 @@ import { ApiError } from '../lib/api'
 import { TextField } from '../components/form/TextField'
 import { SelectField } from '../components/form/SelectField'
 import { SearchSelectField } from '../components/form/SearchSelectField'
+import { useQuickPerson } from '../hooks/useQuickPerson'
 import { TrashIcon, ChevronLeftIcon, ChevronDownIcon, ClockIcon, WrenchIcon, TagIcon, BoxIcon, FileTextIcon } from '../components/icons'
 import { SectionCard } from '../components/SectionCard'
 import { OrderServicePhotosCard, type PendingPhoto } from '../components/OrderServicePhotosCard'
@@ -83,6 +84,7 @@ function costValueFromMargin(purchaseCost: string, marginPercent: string): strin
 }
 
 export function OrderServiceFormPage({ session, company, orderServiceId, onBack, onSaved }: OrderServiceFormPageProps) {
+  const quickPerson = useQuickPerson(session, company)
   const [loading, setLoading] = useState(Boolean(orderServiceId))
   const [loadError, setLoadError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -406,6 +408,9 @@ export function OrderServiceFormPage({ session, company, orderServiceId, onBack,
                 getOptionLabel={(item: PersonRecord) => item.name}
                 getOptionSubLabel={(item: PersonRecord) => (item.document ? formatDocument(item.document) : undefined)}
                 onSelect={(item: PersonRecord) => setClient({ id: item.id, label: item.name, sub: item.document ?? undefined })}
+                onCreate={(typed) =>
+                  quickPerson.request({ role: 2, name: typed, onCreated: (item: PersonRecord) => setClient({ id: item.id, label: item.name, sub: item.document ?? undefined }) })
+                }
                 onClear={() => setClient(null)}
               />
               {!softwareHouse && (
@@ -667,6 +672,14 @@ export function OrderServiceFormPage({ session, company, orderServiceId, onBack,
                           getOptionLabel={(person: PersonRecord) => person.name}
                           getOptionSubLabel={(person: PersonRecord) => (person.document ? formatDocument(person.document) : undefined)}
                           onSelect={(person: PersonRecord) => handleUpdateItem(item.tempId, { supplierId: person.id, supplierLabel: person.name })}
+                          onCreate={(typed) =>
+                            quickPerson.request({
+                              role: 3,
+                              name: typed,
+                              onCreated: (person: PersonRecord) =>
+                                handleUpdateItem(item.tempId, { supplierId: person.id, supplierLabel: person.name }),
+                            })
+                          }
                           onClear={() => handleUpdateItem(item.tempId, { supplierId: undefined, supplierLabel: undefined })}
                         />
                         <label className="flex flex-col gap-1.5">
@@ -763,6 +776,7 @@ export function OrderServiceFormPage({ session, company, orderServiceId, onBack,
           </div>
         </form>
       )}
+      {quickPerson.modal}
     </div>
   )
 }

@@ -21,6 +21,7 @@ import { ApiError } from '../lib/api'
 import { TextField } from '../components/form/TextField'
 import { SelectField } from '../components/form/SelectField'
 import { SearchSelectField } from '../components/form/SearchSelectField'
+import { useQuickPerson } from '../hooks/useQuickPerson'
 import { UserIcon, TagIcon, WalletIcon, TrashIcon, PlusIcon, ChevronLeftIcon } from '../components/icons'
 import { SectionCard } from '../components/SectionCard'
 import { useMyCompanyPerson } from '../hooks/useMyCompanyPerson'
@@ -191,6 +192,7 @@ function AddressBlock({ title, value, onChange }: AddressBlockProps) {
 }
 
 export function TowingSaleFormPage({ session, company, saleId, onBack, onSaved }: TowingSaleFormPageProps) {
+  const quickPerson = useQuickPerson(session, company)
   const [loading, setLoading] = useState(Boolean(saleId))
   const [loadError, setLoadError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -539,6 +541,9 @@ export function TowingSaleFormPage({ session, company, saleId, onBack, onSaved }
                 getOptionLabel={(item: PersonRecord) => item.name}
                 getOptionSubLabel={(item: PersonRecord) => (item.document ? formatDocument(item.document) : undefined)}
                 onSelect={(item: PersonRecord) => setCustomer({ id: item.id, label: item.name, sub: item.document ?? undefined })}
+                onCreate={(typed) =>
+                  quickPerson.request({ role: 2, name: typed, onCreated: (item: PersonRecord) => setCustomer({ id: item.id, label: item.name, sub: item.document ?? undefined }) })
+                }
                 onClear={() => setCustomer(null)}
               />
               <SearchSelectField
@@ -704,6 +709,14 @@ export function TowingSaleFormPage({ session, company, saleId, onBack, onSaved }
                   getOptionLabel={(item: PersonRecord) => item.name}
                   getOptionSubLabel={(item: PersonRecord) => (item.document ? formatDocument(item.document) : undefined)}
                   onSelect={(item: PersonRecord) => setExpensePerson({ id: item.id, label: item.name, sub: item.document ?? undefined })}
+                  onCreate={(typed) =>
+                    quickPerson.request({
+                      role: 3,
+                      name: typed,
+                      onCreated: (item: PersonRecord) =>
+                        setExpensePerson({ id: item.id, label: item.name, sub: item.document ?? undefined }),
+                    })
+                  }
                   onClear={() => setExpensePerson(null)}
                 />
               </div>
@@ -814,6 +827,7 @@ export function TowingSaleFormPage({ session, company, saleId, onBack, onSaved }
           </div>
         </form>
       )}
+      {quickPerson.modal}
     </div>
   )
 }

@@ -4,6 +4,7 @@ import { fetchCompany } from '../lib/companies'
 import { fetchPeople, fetchPerson, type PersonRecord } from '../lib/people'
 import { ApiError } from '../lib/api'
 import { SearchSelectField } from '../components/form/SearchSelectField'
+import { useQuickPerson } from '../hooks/useQuickPerson'
 import { TextField } from '../components/form/TextField'
 import { ChevronLeftIcon, FileTextIcon, WalletIcon } from '../components/icons'
 import type { AuthSession, AuthCompany } from '../lib/auth'
@@ -32,6 +33,7 @@ function parseAmount(value: string): number {
 }
 
 export function NfseFormPage({ session, company, nfseId, onBack, onSaved }: NfseFormPageProps) {
+  const quickPerson = useQuickPerson(session, company)
   const [loading, setLoading] = useState(Boolean(nfseId))
   const [loadError, setLoadError] = useState<string | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
@@ -246,6 +248,9 @@ export function NfseFormPage({ session, company, nfseId, onBack, onSaved }: Nfse
                   getOptionLabel={(item: PersonRecord) => item.name}
                   getOptionSubLabel={(item: PersonRecord) => item.document ?? undefined}
                   onSelect={(item: PersonRecord) => setPerson(item)}
+                  onCreate={(typed) =>
+                    quickPerson.request({ role: 2, name: typed, onCreated: (item: PersonRecord) => setPerson(item) })
+                  }
                   onClear={() => setPerson(null)}
                 />
               </div>
@@ -368,6 +373,7 @@ export function NfseFormPage({ session, company, nfseId, onBack, onSaved }: Nfse
           </div>
         </form>
       )}
+      {quickPerson.modal}
     </div>
   )
 }

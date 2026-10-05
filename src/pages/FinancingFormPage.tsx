@@ -6,6 +6,7 @@ import { formatCurrency } from '../lib/format'
 import { ApiError } from '../lib/api'
 import { useMyCompanyPerson } from '../hooks/useMyCompanyPerson'
 import { SearchSelectField } from '../components/form/SearchSelectField'
+import { useQuickPerson } from '../hooks/useQuickPerson'
 import { SectionCard } from '../components/SectionCard'
 import { ChevronLeftIcon, WalletIcon } from '../components/icons'
 import { MODALITY_LABELS, MODALITY_ORDER, parseModalityFromNote, type Modality } from '../lib/loanModalities'
@@ -331,6 +332,7 @@ function calculateCheque(params: ChequeParams): { list: Installment[]; faceValue
 }
 
 export function FinancingFormPage({ session, company, saleId, initialModality, onBack, onSaved }: FinancingFormPageProps) {
+  const quickPerson = useQuickPerson(session, company)
   const myPerson = useMyCompanyPerson(session, company)
 
   const [loading, setLoading] = useState(Boolean(saleId))
@@ -828,6 +830,9 @@ export function FinancingFormPage({ session, company, saleId, initialModality, o
                   getOptionLabel={(item: PersonRecord) => item.name}
                   getOptionSubLabel={(item: PersonRecord) => item.document ?? undefined}
                   onSelect={(item: PersonRecord) => setSelectedPerson(item)}
+                  onCreate={(typed) =>
+                    quickPerson.request({ role: 2, name: typed, onCreated: (item: PersonRecord) => setSelectedPerson(item) })
+                  }
                   onClear={() => setSelectedPerson(null)}
                 />
 
@@ -1308,6 +1313,7 @@ export function FinancingFormPage({ session, company, saleId, initialModality, o
           </div>
         </div>
       )}
+      {quickPerson.modal}
     </div>
   )
 }

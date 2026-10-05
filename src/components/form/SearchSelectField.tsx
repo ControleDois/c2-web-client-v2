@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { SearchIcon } from '../icons'
+import { PlusIcon, SearchIcon } from '../icons'
 
 interface SearchSelectFieldProps<T> {
   label: string
@@ -13,6 +13,10 @@ interface SearchSelectFieldProps<T> {
   onClear: () => void
   action?: ReactNode
   variant?: 'page' | 'surface'
+  // Quando informado, a lista ganha o botão "+ Cadastrar novo" — chama onCreate
+  // com o texto já digitado na busca (ex.: abrir um cadastro rápido e já vincular).
+  onCreate?: (typed: string) => void
+  createLabel?: string
 }
 
 export function SearchSelectField<T>({
@@ -27,6 +31,8 @@ export function SearchSelectField<T>({
   onClear,
   action,
   variant = 'page',
+  onCreate,
+  createLabel = 'Cadastrar novo',
 }: SearchSelectFieldProps<T>) {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
@@ -138,6 +144,24 @@ export function SearchSelectField<T>({
                 </li>
               ))}
             </ul>
+          )}
+          {onCreate && (
+            <button
+              type="button"
+              onClick={() => {
+                const typed = query.trim()
+                setOpen(false)
+                setQuery('')
+                onCreate(typed)
+              }}
+              className="flex w-full items-center gap-2 border-t border-[var(--border)] bg-[var(--blue-100)] px-3.5 py-2.5 text-left text-[13px] font-bold text-[var(--blue-700)] hover:bg-[var(--blue-300)]/30"
+            >
+              <PlusIcon className="h-4 w-4 flex-none" />
+              <span className="min-w-0 truncate">
+                {createLabel}
+                {query.trim() ? `: "${query.trim()}"` : ''}
+              </span>
+            </button>
           )}
         </div>
       )}

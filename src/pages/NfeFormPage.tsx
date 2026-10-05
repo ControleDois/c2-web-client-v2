@@ -23,6 +23,7 @@ import { formatCurrency } from '../lib/format'
 import { ApiError } from '../lib/api'
 import { SelectField } from '../components/form/SelectField'
 import { SearchSelectField } from '../components/form/SearchSelectField'
+import { useQuickPerson } from '../hooks/useQuickPerson'
 import { SectionCard } from '../components/SectionCard'
 import { TrashIcon, ChevronLeftIcon, PlusIcon, ChevronDownIcon, AlertTriangleIcon } from '../components/icons'
 import type { AuthSession, AuthCompany } from '../lib/auth'
@@ -123,6 +124,7 @@ function today(): string {
 }
 
 export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFormPageProps) {
+  const quickPerson = useQuickPerson(session, company)
   const [loading, setLoading] = useState(Boolean(nfeId))
   const [loadError, setLoadError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -393,6 +395,9 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
                 getOptionLabel={(item: PersonRecord) => item.name}
                 getOptionSubLabel={(item: PersonRecord) => (item.document ? formatDocument(item.document) : undefined)}
                 onSelect={(item: PersonRecord) => setCustomer({ id: item.id, label: item.name, sub: item.document ?? undefined })}
+                onCreate={(typed) =>
+                  quickPerson.request({ role: 2, name: typed, onCreated: (item: PersonRecord) => setCustomer({ id: item.id, label: item.name, sub: item.document ?? undefined }) })
+                }
                 onClear={() => setCustomer(null)}
               />
               <SearchSelectField
@@ -854,6 +859,7 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
           </div>
         </form>
       )}
+      {quickPerson.modal}
     </div>
   )
 }

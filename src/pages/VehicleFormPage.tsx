@@ -18,6 +18,7 @@ import { isGaragemInvestidor } from '../lib/systemTypes'
 import { TextField } from '../components/form/TextField'
 import { SelectField } from '../components/form/SelectField'
 import { SearchSelectField } from '../components/form/SearchSelectField'
+import { useQuickPerson } from '../hooks/useQuickPerson'
 import { DocumentViewerModal } from '../components/DocumentViewerModal'
 import {
   BadgeIcon,
@@ -62,6 +63,7 @@ interface DocEntry {
 }
 
 export function VehicleFormPage({ session, company, vehicleId, onBack, onSaved }: VehicleFormPageProps) {
+  const quickPerson = useQuickPerson(session, company)
   const [loading, setLoading] = useState(Boolean(vehicleId))
   const [loadError, setLoadError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -510,6 +512,9 @@ export function VehicleFormPage({ session, company, vehicleId, onBack, onSaved }
                     getOptionLabel={(item: PersonRecord) => item.name}
                     getOptionSubLabel={(item: PersonRecord) => item.document ?? undefined}
                     onSelect={(item: PersonRecord) => setPurchasePerson(item)}
+                    onCreate={(typed) =>
+                      quickPerson.request({ role: 2, name: typed, onCreated: (item: PersonRecord) => setPurchasePerson(item) })
+                    }
                     onClear={() => setPurchasePerson(null)}
                   />
                 </div>
@@ -644,6 +649,7 @@ export function VehicleFormPage({ session, company, vehicleId, onBack, onSaved }
           onIndexChange={setViewerIndex}
         />
       )}
+      {quickPerson.modal}
     </div>
   )
 }
