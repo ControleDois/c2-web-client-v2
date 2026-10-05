@@ -6,7 +6,27 @@ export interface DeliveryCourierRecord {
   name: string
   phone: string | null
   vehicle: string | null
+  vehicle_id: string | null
+  linkedVehicle?: {
+    id: string
+    license_plate: string
+    brand?: string | null
+    model?: string | null
+    color?: string | null
+  } | null
   is_active: boolean
+}
+
+// "Honda CG 160 · ABC1D23" da moto cadastrada; sem moto vinculada usa o texto livre.
+export function courierVehicleLabel(courier: Pick<DeliveryCourierRecord, 'vehicle' | 'linkedVehicle'>): string {
+  const linked = courier.linkedVehicle
+  if (linked) {
+    const label = [[linked.brand, linked.model].filter(Boolean).join(' '), linked.license_plate]
+      .filter(Boolean)
+      .join(' · ')
+    if (label) return label
+  }
+  return courier.vehicle || ''
 }
 
 export interface DeliveryNeighborhoodRecord {
@@ -29,7 +49,7 @@ export function fetchDeliveryCouriers(token: string, companyId: string) {
 export function saveDeliveryCourier(
   token: string,
   companyId: string,
-  payload: { id?: string; name: string; phone: string; vehicle: string; is_active: boolean }
+  payload: { id?: string; name: string; phone: string; vehicle: string; vehicle_id: string | null; is_active: boolean }
 ) {
   const { id, ...body } = payload
   return id

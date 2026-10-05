@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
+  courierVehicleLabel,
   deleteDeliveryCourier,
   fetchDeliveryCouriers,
   saveDeliveryCourier,
   type DeliveryCourierRecord,
 } from '../lib/deliveryAdmin'
+import { fetchVehicles, type VehicleRecord } from '../lib/vehicles'
+import { SearchSelectField } from '../components/form/SearchSelectField'
 import { ApiError } from '../lib/api'
 import { formatPhone } from '../lib/formatPhone'
 import { PlusIcon, PencilIcon, SearchIcon, TrashIcon, TruckIcon, UserIcon } from '../components/icons'
@@ -22,10 +25,23 @@ interface FormState {
   name: string
   phone: string
   vehicle: string
+  vehicle_id: string | null
+  vehicleLabel: string | null
   is_active: boolean
 }
 
-const EMPTY_FORM: FormState = { name: '', phone: '', vehicle: '', is_active: true }
+const EMPTY_FORM: FormState = {
+  name: '',
+  phone: '',
+  vehicle: '',
+  vehicle_id: null,
+  vehicleLabel: null,
+  is_active: true,
+}
+
+function vehicleOptionLabel(vehicle: VehicleRecord) {
+  return [[vehicle.brand, vehicle.model].filter(Boolean).join(' '), vehicle.license_plate].filter(Boolean).join(' · ')
+}
 
 export function DeliveryCouriersPage({ session, company }: DeliveryCouriersPageProps) {
   const [items, setItems] = useState<DeliveryCourierRecord[]>([])
@@ -61,7 +77,7 @@ export function DeliveryCouriersPage({ session, company }: DeliveryCouriersPageP
       (item) =>
         item.name.toLowerCase().includes(term) ||
         (item.phone || '').replace(/\D/g, '').includes(term.replace(/\D/g, '') || '§') ||
-        (item.vehicle || '').toLowerCase().includes(term)
+        courierVehicleLabel(item).toLowerCase().includes(term)
     )
   }, [items, search])
 
@@ -72,6 +88,8 @@ export function DeliveryCouriersPage({ session, company }: DeliveryCouriersPageP
       name: item.name,
       phone: item.phone || '',
       vehicle: item.vehicle || '',
+      vehicle_id: item.vehicle_id,
+      vehicleLabel: item.linkedVehicle ? courierVehicleLabel(item) : null,
       is_active: item.is_active,
     })
   }
@@ -85,7 +103,14 @@ export function DeliveryCouriersPage({ session, company }: DeliveryCouriersPageP
     setSaving(true)
     setFormError(null)
     try {
-      await saveDeliveryCourier(session.token.token, company.id, form)
+      await saveDeliveryCourier(session.token.token, company.id, {
+        id: form.id,
+        name: form.name,
+        phone: form.phone,
+        vehicle: form.vehicle,
+        vehicle_id: form.vehicle_id,
+        is_active: form.is_active,
+      })
       setForm(null)
       await load()
     } catch (err) {
@@ -102,6 +127,7 @@ export function DeliveryCouriersPage({ session, company }: DeliveryCouriersPageP
         name: item.name,
         phone: item.phone || '',
         vehicle: item.vehicle || '',
+        vehicle_id: item.vehicle_id,
         is_active: !item.is_active,
       })
       await load()
@@ -180,10 +206,10 @@ export function DeliveryCouriersPage({ session, company }: DeliveryCouriersPageP
                   <p className="truncate text-[14px] font-bold text-[var(--ink)]">{item.name}</p>
                   <p className="mt-0.5 flex flex-wrap items-center gap-x-3 text-[12.5px] text-[var(--ink-soft)]">
                     {item.phone && <span>{formatPhone(item.phone)}</span>}
-                    {item.vehicle && (
+                    {courierVehicleLabel(item) && (
                       <span className="flex items-center gap-1">
                         <TruckIcon className="h-3.5 w-3.5" />
-                        {item.vehicle}
+                        {courierVehicleLabel(item)}
                       </span>
                     )}
                   </p>
@@ -250,13 +276,32 @@ export function DeliveryCouriersPage({ session, company }: DeliveryCouriersPageP
                 placeholder="(65) 99999-9999"
                 inputMode="tel"
               />
-              <TextField
-                label="Veículo"
-                icon={<TruckIcon className="h-4 w-4" />}
-                value={form.vehicle}
-                onChange={(event) => setForm({ ...form, vehicle: event.target.value })}
-                placeholder="Ex: Moto Honda CG - ABC1D23"
+              <SearchSelectField
+                label="Moto (veículos cadastrados)"
+                placeholder="Buscar por placa, marca ou modelo"
+                selectedLabel={form.vehicleLabel}
+                onSearch={(query) =>
+                  fetchVehicles(session.token.token, company.id, { search: query, limit: 8 }).then((res) => res.data)
+                }
+                getOptionLabel={(vehicle: VehicleRecord) => vehicleOptionLabel(vehicle) || vehicle.license_plate}
+                onSelect={(vehicle: VehicleRecord) =>
+                  setForm({
+                    ...form,
+                    vehicle_id: vehicle.id,
+                    vehicleLabel: vehicleOptionLabel(vehicle) || vehicle.license_plate,
+                  })
+                }
+                onClear={() => setForm({ ...form, vehicle_id: null, vehicleLabel: null })}
               />
+              {!form.vehicle_id && (
+                <TextField
+                  label="Ou descreva o veículo"
+                  icon={<TruckIcon className="h-4 w-4" />}
+                  value={form.vehicle}
+                  onChange={(event) => setForm({ ...form, vehicle: event.target.value })}
+                  placeholder="Só se a moto ainda não estiver em Veículos"
+                />
+              )}
               <label className="flex items-center gap-2.5 text-[13px] text-[var(--ink)]">
                 <input
                   type="checkbox"
