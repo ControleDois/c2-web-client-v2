@@ -4,13 +4,31 @@ import { formatCurrency, formatDate } from '../lib/format'
 import { ApiError } from '../lib/api'
 import { getCached, setCached } from '../lib/cache'
 import { useRowSelection } from '../hooks/useRowSelection'
-import { SearchIcon, PlusIcon, PencilIcon, TrashIcon, PrinterIcon } from '../components/icons'
+import {
+  SearchIcon,
+  PlusIcon,
+  PencilIcon,
+  TrashIcon,
+  PrinterIcon,
+  WhatsappIcon,
+  ClockIcon,
+  CameraIcon,
+} from '../components/icons'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { NewLoanModal } from '../components/NewLoanModal'
 import { LoanSaleDetailModal } from '../components/LoanSaleDetailModal'
 import { SaleContractPreviewModal } from '../components/SaleContractPreviewModal'
+import { SupportContractSendModal } from '../components/SupportContractSendModal'
+import { SupportContractTimelineModal } from '../components/SupportContractTimelineModal'
+import { SupportContractSignatureModal } from '../components/SupportContractSignatureModal'
 import { RowActionsMenu, type RowAction } from '../components/RowActionsMenu'
-import { computeNextDue, avatarColorFor, initialsFor, type Modality, type SalesStatusFilter } from '../lib/loanModalities'
+import {
+  computeNextDue,
+  avatarColorFor,
+  initialsFor,
+  type Modality,
+  type SalesStatusFilter,
+} from '../lib/loanModalities'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
 interface FinancingSalesPageProps {
@@ -48,12 +66,16 @@ export function FinancingSalesPage({
   const [detailSaleId, setDetailSaleId] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<SaleRecord | null>(null)
   const [contractTarget, setContractTarget] = useState<SaleRecord | null>(null)
+  const [sendTarget, setSendTarget] = useState<SaleRecord | null>(null)
+  const [timelineTarget, setTimelineTarget] = useState<SaleRecord | null>(null)
+  const [signatureTarget, setSignatureTarget] = useState<SaleRecord | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
   const [deletingSelected, setDeletingSelected] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
 
   function loadSales() {
-    return fetchSales(session.token.token, company.id, { limit: 500, withBills: true }).then(
+    return fetchSales(session.token.token, company.id, { limit: 500, withBills: true, withContractFlags: true }).then(
       (res) => res.data || []
     )
   }
@@ -185,7 +207,47 @@ export function FinancingSalesPage({
     return <p className="text-[13px] text-[var(--ink-soft)]">{formatDate(info.dueDate)}</p>
   }
 
+  function refreshSales() {
+    loadSales()
+      .then((data) => {
+        setSales(data)
+        setCached(`financing-sales:${company.id}`, data)
+      })
+      .catch(() => {})
+  }
+
   function buildRowActions(sale: SaleRecord): RowAction[] {
+    const contractActions: RowAction[] = [
+      {
+        key: 'contract',
+        label: 'Contrato',
+        icon: <PrinterIcon className="h-4 w-4" />,
+        onClick: () => setContractTarget(sale),
+      },
+      {
+        key: 'send-contract',
+        label: 'Contrato e envio',
+        icon: <WhatsappIcon className="h-4 w-4" />,
+        onClick: () => setSendTarget(sale),
+      },
+    ]
+    if (sale.meta?.contract_sent) {
+      contractActions.push({
+        key: 'send-timeline',
+        label: 'Detalhes do envio',
+        icon: <ClockIcon className="h-4 w-4" />,
+        onClick: () => setTimelineTarget(sale),
+      })
+    }
+    if (sale.meta?.contract_signed) {
+      contractActions.push({
+        key: 'signature-evidence',
+        label: 'Facial e assinatura',
+        icon: <CameraIcon className="h-4 w-4" />,
+        onClick: () => setSignatureTarget(sale),
+      })
+    }
+
     return [
       {
         key: 'edit',
@@ -193,12 +255,7 @@ export function FinancingSalesPage({
         icon: <PencilIcon className="h-4 w-4" />,
         onClick: () => onEdit(sale),
       },
-      {
-        key: 'contract',
-        label: 'Contrato',
-        icon: <PrinterIcon className="h-4 w-4" />,
-        onClick: () => setContractTarget(sale),
-      },
+      ...contractActions,
       {
         key: 'delete',
         label: 'Deletar',
@@ -368,7 +425,10 @@ export function FinancingSalesPage({
                       <p className="mt-0.5 text-[12px] font-bold text-[var(--green-600)]">
                         Total: {formatCurrency(Number(sale.net_total ?? 0))}
                       </p>
-                      <div className="mt-2.5 flex items-center justify-between gap-2" onClick={(event) => event.stopPropagation()}>
+                      <div
+                        className="mt-2.5 flex items-center justify-between gap-2"
+                        onClick={(event) => event.stopPropagation()}
+                      >
                         <button
                           type="button"
                           onClick={() => onEdit(sale)}
@@ -435,7 +495,10 @@ export function FinancingSalesPage({
                           >
                             {initialsFor(sale.people?.name || '?')}
                           </span>
-                          <p className="min-w-0 truncate text-[13.5px] font-semibold text-[var(--ink)]" title={sale.people?.name}>
+                          <p
+                            className="min-w-0 truncate text-[13.5px] font-semibold text-[var(--ink)]"
+                            title={sale.people?.name}
+                          >
                             {sale.people?.name || '—'}
                           </p>
                         </div>
@@ -498,6 +561,42 @@ export function FinancingSalesPage({
         kind="loan"
         onClose={() => setContractTarget(null)}
       />
+
+      <SupportContractSendModal
+        open={Boolean(sendTarget)}
+        session={session}
+        company={company}
+        contract={sendTarget}
+        flow="loan"
+        onClose={() => setSendTarget(null)}
+        onSent={(message) => {
+          setNotice(message)
+          setTimeout(() => setNotice(null), 4000)
+          refreshSales()
+        }}
+      />
+
+      <SupportContractTimelineModal
+        open={Boolean(timelineTarget)}
+        session={session}
+        contract={timelineTarget}
+        flow="loan"
+        onClose={() => setTimelineTarget(null)}
+      />
+
+      <SupportContractSignatureModal
+        open={Boolean(signatureTarget)}
+        session={session}
+        contract={signatureTarget}
+        flow="loan"
+        onClose={() => setSignatureTarget(null)}
+      />
+
+      {notice && (
+        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-xl bg-[var(--green-600)] px-4 py-2.5 text-[13px] font-semibold text-white shadow-lg">
+          {notice}
+        </div>
+      )}
 
       <ConfirmDialog
         open={Boolean(deleteTarget)}

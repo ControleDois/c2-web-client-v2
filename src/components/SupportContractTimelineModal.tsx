@@ -1,10 +1,6 @@
 import { useEffect, useState } from 'react'
-import {
-  fetchSupportContractSendTimeline,
-  type SendTimeline,
-  type SendTimelineEvent,
-  type SupportContractRecord,
-} from '../lib/supportContracts'
+import { fetchSupportContractSendTimeline, type SendTimeline, type SendTimelineEvent } from '../lib/supportContracts'
+import { fetchLoanSendTimeline } from '../lib/sales'
 import { ApiError } from '../lib/api'
 import { CheckCircleIcon, CloseIcon } from './icons'
 import type { AuthSession } from '../lib/auth'
@@ -12,7 +8,8 @@ import type { AuthSession } from '../lib/auth'
 interface SupportContractTimelineModalProps {
   open: boolean
   session: AuthSession
-  contract: SupportContractRecord | null
+  contract: { id: string; people?: { name?: string | null } | null } | null
+  flow?: 'support' | 'loan'
   onClose: () => void
 }
 
@@ -46,7 +43,13 @@ const TONE_DOT: Record<SendTimelineEvent['tone'], string> = {
   info: 'bg-[var(--muted)]',
 }
 
-export function SupportContractTimelineModal({ open, session, contract, onClose }: SupportContractTimelineModalProps) {
+export function SupportContractTimelineModal({
+  open,
+  session,
+  contract,
+  flow = 'support',
+  onClose,
+}: SupportContractTimelineModalProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [timeline, setTimeline] = useState<SendTimeline | null>(null)
@@ -58,7 +61,8 @@ export function SupportContractTimelineModal({ open, session, contract, onClose 
     setError(null)
     setTimeline(null)
 
-    fetchSupportContractSendTimeline(session.token.token, contract.id)
+    const fetchTimeline = flow === 'loan' ? fetchLoanSendTimeline : fetchSupportContractSendTimeline
+    fetchTimeline(session.token.token, contract.id)
       .then((res) => {
         if (!cancelled) setTimeline(res)
       })
@@ -73,7 +77,7 @@ export function SupportContractTimelineModal({ open, session, contract, onClose 
     return () => {
       cancelled = true
     }
-  }, [open, contract, session.token.token])
+  }, [open, contract, flow, session.token.token])
 
   if (!open || !contract) return null
 
@@ -99,7 +103,7 @@ export function SupportContractTimelineModal({ open, session, contract, onClose 
           <div>
             <h2 className="text-[15px] font-bold text-[var(--ink)]">Detalhes do envio</h2>
             <p className="mt-1 text-[12.5px] text-[var(--ink-soft)]">
-              {contract.people?.name ?? 'Contrato de suporte'}
+              {contract.people?.name ?? (flow === 'loan' ? 'Contrato de empréstimo' : 'Contrato de suporte')}
             </p>
           </div>
           <button

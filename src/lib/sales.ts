@@ -1,3 +1,4 @@
+import type { SendTimeline, SignatureEvidence } from './supportContracts'
 import { apiGet, apiPost, apiPut, apiDelete } from './api'
 
 export const FUEL_LEVEL_OPTIONS = ['Vazio', 'Reserva', '1/4', '1/2', '3/4', 'Cheio']
@@ -115,6 +116,7 @@ export interface SaleRecord {
   autentique_id?: string | null
   autentique_public_id?: string | null
   autentique_short_link?: string | null
+  meta?: { contract_sent?: boolean; contract_signed?: boolean }
 }
 
 export interface SaleBillRef {
@@ -265,6 +267,7 @@ export function fetchSales(
     limit?: number
     vehicleId?: string
     withBills?: boolean
+    withContractFlags?: boolean
     // 'rental' pula os preloads de venda de veículo/expedição/NFe no
     // backend (não usados nas telas de Locação) - deixa a listagem bem
     // mais rápida em empresas com muitas vendas. Só usar em telas que
@@ -281,6 +284,7 @@ export function fetchSales(
       limit: options.limit ? String(options.limit) : '5000',
       vehicleId: options.vehicleId,
       withBills: options.withBills ? 'true' : undefined,
+      withContractFlags: options.withContractFlags ? 'true' : undefined,
       scope: options.scope,
     },
     token
@@ -333,11 +337,7 @@ export function sendSaleContract(
 }
 
 export function sendSaleContractLink(token: string, id: string, whatsappId: string) {
-  return apiPost<{ message: string; whatsappQueued: boolean }>(
-    `/sale/send-contract-link/${id}`,
-    { whatsappId },
-    token
-  )
+  return apiPost<{ message: string; whatsappQueued: boolean }>(`/sale/send-contract-link/${id}`, { whatsappId }, token)
 }
 
 export function updateVehicleRentalOperation(token: string, id: string, payload: VehicleRentalOperationPayload) {
@@ -357,4 +357,29 @@ export function recalculateRentalBills(token: string, saleId: string) {
 
 export function updateVehicleSaleOperation(token: string, id: string, payload: VehicleSaleOperationPayload) {
   return apiPut<VehicleSaleContractRecord>(`/sale/${id}/vehicle-sale-operation`, payload, token)
+}
+
+export function sendLoanContract(
+  token: string,
+  id: string,
+  payload: { contractTemplateId?: string; whatsappId?: string }
+) {
+  return apiPost<{
+    fileUrl: string
+    contractLink: string
+    whatsappQueued: boolean
+    whatsappError: string | null
+  }>(`/loan-contract/send/${id}`, payload, token)
+}
+
+export function sendLoanContractLink(token: string, id: string, whatsappId: string) {
+  return apiPost<{ message: string; whatsappQueued: boolean }>(`/loan-contract/send-link/${id}`, { whatsappId }, token)
+}
+
+export function fetchLoanSendTimeline(token: string, id: string) {
+  return apiGet<SendTimeline>(`/loan-contract/${id}/send-timeline`, {}, token)
+}
+
+export function fetchLoanSignatureEvidence(token: string, id: string) {
+  return apiGet<{ signature: SignatureEvidence | null }>(`/loan-contract/${id}/signature-evidence`, {}, token)
 }

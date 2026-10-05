@@ -1,9 +1,6 @@
 import { useEffect, useState } from 'react'
-import {
-  fetchSupportContractSignatureEvidence,
-  type SignatureEvidence,
-  type SupportContractRecord,
-} from '../lib/supportContracts'
+import { fetchSupportContractSignatureEvidence, type SignatureEvidence } from '../lib/supportContracts'
+import { fetchLoanSignatureEvidence } from '../lib/sales'
 import { ApiError } from '../lib/api'
 import { CloseIcon } from './icons'
 import type { AuthSession } from '../lib/auth'
@@ -11,7 +8,8 @@ import type { AuthSession } from '../lib/auth'
 interface SupportContractSignatureModalProps {
   open: boolean
   session: AuthSession
-  contract: SupportContractRecord | null
+  contract: { id: string; people?: { name?: string | null } | null } | null
+  flow?: 'support' | 'loan'
   onClose: () => void
 }
 
@@ -37,6 +35,7 @@ export function SupportContractSignatureModal({
   open,
   session,
   contract,
+  flow = 'support',
   onClose,
 }: SupportContractSignatureModalProps) {
   const [loading, setLoading] = useState(false)
@@ -50,7 +49,8 @@ export function SupportContractSignatureModal({
     setError(null)
     setSignature(null)
 
-    fetchSupportContractSignatureEvidence(session.token.token, contract.id)
+    const fetchEvidence = flow === 'loan' ? fetchLoanSignatureEvidence : fetchSupportContractSignatureEvidence
+    fetchEvidence(session.token.token, contract.id)
       .then((res) => {
         if (!cancelled) setSignature(res.signature)
       })
@@ -64,7 +64,7 @@ export function SupportContractSignatureModal({
     return () => {
       cancelled = true
     }
-  }, [open, contract, session.token.token])
+  }, [open, contract, flow, session.token.token])
 
   if (!open || !contract) return null
 
@@ -83,7 +83,7 @@ export function SupportContractSignatureModal({
           <div>
             <h2 className="text-[15px] font-bold text-[var(--ink)]">Facial e assinatura</h2>
             <p className="mt-1 text-[12.5px] text-[var(--ink-soft)]">
-              {contract.people?.name ?? 'Contrato de suporte'}
+              {contract.people?.name ?? (flow === 'loan' ? 'Contrato de empréstimo' : 'Contrato de suporte')}
             </p>
           </div>
           <button

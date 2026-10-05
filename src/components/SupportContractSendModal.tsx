@@ -1,10 +1,6 @@
 import { useEffect, useState } from 'react'
-import {
-  sendSupportContract,
-  sendSupportContractLink,
-  getContractLink,
-  type SupportContractRecord,
-} from '../lib/supportContracts'
+import { sendSupportContract, sendSupportContractLink } from '../lib/supportContracts'
+import { sendLoanContract, sendLoanContractLink } from '../lib/sales'
 import { fetchContractTemplates, type ContractTemplateRecord } from '../lib/contractTemplates'
 import { fetchCompanyWhatsapps, type CompanyWhatsappRecord } from '../lib/companyWhatsapp'
 import { ApiError } from '../lib/api'
@@ -16,7 +12,12 @@ interface SupportContractSendModalProps {
   open: boolean
   session: AuthSession
   company: AuthCompany
-  contract: SupportContractRecord | null
+  contract: {
+    id: string
+    autentique_short_link?: string | null
+    meta?: { sent?: boolean; contract_sent?: boolean }
+  } | null
+  flow?: 'support' | 'loan'
   onClose: () => void
   onSent: (message: string) => void
 }
@@ -26,9 +27,11 @@ export function SupportContractSendModal({
   session,
   company,
   contract,
+  flow = 'support',
   onClose,
   onSent,
 }: SupportContractSendModalProps) {
+  const isLoan = flow === 'loan'
   const [templates, setTemplates] = useState<ContractTemplateRecord[]>([])
   const [whatsapps, setWhatsapps] = useState<CompanyWhatsappRecord[]>([])
   const [templateId, setTemplateId] = useState('')
@@ -42,7 +45,10 @@ export function SupportContractSendModal({
     setWhatsappId('')
     setError(null)
 
-    fetchContractTemplates(session.token.token, company.id, { targetType: 'support_contract', limit: 100 })
+    fetchContractTemplates(session.token.token, company.id, {
+      targetType: isLoan ? 'loan' : 'support_contract',
+      limit: 100,
+    })
       .then((res) => {
         const active = (res.data || []).filter((template) => template.is_active)
         setTemplates(active)
@@ -55,15 +61,18 @@ export function SupportContractSendModal({
         setWhatsapps((res.data || []).filter((whatsapp) => !whatsapp.official_whatsapp))
       })
       .catch(() => setWhatsapps([]))
-  }, [open, contract, session.token.token, company.id])
+  }, [open, contract, isLoan, session.token.token, company.id])
 
   if (!open || !contract) return null
 
-  const hasLink = Boolean(getContractLink(contract))
+  // Suporte: só há "link" com Autentique. Empréstimo: qualquer envio anterior
+  // já deixa um link (de assinatura própria, Autentique ou do PDF) pra reenviar.
+  const existingLink = contract.autentique_short_link || ''
+  const hasLink = isLoan ? Boolean(contract.meta?.contract_sent) : Boolean(existingLink)
 
   async function handleConfirmSend() {
     if (!contract) return
-    if (!templateId) {
+    if (!templateId && !isLoan) {
       setError('Selecione o modelo de contrato.')
       return
     }
@@ -75,14 +84,19 @@ export function SupportContractSendModal({
     setSending(true)
     setError(null)
     try {
-      const result = await sendSupportContract(session.token.token, contract.id, {
+      const send = isLoan ? sendLoanContract : sendSupportContract
+      const result = await send(session.token.token, contract.id, {
         contractTemplateId: templateId,
         whatsappId,
       })
       if (result.whatsappError) {
         onSent(`Contrato gerado, mas o WhatsApp falhou: ${result.whatsappError}`)
       } else {
-        onSent(hasLink ? 'O novo contrato foi colocado na fila do WhatsApp.' : 'O arquivo do contrato foi colocado na fila do WhatsApp.')
+        onSent(
+          hasLink
+            ? 'O novo contrato foi colocado na fila do WhatsApp.'
+            : 'O arquivo do contrato foi colocado na fila do WhatsApp.'
+        )
       }
       onClose()
     } catch (err) {
@@ -102,7 +116,8 @@ export function SupportContractSendModal({
     setSending(true)
     setError(null)
     try {
-      await sendSupportContractLink(session.token.token, contract.id, whatsappId)
+      const resend = isLoan ? sendLoanContractLink : sendSupportContractLink
+      await resend(session.token.token, contract.id, whatsappId)
       onSent('O link existente foi colocado na fila do WhatsApp.')
       onClose()
     } catch (err) {
@@ -113,7 +128,10 @@ export function SupportContractSendModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={sending ? undefined : onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={sending ? undefined : onClose}
+    >
       <div
         className="w-full max-w-[480px] rounded-2xl bg-[var(--surface)] p-6 shadow-[var(--card-shadow)]"
         onClick={(event) => event.stopPropagation()}
@@ -124,7 +142,9 @@ export function SupportContractSendModal({
             <p className="mt-1 text-[12.5px] text-[var(--ink-soft)]">
               {hasLink
                 ? 'Reenvie o link já gerado ou gere um novo contrato.'
-                : 'Sem link do Autentique, o WhatsApp enviará o arquivo do contrato em PDF.'}
+                : isLoan
+                  ? 'Gera o contrato e envia pelo WhatsApp (assinatura própria, Autentique ou PDF, conforme a configuração).'
+                  : 'Sem link do Autentique, o WhatsApp enviará o arquivo do contrato em PDF.'}
             </p>
           </div>
           <button
@@ -140,8 +160,10 @@ export function SupportContractSendModal({
 
         {hasLink && (
           <div className="mt-4 rounded-xl bg-[var(--green-100)] p-3.5">
-            <p className="text-[13px] font-bold text-[var(--green-600)]">Contrato já gerado no Autentique</p>
-            <p className="mt-1 text-[11.5px] break-all text-[var(--green-600)]">{getContractLink(contract)}</p>
+            <p className="text-[13px] font-bold text-[var(--green-600)]">
+              {isLoan ? 'Contrato já enviado' : 'Contrato já gerado no Autentique'}
+            </p>
+            {existingLink && <p className="mt-1 text-[11.5px] break-all text-[var(--green-600)]">{existingLink}</p>}
           </div>
         )}
 
@@ -160,7 +182,9 @@ export function SupportContractSendModal({
           </SelectField>
           {templates.length === 0 && (
             <p className="text-[11.5px] font-medium text-[var(--amber-500)]">
-              Cadastre um modelo ativo do tipo Contrato de Suporte.
+              {isLoan
+                ? 'Sem modelo ativo do tipo Empréstimo, será usado o modelo padrão.'
+                : 'Cadastre um modelo ativo do tipo Contrato de Suporte.'}
             </p>
           )}
         </div>
