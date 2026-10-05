@@ -7,6 +7,7 @@ import { useRowSelection } from '../hooks/useRowSelection'
 import { SearchIcon, PlusIcon, PencilIcon, TrashIcon, PrinterIcon } from '../components/icons'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { PrintPreviewModal, type PrintColumn } from '../components/PrintPreviewModal'
+import { ProductHeroImportModal } from '../components/ProductHeroImportModal'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
 interface ProductsPageProps {
@@ -38,6 +39,7 @@ export function ProductsPage({ session, company, onCreate, onEdit }: ProductsPag
   const [role, setRole] = useState<number | undefined>(undefined)
   const [page, setPage] = useState(1)
   const [items, setItems] = useState<ProductRecord[]>([])
+  const [importOpen, setImportOpen] = useState(false)
   const [meta, setMeta] = useState({ total: 0, lastPage: 1 })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -157,14 +159,23 @@ export function ProductsPage({ session, company, onCreate, onEdit }: ProductsPag
           <p className="text-[12px] font-semibold tracking-wide text-[var(--blue-700)] uppercase">Principal</p>
           <h1 className="mt-0.5 text-[22px] font-bold tracking-tight text-[var(--ink)]">Produtos e Serviços</h1>
         </div>
-        <button
-          type="button"
-          onClick={onCreate}
-          className="flex items-center gap-2 rounded-xl bg-[var(--blue-500)] px-4 py-2.5 text-[13.5px] font-bold text-white transition hover:bg-[var(--blue-700)]"
-        >
-          <PlusIcon className="h-4 w-4" />
-          Novo item
-        </button>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => setImportOpen(true)}
+            className="flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 text-[13.5px] font-bold text-[var(--ink)] hover:bg-[var(--page)]"
+          >
+            Importar do Hero
+          </button>
+          <button
+            type="button"
+            onClick={onCreate}
+            className="flex items-center gap-2 rounded-xl bg-[var(--blue-500)] px-4 py-2.5 text-[13.5px] font-bold text-white transition hover:bg-[var(--blue-700)]"
+          >
+            <PlusIcon className="h-4 w-4" />
+            Novo item
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
@@ -436,6 +447,14 @@ export function ProductsPage({ session, company, onCreate, onEdit }: ProductsPag
           {deleteError}
         </div>
       )}
+
+      <ProductHeroImportModal
+        open={importOpen}
+        session={session}
+        company={company}
+        onClose={() => setImportOpen(false)}
+        onImported={silentReload}
+      />
 
       <PrintPreviewModal
         open={printOpen}
