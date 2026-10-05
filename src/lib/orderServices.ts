@@ -43,12 +43,28 @@ export interface OrderServiceEventRecord {
 
 export type OrderServicePhotoStage = 'entry' | 'during' | 'exit'
 
+export type OrderServicePhotoSource = 'camera' | 'upload'
+
 export interface OrderServicePhotoRecord {
   id: string
   stage: OrderServicePhotoStage
   caption?: string | null
   fileName: string
   fileUrl: string
+  source?: OrderServicePhotoSource
+  latitude?: number | string | null
+  longitude?: number | string | null
+  locationAccuracy?: number | string | null
+  takenAt?: string | null
+  createdAt?: string | null
+}
+
+export interface OrderServicePhotoMeta {
+  source: OrderServicePhotoSource
+  latitude?: number
+  longitude?: number
+  accuracy?: number
+  takenAt?: string
 }
 
 export const ORDER_SERVICE_PHOTO_STAGES: { value: OrderServicePhotoStage; label: string }[] = [
@@ -189,11 +205,17 @@ export function uploadOrderServicePhotos(
   id: string,
   stage: OrderServicePhotoStage,
   files: File[],
-  caption?: string
+  caption?: string,
+  meta: OrderServicePhotoMeta = { source: 'upload' }
 ) {
   const form = new FormData()
   form.append('stage', stage)
   if (caption) form.append('caption', caption)
+  form.append('source', meta.source)
+  if (meta.latitude !== undefined) form.append('latitude', String(meta.latitude))
+  if (meta.longitude !== undefined) form.append('longitude', String(meta.longitude))
+  if (meta.accuracy !== undefined) form.append('accuracy', String(meta.accuracy))
+  if (meta.takenAt) form.append('taken_at', meta.takenAt)
   files.forEach((file) => form.append('photos', file))
   return apiPostForm<OrderServicePhotoRecord[]>(`/orderService/${id}/photos`, form, token)
 }

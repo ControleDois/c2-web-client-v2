@@ -346,7 +346,7 @@ export function OrderServiceFormPage({ session, company, orderServiceId, onBack,
         if (pendingPhotos.length) {
           for (const stage of ['entry', 'during', 'exit'] as const) {
             for (const photo of pendingPhotos.filter((item) => item.stage === stage)) {
-              await uploadOrderServicePhotos(session.token.token, created.id, stage, [photo.file], photo.caption || undefined)
+              await uploadOrderServicePhotos(session.token.token, created.id, stage, [photo.file], photo.caption || undefined, photo.meta)
             }
           }
         }

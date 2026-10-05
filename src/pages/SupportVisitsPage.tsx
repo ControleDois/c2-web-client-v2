@@ -10,6 +10,7 @@ import { ApiError } from '../lib/api'
 import { formatDateTime } from '../lib/format'
 import { SearchIcon, PlusIcon, EyeIcon, CloseIcon, ClipboardCheckIcon } from '../components/icons'
 import { Select } from '../components/form/Select'
+import { PhotoLightbox, type LightboxPhoto } from '../components/PhotoLightbox'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
 interface SupportVisitsPageProps {
@@ -33,6 +34,7 @@ export function SupportVisitsPage({ session, company, onCreate }: SupportVisitsP
   const [error, setError] = useState<string | null>(null)
   const [detailItem, setDetailItem] = useState<SupportVisitRecord | null>(null)
   const [loadingDetail, setLoadingDetail] = useState(false)
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
 
   function load() {
     setLoading(true)
@@ -63,6 +65,11 @@ export function SupportVisitsPage({ session, company, onCreate }: SupportVisitsP
   }
 
   const photos = detailItem?.photos ?? []
+  const lightboxPhotos: LightboxPhoto[] = photos.map((photo) => ({
+    url: photo.file_url,
+    title: photo.name,
+    subtitle: photo.description,
+  }))
 
   return (
     <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8">
@@ -294,13 +301,19 @@ export function SupportVisitsPage({ session, company, onCreate }: SupportVisitsP
               </p>
               {photos.length > 0 ? (
                 <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  {photos.map((photo) => (
-                    <div key={photo.id} className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--page)]">
+                  {photos.map((photo, index) => (
+                    <button
+                      key={photo.id}
+                      type="button"
+                      onClick={() => setLightboxIndex(index)}
+                      title="Abrir em tela cheia"
+                      className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--page)] text-left transition hover:ring-2 hover:ring-[var(--blue-300)]"
+                    >
                       <img src={photo.file_url} alt={photo.name || ''} className="h-32 w-full object-cover" />
                       {photo.name && (
                         <p className="truncate px-2 py-1.5 text-[11.5px] font-medium text-[var(--ink-soft)]">{photo.name}</p>
                       )}
-                    </div>
+                    </button>
                   ))}
                 </div>
               ) : (
@@ -339,6 +352,12 @@ export function SupportVisitsPage({ session, company, onCreate }: SupportVisitsP
           </div>
         </div>
       )}
+      <PhotoLightbox
+        photos={lightboxPhotos}
+        index={lightboxIndex}
+        onIndexChange={setLightboxIndex}
+        onClose={() => setLightboxIndex(null)}
+      />
     </div>
   )
 }

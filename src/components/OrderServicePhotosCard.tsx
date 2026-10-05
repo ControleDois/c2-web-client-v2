@@ -3,11 +3,15 @@ import {
   deleteOrderServicePhoto,
   ORDER_SERVICE_PHOTO_STAGES,
   uploadOrderServicePhotos,
+  type OrderServicePhotoMeta,
   type OrderServicePhotoRecord,
   type OrderServicePhotoStage,
 } from '../lib/orderServices'
+import { formatDateTime } from '../lib/format'
 import { ApiError } from '../lib/api'
-import { CameraIcon, TrashIcon } from './icons'
+import { CameraIcon, PaperclipIcon, TrashIcon } from './icons'
+import { LiveCameraModal, type LiveCapture } from './LiveCameraModal'
+import { PhotoLightbox, type LightboxPhoto } from './PhotoLightbox'
 import { SectionCard } from './SectionCard'
 import type { AuthSession } from '../lib/auth'
 
@@ -17,6 +21,7 @@ export interface PendingPhoto {
   stage: OrderServicePhotoStage
   caption: string
   previewUrl: string
+  meta: OrderServicePhotoMeta
 }
 
 interface OrderServicePhotosCardProps {
@@ -64,44 +69,87 @@ export function OrderServicePhotosCard({
   const [caption, setCaption] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [cameraOpen, setCameraOpen] = useState(false)
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
 
   const savedInStage = photos.filter((photo) => photo.stage === stage)
   const pendingInStage = pending.filter((photo) => photo.stage === stage)
   const countFor = (value: OrderServicePhotoStage) =>
     photos.filter((photo) => photo.stage === value).length + pending.filter((photo) => photo.stage === value).length
 
-  async function handleFiles(fileList: FileList | null) {
+  // Entrega as fotos já prontas: com a OS salva sobem na hora; numa OS nova
+  // ficam na fila e sobem junto com o salvar.
+  async function addPhotos(files: File[], meta: OrderServicePhotoMeta) {
+    const note = caption.trim()
+    if (orderServiceId) {
+      const saved = await uploadOrderServicePhotos(token, orderServiceId, stage, files, note || undefined, meta)
+      onPhotosChange([...photos, ...saved])
+    } else {
+      onPendingChange([
+        ...pending,
+        ...files.map((file) => ({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          file,
+          stage,
+          caption: note,
+          previewUrl: URL.createObjectURL(file),
+          meta,
+        })),
+      ])
+    }
+    setCaption('')
+  }
+
+  async function handleAttach(fileList: FileList | null) {
     const files = Array.from(fileList ?? []).filter((file) => file.type.startsWith('image/'))
     if (fileInput.current) fileInput.current.value = ''
     if (!files.length) return
     setError(null)
     setBusy(true)
     try {
-      const shrunk = await Promise.all(files.map(shrinkImage))
-      const note = caption.trim()
-
-      if (orderServiceId) {
-        const saved = await uploadOrderServicePhotos(token, orderServiceId, stage, shrunk, note || undefined)
-        onPhotosChange([...photos, ...saved])
-      } else {
-        onPendingChange([
-          ...pending,
-          ...shrunk.map((file) => ({
-            id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-            file,
-            stage,
-            caption: note,
-            previewUrl: URL.createObjectURL(file),
-          })),
-        ])
-      }
-      setCaption('')
+      await addPhotos(await Promise.all(files.map(shrinkImage)), { source: 'upload' })
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Não foi possível enviar as fotos.')
     } finally {
       setBusy(false)
     }
   }
+
+  async function handleLiveCapture(capture: LiveCapture) {
+    setError(null)
+    try {
+      await addPhotos([capture.file], {
+        source: 'camera',
+        latitude: capture.fix?.latitude,
+        longitude: capture.fix?.longitude,
+        accuracy: capture.fix?.accuracy,
+        takenAt: capture.takenAt,
+      })
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Não foi possível enviar a foto.')
+    }
+  }
+
+  const lightboxPhotos: LightboxPhoto[] = [
+    ...savedInStage.map((photo) => {
+      const hasLocation = photo.latitude != null && photo.longitude != null
+      const when = photo.takenAt || photo.createdAt
+      return {
+        url: photo.fileUrl,
+        title: photo.caption,
+        subtitle: [photo.source === 'camera' ? 'Tirada na hora' : 'Anexada', when ? formatDateTime(when) : null]
+          .filter(Boolean)
+          .join(' · '),
+        mapUrl: hasLocation ? `https://www.google.com/maps?q=${photo.latitude},${photo.longitude}` : null,
+      }
+    }),
+    ...pendingInStage.map((photo) => ({
+      url: photo.previewUrl,
+      title: photo.caption,
+      subtitle:
+        photo.meta.source === 'camera' ? 'Tirada na hora (será enviada ao salvar)' : 'Anexada (será enviada ao salvar)',
+    })),
+  ]
 
   async function removeSaved(photo: OrderServicePhotoRecord) {
     if (!orderServiceId || !window.confirm('Remover esta foto?')) return
@@ -148,20 +196,28 @@ export function OrderServicePhotosCard({
             className="w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent focus:outline-none focus:ring-[var(--blue-300)]"
           />
         </label>
+        <button
+          type="button"
+          onClick={() => setCameraOpen(true)}
+          className="flex items-center gap-2 rounded-xl bg-[var(--blue-500)] px-4 py-2.5 text-[13px] font-bold text-white hover:bg-[var(--blue-700)]"
+        >
+          <CameraIcon className="h-4 w-4" />
+          Tirar foto agora
+        </button>
         <label
-          className={`flex cursor-pointer items-center gap-2 rounded-xl bg-[var(--blue-500)] px-4 py-2.5 text-[13px] font-bold text-white hover:bg-[var(--blue-700)] ${
+          className={`flex cursor-pointer items-center gap-2 rounded-xl border border-[var(--border)] px-4 py-2.5 text-[13px] font-bold text-[var(--ink-soft)] hover:text-[var(--ink)] ${
             busy ? 'pointer-events-none opacity-60' : ''
           }`}
         >
-          <CameraIcon className="h-4 w-4" />
-          {busy ? 'Enviando…' : 'Tirar ou escolher fotos'}
+          <PaperclipIcon className="h-4 w-4" />
+          {busy ? 'Enviando…' : 'Anexar'}
           <input
             ref={fileInput}
             type="file"
             accept="image/*"
             multiple
             className="hidden"
-            onChange={(event) => handleFiles(event.target.files)}
+            onChange={(event) => handleAttach(event.target.files)}
           />
         </label>
       </div>
@@ -179,11 +235,23 @@ export function OrderServicePhotosCard({
         </p>
       ) : (
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
-          {savedInStage.map((photo) => (
+          {savedInStage.map((photo, index) => (
             <figure key={photo.id} className="group relative overflow-hidden rounded-xl bg-[var(--page)]">
-              <a href={photo.fileUrl} target="_blank" rel="noreferrer">
+              <button
+                type="button"
+                onClick={() => setLightboxIndex(index)}
+                className="block w-full"
+                title="Abrir em tela cheia"
+              >
                 <img src={photo.fileUrl} alt={photo.caption ?? ''} className="aspect-square w-full object-cover" />
-              </a>
+              </button>
+              <span
+                className={`absolute bottom-1.5 left-1.5 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                  photo.source === 'camera' ? 'bg-[var(--green-600)] text-white' : 'bg-black/60 text-white'
+                }`}
+              >
+                {photo.source === 'camera' ? 'Ao vivo' : 'Anexada'}
+              </span>
               {photo.caption && (
                 <figcaption className="px-2.5 py-1.5 text-[11.5px] text-[var(--ink-soft)]">{photo.caption}</figcaption>
               )}
@@ -197,9 +265,19 @@ export function OrderServicePhotosCard({
               </button>
             </figure>
           ))}
-          {pendingInStage.map((photo) => (
-            <figure key={photo.id} className="relative overflow-hidden rounded-xl bg-[var(--page)] ring-2 ring-[var(--amber-500)]">
-              <img src={photo.previewUrl} alt={photo.caption} className="aspect-square w-full object-cover" />
+          {pendingInStage.map((photo, index) => (
+            <figure
+              key={photo.id}
+              className="relative overflow-hidden rounded-xl bg-[var(--page)] ring-2 ring-[var(--amber-500)]"
+            >
+              <button
+                type="button"
+                onClick={() => setLightboxIndex(savedInStage.length + index)}
+                className="block w-full"
+                title="Abrir em tela cheia"
+              >
+                <img src={photo.previewUrl} alt={photo.caption} className="aspect-square w-full object-cover" />
+              </button>
               <figcaption className="px-2.5 py-1.5 text-[11.5px] text-[var(--amber-500)]">
                 {photo.caption || 'Será enviada ao salvar'}
               </figcaption>
@@ -215,6 +293,13 @@ export function OrderServicePhotosCard({
           ))}
         </div>
       )}
+      <LiveCameraModal open={cameraOpen} onCapture={handleLiveCapture} onClose={() => setCameraOpen(false)} />
+      <PhotoLightbox
+        photos={lightboxPhotos}
+        index={lightboxIndex}
+        onIndexChange={setLightboxIndex}
+        onClose={() => setLightboxIndex(null)}
+      />
     </SectionCard>
   )
 }
