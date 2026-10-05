@@ -37,7 +37,7 @@ export interface SupportContractRecord {
   autentique_id?: string | null
   autentique_public_id?: string | null
   autentique_short_link?: string | null
-  meta?: { signed?: boolean }
+  meta?: { signed?: boolean; sent?: boolean }
 }
 
 interface Paginated<T> {
@@ -158,4 +158,28 @@ export interface SignatureEvidence {
 
 export function fetchSupportContractSignatureEvidence(token: string, id: string) {
   return apiGet<{ signature: SignatureEvidence | null }>(`/support-contract/${id}/signature-evidence`, {}, token)
+}
+
+export interface SendTimelineEvent {
+  at: string
+  kind: string
+  title: string
+  detail?: string
+  tone: 'ok' | 'error' | 'info'
+}
+
+export interface SendTimeline {
+  signature: { provider: string; status: number } | null
+  summary: {
+    sentAt: string | null
+    deliveredAt: string | null
+    readAt: string | null
+    openedAt: string | null
+    signedAt: string | null
+  } | null
+  events: SendTimelineEvent[]
+}
+
+export function fetchSupportContractSendTimeline(token: string, id: string) {
+  return apiGet<SendTimeline>(`/support-contract/${id}/send-timeline`, {}, token)
 }

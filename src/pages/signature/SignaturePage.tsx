@@ -3,6 +3,7 @@ import { Logo } from '../../components/Logo'
 import {
   fetchSignatureInfo,
   requestSignatureCode,
+  signatureDocumentUrl,
   signatureDownloadUrl,
   verifySignatureCode,
   submitSignature,
@@ -313,7 +314,7 @@ export function SignaturePage({ token }: SignaturePageProps) {
           <p className="text-[13.5px] text-[var(--muted)]">
             Este documento já foi confirmado e assinado anteriormente.
           </p>
-          <DocumentActions token={token} viewUrl={info?.documentUrl} />
+          <DocumentActions token={token} viewUrl={info?.documentUrl ? signatureDocumentUrl(token) : undefined} />
         </div>
       </PageShell>
     )
@@ -328,7 +329,7 @@ export function SignaturePage({ token }: SignaturePageProps) {
           <p className="text-[13.5px] text-[var(--muted)]">
             Obrigado, {info?.signerName}. Sua assinatura foi registrada no documento.
           </p>
-          <DocumentActions token={token} viewUrl={fileUrl} />
+          <DocumentActions token={token} viewUrl={fileUrl ? signatureDocumentUrl(token) : undefined} />
         </div>
       </PageShell>
     )
@@ -351,7 +352,7 @@ export function SignaturePage({ token }: SignaturePageProps) {
 
         {info?.documentUrl && (
           <a
-            href={info.documentUrl}
+            href={signatureDocumentUrl(token)}
             target="_blank"
             rel="noreferrer"
             className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 text-center text-[13px] font-bold text-[var(--blue-500)] hover:bg-[var(--page)]"

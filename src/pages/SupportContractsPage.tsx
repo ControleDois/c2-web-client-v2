@@ -17,12 +17,14 @@ import {
   PrinterIcon,
   WhatsappIcon,
   CameraIcon,
+  ClockIcon,
 } from '../components/icons'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { RowActionsMenu, type RowAction } from '../components/RowActionsMenu'
 import { SupportContractPreviewModal } from '../components/SupportContractPreviewModal'
 import { SupportContractSendModal } from '../components/SupportContractSendModal'
 import { SupportContractSignatureModal } from '../components/SupportContractSignatureModal'
+import { SupportContractTimelineModal } from '../components/SupportContractTimelineModal'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
 interface SupportContractsPageProps {
@@ -50,6 +52,7 @@ export function SupportContractsPage({ session, company, onCreate, onEdit }: Sup
   const [contractTarget, setContractTarget] = useState<SupportContractRecord | null>(null)
   const [sendContractTarget, setSendContractTarget] = useState<SupportContractRecord | null>(null)
   const [signatureTarget, setSignatureTarget] = useState<SupportContractRecord | null>(null)
+  const [timelineTarget, setTimelineTarget] = useState<SupportContractRecord | null>(null)
   const [busy, setBusy] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [feedback, setFeedback] = useState<string | null>(null)
@@ -114,6 +117,14 @@ export function SupportContractsPage({ session, company, onCreate, onEdit }: Sup
         onClick: () => setSendContractTarget(contract),
       },
     ]
+    if (contract.meta?.sent) {
+      actions.push({
+        key: 'send-timeline',
+        label: 'Detalhes do envio',
+        icon: <ClockIcon className="h-4 w-4" />,
+        onClick: () => setTimelineTarget(contract),
+      })
+    }
     if (contract.meta?.signed) {
       actions.push({
         key: 'signature-evidence',
@@ -326,6 +337,13 @@ export function SupportContractsPage({ session, company, onCreate, onEdit }: Sup
         company={company}
         contract={contractTarget}
         onClose={() => setContractTarget(null)}
+      />
+
+      <SupportContractTimelineModal
+        open={Boolean(timelineTarget)}
+        session={session}
+        contract={timelineTarget}
+        onClose={() => setTimelineTarget(null)}
       />
 
       <SupportContractSignatureModal

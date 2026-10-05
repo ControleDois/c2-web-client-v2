@@ -25,6 +25,10 @@ export function signatureDownloadUrl(token: string) {
   return `${API_BASE_URL}/connect/signature/${token}/download`
 }
 
+export function signatureDocumentUrl(token: string) {
+  return `${API_BASE_URL}/connect/signature/${token}/document`
+}
+
 export function fetchSignatureInfo(token: string): Promise<SignatureInfo> {
   return fetch(`${API_BASE_URL}/connect/signature/${token}`).then(parseJson)
 }
