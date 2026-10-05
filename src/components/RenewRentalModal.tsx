@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { MoneyInput } from './form/MoneyInput'
 import { createSale, fetchSale, VEHICLE_RENTAL_STATUS_LABELS, RENTAL_FREQUENCY_LABELS, type SaleRecord } from '../lib/sales'
 import { FORM_PAYMENT_LABELS } from '../lib/bills'
 import { fetchVehicles, type VehicleRecord } from '../lib/vehicles'
@@ -326,9 +327,7 @@ export function RenewRentalModal({ open, session, company, sale, onClose, onSucc
                   <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Valor por período</span>
                   <div className="flex items-center gap-2 rounded-xl bg-[var(--page)] px-3.5 py-2.5 ring-1 ring-transparent transition focus-within:ring-[var(--blue-300)]">
                     <WalletIcon className="h-4 w-4 flex-none text-[var(--muted)]" />
-                    <input
-                      type="text"
-                      inputMode="decimal"
+                    <MoneyInput
                       placeholder="0,00"
                       value={ratePerPeriod}
                       onChange={(event) => setRatePerPeriod(event.target.value.replace(/[^\d.,]/g, ''))}

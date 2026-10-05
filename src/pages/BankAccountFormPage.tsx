@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import { MoneyField } from '../components/form/MoneyField'
 import {
   createBankAccount,
   fetchBankAccount,
@@ -173,11 +174,10 @@ export function BankAccountFormPage({ session, company, accountId, onBack, onSav
                 value={name}
                 onChange={(event) => setName(event.target.value)}
               />
-              <TextField
+              <MoneyField allowNegative
                 label="Saldo inicial"
                 icon={<WalletIcon className="h-4 w-4" />}
                 placeholder="0,00"
-                inputMode="decimal"
                 value={balance}
                 onChange={(event) => setBalance(event.target.value.replace(/[^\d.,-]/g, ''))}
               />
@@ -242,11 +242,10 @@ export function BankAccountFormPage({ session, company, accountId, onBack, onSav
                         value={card.last_digits ?? ''}
                         onChange={(event) => updateCreditCard(index, { last_digits: event.target.value.replace(/\D/g, '').slice(0, 4) })}
                       />
-                      <TextField
+                      <MoneyField
                         label="Limite"
                         icon={<WalletIcon className="h-4 w-4" />}
                         placeholder="0,00"
-                        inputMode="decimal"
                         value={card.limit_value !== undefined && card.limit_value !== null ? String(card.limit_value) : ''}
                         onChange={(event) => updateCreditCard(index, { limit_value: event.target.value ? Number(event.target.value.replace(/[^\d.,]/g, '')) : undefined })}
                       />

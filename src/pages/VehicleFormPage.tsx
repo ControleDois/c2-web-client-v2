@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { MoneyField } from '../components/form/MoneyField'
+import { MoneyInput } from '../components/form/MoneyInput'
 import {
   createVehicle,
   fetchVehicle,
@@ -430,11 +432,10 @@ export function VehicleFormPage({ session, company, vehicleId, onBack, onSaved }
                 value={fipeCode}
                 onChange={(event) => setFipeCode(event.target.value)}
               />
-              <TextField
+              <MoneyField
                 label="Valor FIPE"
                 icon={<BadgeIcon className="h-4 w-4" />}
                 placeholder="Opcional"
-                inputMode="decimal"
                 value={fipeValue}
                 onChange={(event) => setFipeValue(event.target.value.replace(/[^\d.,]/g, ''))}
               />
@@ -491,9 +492,7 @@ export function VehicleFormPage({ session, company, vehicleId, onBack, onSaved }
                 </label>
                 <label className="flex flex-col gap-1.5">
                   <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Valor pago (R$)</span>
-                  <input
-                    type="text"
-                    inputMode="decimal"
+                  <MoneyInput
                     placeholder="0,00"
                     value={purchasePrice}
                     onChange={(event) => setPurchasePrice(event.target.value.replace(/[^\d.,]/g, ''))}

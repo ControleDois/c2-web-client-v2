@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { MoneyField } from '../components/form/MoneyField'
 import {
   fetchLicenseCompany,
   updateLicenseCompany,
@@ -310,13 +311,9 @@ export function LicenseFormPage({ session, licenseId, onBack }: LicenseFormPageP
           <SectionCard title="Dados Comerciais" subtitle="Mensalidade, comissão e representante responsável">
             <div className="flex flex-col gap-4">
               <div className="grid gap-4 sm:grid-cols-2">
-                <TextField
+                <MoneyField
                   label="Mensalidade"
                   icon={<DollarSignIcon className="h-4 w-4" />}
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="0,00"
                   value={monthlyFee}
                   onChange={(event) => setMonthlyFee(event.target.value)}
                 />

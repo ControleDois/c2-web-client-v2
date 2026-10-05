@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
+import { MoneyField } from '../components/form/MoneyField'
 import {
   createBill,
   fetchBill,
@@ -335,11 +336,10 @@ export function BillFormPage({ session, company, role, billId, onBack, onSaved }
                   className="min-w-0 w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
                 />
               </label>
-              <TextField
+              <MoneyField
                 label="Valor"
                 icon={<WalletIcon className="h-4 w-4" />}
                 placeholder="0,00"
-                inputMode="decimal"
                 value={amount}
                 onChange={(event) => {
                   const next = event.target.value.replace(/[^\d.,]/g, '')
@@ -453,27 +453,24 @@ export function BillFormPage({ session, company, role, billId, onBack, onSaved }
                         className="min-w-0 w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
                       />
                     </label>
-                    <TextField
+                    <MoneyField
                       label="Descontos"
                       icon={<WalletIcon className="h-4 w-4" />}
                       placeholder="0,00"
-                      inputMode="decimal"
                       value={discount}
                       onChange={(event) => setDiscount(event.target.value.replace(/[^\d.,]/g, ''))}
                     />
-                    <TextField
+                    <MoneyField
                       label="Juros"
                       icon={<WalletIcon className="h-4 w-4" />}
                       placeholder="0,00"
-                      inputMode="decimal"
                       value={fees}
                       onChange={(event) => setFees(event.target.value.replace(/[^\d.,]/g, ''))}
                     />
-                    <TextField
+                    <MoneyField
                       label={settledValueLabel}
                       icon={<WalletIcon className="h-4 w-4" />}
                       placeholder="0,00"
-                      inputMode="decimal"
                       value={billValue}
                       onChange={(event) => setBillValue(event.target.value.replace(/[^\d.,]/g, ''))}
                     />

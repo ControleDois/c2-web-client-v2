@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { MoneyInput } from '../components/form/MoneyInput'
 import {
   createPerson,
   fetchPerson,
@@ -508,9 +509,7 @@ export function PeopleFormPage({
                 {showCreditLimit && (
                   <label className="flex flex-col gap-1.5">
                     <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Limite de crédito (R$)</span>
-                    <input
-                      type="text"
-                      inputMode="decimal"
+                    <MoneyInput
                       placeholder="0,00"
                       value={limitCredit}
                       onChange={(event) => setLimitCredit(event.target.value.replace(/[^\d.,]/g, ''))}
@@ -611,9 +610,7 @@ export function PeopleFormPage({
                     <span className="text-[12px] font-semibold text-[var(--ink-soft)]">
                       {tcSalaryType === 'hourly' ? 'Valor da hora (R$)' : 'Salário mensal (R$)'}
                     </span>
-                    <input
-                      type="text"
-                      inputMode="decimal"
+                    <MoneyInput
                       placeholder="0,00"
                       value={tcSalaryValue}
                       onChange={(event) => setTcSalaryValue(event.target.value.replace(/[^\d.,]/g, ''))}

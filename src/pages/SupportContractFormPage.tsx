@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import { MoneyInput } from '../components/form/MoneyInput'
 import {
   createSupportContract,
   fetchSupportContract,
@@ -233,9 +234,7 @@ export function SupportContractFormPage({ session, company, contractId, onBack, 
                 <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Valor mensal</span>
                 <div className="flex items-center gap-2 rounded-xl bg-[var(--page)] px-3.5 py-2.5 ring-1 ring-transparent transition focus-within:ring-[var(--blue-300)]">
                   <WalletIcon className="h-4 w-4 flex-none text-[var(--muted)]" />
-                  <input
-                    type="text"
-                    inputMode="decimal"
+                  <MoneyInput
                     placeholder="0,00"
                     value={monthlyValue}
                     onChange={(event) => setMonthlyValue(event.target.value.replace(/[^\d.,]/g, ''))}

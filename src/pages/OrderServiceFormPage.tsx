@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
+import { MoneyInput } from '../components/form/MoneyInput'
 import {
   createOrderService,
   fetchOrderService,
@@ -610,9 +611,7 @@ export function OrderServiceFormPage({ session, company, orderServiceId, onBack,
                         onChange={(event) => handleUpdateItem(item.tempId, { amount: event.target.value.replace(/[^\d.,]/g, '') })}
                         className="w-14 flex-none rounded-lg bg-[var(--surface)] px-3 py-2 text-right text-[13px] text-[var(--ink)] ring-1 ring-transparent focus:outline-none focus:ring-[var(--blue-300)]"
                       />
-                      <input
-                        type="text"
-                        inputMode="decimal"
+                      <MoneyInput
                         placeholder="Custo"
                         title="Custo"
                         value={item.purchaseCost}
@@ -631,9 +630,7 @@ export function OrderServiceFormPage({ session, company, orderServiceId, onBack,
                         />
                         <span className="flex-none text-[12px] text-[var(--muted)]">%</span>
                       </div>
-                      <input
-                        type="text"
-                        inputMode="decimal"
+                      <MoneyInput
                         placeholder="Vl. venda"
                         title="Valor de venda"
                         value={item.costValue}

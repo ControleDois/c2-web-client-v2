@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { MoneyField } from './form/MoneyField'
 import { batchReceiveBills, FORM_PAYMENT_LABELS, type BillRecord } from '../lib/bills'
 import { fetchCategories, type CategoryRecord } from '../lib/categories'
 import { fetchBankAccounts, type BankAccountRecord } from '../lib/bankAccounts'
@@ -6,7 +7,6 @@ import { fetchCostCenters, type CostCenterRecord } from '../lib/costCenters'
 import { formatCurrency } from '../lib/format'
 import { ApiError } from '../lib/api'
 import { SelectField } from './form/SelectField'
-import { TextField } from './form/TextField'
 import { CloseIcon, WalletIcon, CheckCircleIcon } from './icons'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
@@ -175,28 +175,25 @@ export function BatchReceiveBillsModal({ open, session, company, bills, onClose,
           )}
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <TextField
+            <MoneyField
               label="Juros"
               icon={<WalletIcon className="h-4 w-4" />}
               placeholder="0,00"
-              inputMode="decimal"
               value={interest}
               onChange={(event) => setInterest(event.target.value.replace(/[^\d.,]/g, ''))}
             />
-            <TextField
+            <MoneyField
               label="Desconto"
               icon={<WalletIcon className="h-4 w-4" />}
               placeholder="0,00"
-              inputMode="decimal"
               value={discount}
               onChange={(event) => setDiscount(event.target.value.replace(/[^\d.,]/g, ''))}
             />
             <div className="sm:col-span-2">
-              <TextField
+              <MoneyField
                 label="Valor pago"
                 icon={<WalletIcon className="h-4 w-4" />}
                 placeholder="0,00"
-                inputMode="decimal"
                 value={amountPaid}
                 onChange={(event) => {
                   setAmountTouched(true)

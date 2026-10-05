@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
+import { MoneyField } from '../components/form/MoneyField'
 import {
   createTowingSale,
   fetchTowingSale,
@@ -575,11 +576,10 @@ export function TowingSaleFormPage({ session, company, saleId, onBack, onSaved }
                   </option>
                 ))}
               </SelectField>
-              <TextField
+              <MoneyField
                 label="Valor do transporte"
                 icon={<UserIcon className="h-4 w-4" />}
                 placeholder="0,00"
-                inputMode="decimal"
                 value={transportValue}
                 onChange={(event) => setTransportValue(event.target.value.replace(/[^\d.,]/g, ''))}
               />
@@ -650,11 +650,10 @@ export function TowingSaleFormPage({ session, company, saleId, onBack, onSaved }
                   </option>
                 ))}
               </SelectField>
-              <TextField
+              <MoneyField
                 label="Valor"
                 icon={<WalletIcon className="h-4 w-4" />}
                 placeholder="0,00"
-                inputMode="decimal"
                 value={expenseAmount}
                 onChange={(event) => setExpenseAmount(event.target.value.replace(/[^\d.,]/g, ''))}
               />

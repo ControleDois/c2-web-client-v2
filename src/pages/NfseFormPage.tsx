@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import { MoneyInput } from '../components/form/MoneyInput'
 import { createNfse, updateNfse, fetchNfse, type NfsePayload } from '../lib/nfse'
 import { fetchCompany } from '../lib/companies'
 import { fetchPeople, fetchPerson, type PersonRecord } from '../lib/people'
@@ -270,9 +271,7 @@ export function NfseFormPage({ session, company, nfseId, onBack, onSaved }: Nfse
                 <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Valor do serviço</span>
                 <div className="flex items-center gap-2 rounded-xl bg-[var(--page)] px-3.5 py-2.5 ring-1 ring-transparent transition focus-within:ring-[var(--blue-300)]">
                   <WalletIcon className="h-4 w-4 flex-none text-[var(--muted)]" />
-                  <input
-                    type="text"
-                    inputMode="decimal"
+                  <MoneyInput
                     placeholder="0,00"
                     value={valorServico}
                     onChange={(event) => setValorServico(event.target.value.replace(/[^\d.,]/g, ''))}
@@ -282,9 +281,7 @@ export function NfseFormPage({ session, company, nfseId, onBack, onSaved }: Nfse
               </label>
               <label className="flex flex-col gap-1.5">
                 <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Desconto incondicionado</span>
-                <input
-                  type="text"
-                  inputMode="decimal"
+                <MoneyInput
                   placeholder="0,00"
                   value={descontoIncondicionado}
                   onChange={(event) => setDescontoIncondicionado(event.target.value.replace(/[^\d.,]/g, ''))}
@@ -293,9 +290,7 @@ export function NfseFormPage({ session, company, nfseId, onBack, onSaved }: Nfse
               </label>
               <label className="flex flex-col gap-1.5">
                 <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Desconto condicionado</span>
-                <input
-                  type="text"
-                  inputMode="decimal"
+                <MoneyInput
                   placeholder="0,00"
                   value={descontoCondicionado}
                   onChange={(event) => setDescontoCondicionado(event.target.value.replace(/[^\d.,]/g, ''))}

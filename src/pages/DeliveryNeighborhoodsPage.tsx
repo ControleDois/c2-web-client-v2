@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { MoneyField } from '../components/form/MoneyField'
 import {
   deleteDeliveryNeighborhood,
   fetchDeliveryNeighborhoods,
@@ -263,13 +264,12 @@ export function DeliveryNeighborhoodsPage({ session, company }: DeliveryNeighbor
                 autoFocus
               />
               <div className="grid gap-4 sm:grid-cols-2">
-                <TextField
+                <MoneyField
                   label="Taxa de entrega (R$)"
                   icon={<CoinIcon className="h-4 w-4" />}
                   value={form.fee}
                   onChange={(event) => setForm({ ...form, fee: event.target.value })}
                   placeholder="0,00"
-                  inputMode="decimal"
                 />
                 <TextField
                   label="Tempo estimado (min)"

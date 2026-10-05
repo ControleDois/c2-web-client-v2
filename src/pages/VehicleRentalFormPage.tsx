@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
+import { MoneyField } from '../components/form/MoneyField'
+import { MoneyInput } from '../components/form/MoneyInput'
 import {
   createSale,
   fetchSale,
@@ -696,19 +698,17 @@ export function VehicleRentalFormPage({ session, company, saleId, onBack, onSave
                   </option>
                 ))}
               </SelectField>
-              <TextField
+              <MoneyField
                 label={purchaseOption ? 'Valor da parcela' : 'Valor'}
                 icon={<WalletIcon className="h-4 w-4" />}
                 placeholder="0,00"
-                inputMode="decimal"
                 value={monthlyValue}
                 onChange={(event) => setMonthlyValue(event.target.value.replace(/[^\d.,]/g, ''))}
               />
-              <TextField
+              <MoneyField
                 label="Caução"
                 icon={<WalletIcon className="h-4 w-4" />}
                 placeholder="0,00"
-                inputMode="decimal"
                 value={securityDeposit}
                 onChange={(event) => setSecurityDeposit(event.target.value.replace(/[^\d.,]/g, ''))}
               />
@@ -805,11 +805,10 @@ export function VehicleRentalFormPage({ session, company, saleId, onBack, onSave
                   value={installmentCount}
                   onChange={(event) => setInstallmentCount(event.target.value.replace(/\D/g, ''))}
                 />
-                <TextField
+                <MoneyField
                   label="Valor total do veículo"
                   icon={<WalletIcon className="h-4 w-4" />}
                   placeholder="0,00"
-                  inputMode="decimal"
                   value={vehicleTotalValue}
                   onChange={(event) => setVehicleTotalValue(event.target.value.replace(/[^\d.,]/g, ''))}
                 />
@@ -912,9 +911,7 @@ export function VehicleRentalFormPage({ session, company, saleId, onBack, onSave
                         onChange={(event) => handleUpdatePlot(plot.tempId, { dateDue: event.target.value })}
                         className="min-w-0 flex-1 rounded-lg bg-[var(--surface)] px-3 py-2 text-[13px] text-[var(--ink)] ring-1 ring-transparent focus:outline-none focus:ring-[var(--blue-300)] disabled:opacity-60"
                       />
-                      <input
-                        type="text"
-                        inputMode="decimal"
+                      <MoneyInput
                         placeholder="0,00"
                         value={plot.amount}
                         disabled={received}

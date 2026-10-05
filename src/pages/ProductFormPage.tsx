@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { MoneyField } from '../components/form/MoneyField'
 import {
   createProduct,
   fetchProduct,
@@ -213,11 +214,10 @@ export function ProductFormPage({ session, company, productId, onBack, onSaved }
                 value={internalCode}
                 onChange={(event) => setInternalCode(event.target.value.replace(/\D/g, ''))}
               />
-              <TextField
+              <MoneyField
                 label="Valor de venda"
                 icon={<DollarSignIcon className="h-4 w-4" />}
                 placeholder="0,00"
-                inputMode="decimal"
                 value={saleValue}
                 onChange={(event) => setSaleValue(event.target.value.replace(/[^\d.,]/g, ''))}
               />

@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
+import { MoneyField } from '../components/form/MoneyField'
+import { MoneyInput } from '../components/form/MoneyInput'
 import {
   createSale,
   fetchSale,
@@ -422,19 +424,17 @@ export function VehicleSaleFormPage({ session, company, saleId, onBack, onSaved 
 
           <SectionCard title="Condições da venda">
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              <TextField
+              <MoneyField
                 label="Valor da venda"
                 icon={<WalletIcon className="h-4 w-4" />}
                 placeholder="0,00"
-                inputMode="decimal"
                 value={saleValue}
                 onChange={(event) => setSaleValue(event.target.value.replace(/[^\d.,]/g, ''))}
               />
-              <TextField
+              <MoneyField
                 label="Entrada"
                 icon={<WalletIcon className="h-4 w-4" />}
                 placeholder="0,00"
-                inputMode="decimal"
                 value={downPayment}
                 onChange={(event) => setDownPayment(event.target.value.replace(/[^\d.,]/g, ''))}
               />
@@ -533,9 +533,7 @@ export function VehicleSaleFormPage({ session, company, saleId, onBack, onSaved 
                         onChange={(event) => handleUpdatePlot(plot.tempId, { dateDue: event.target.value })}
                         className="min-w-0 flex-1 rounded-lg bg-[var(--surface)] px-3 py-2 text-[13px] text-[var(--ink)] ring-1 ring-transparent focus:outline-none focus:ring-[var(--blue-300)]"
                       />
-                      <input
-                        type="text"
-                        inputMode="decimal"
+                      <MoneyInput
                         placeholder="0,00"
                         value={plot.amount}
                         onChange={(event) => handleUpdatePlot(plot.tempId, { amount: event.target.value.replace(/[^\d.,]/g, '') })}

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { MoneyInput } from '../components/form/MoneyInput'
 import { createSale, fetchSale, updateSale, type SalePlotPayload } from '../lib/sales'
 import { fetchPeople, type PersonRecord } from '../lib/people'
 import { fetchConfig } from '../lib/config'
@@ -925,9 +926,7 @@ export function FinancingFormPage({ session, company, saleId, initialModality, o
                       <div className="grid grid-cols-2 gap-4">
                         <label className="flex flex-col gap-1.5">
                           <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Valor do Cheque (R$)</span>
-                          <input
-                            type="text"
-                            inputMode="decimal"
+                          <MoneyInput
                             placeholder="0,00"
                             value={chequeFaceValueInput}
                             onChange={(event) => {
@@ -956,9 +955,7 @@ export function FinancingFormPage({ session, company, saleId, initialModality, o
                       <div className="grid grid-cols-2 gap-4">
                         <label className="flex flex-col gap-1.5">
                           <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Valor Líquido Desejado (R$)</span>
-                          <input
-                            type="text"
-                            inputMode="decimal"
+                          <MoneyInput
                             placeholder="0,00"
                             value={chequeAdvanceInput}
                             onChange={(event) => {
@@ -1021,9 +1018,7 @@ export function FinancingFormPage({ session, company, saleId, initialModality, o
                       <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Valor Principal (R$)</span>
                       <div className="flex items-center gap-2 rounded-xl bg-[var(--page)] px-3.5 py-2.5 ring-1 ring-transparent transition focus-within:ring-[var(--blue-300)]">
                         <WalletIcon className="h-4 w-4 flex-none text-[var(--muted)]" />
-                        <input
-                          type="text"
-                          inputMode="decimal"
+                        <MoneyInput
                           placeholder="0,00"
                           value={valueInput}
                           onChange={(event) => {
@@ -1056,9 +1051,7 @@ export function FinancingFormPage({ session, company, saleId, initialModality, o
                     {modality === 'per_installment' ? (
                       <label className="flex flex-col gap-1.5">
                         <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Valor por Parcela (R$)</span>
-                        <input
-                          type="text"
-                          inputMode="decimal"
+                        <MoneyInput
                           placeholder="0,00"
                           value={perInstallmentInput}
                           onChange={(event) => {
@@ -1173,9 +1166,7 @@ export function FinancingFormPage({ session, company, saleId, initialModality, o
                 <div className="mt-1 flex items-baseline gap-1">
                   <span className="text-[13px] text-blue-200">R$</span>
                   {modality === 'price' ? (
-                    <input
-                      type="text"
-                      inputMode="decimal"
+                    <MoneyInput
                       value={installmentValueInput}
                       onFocus={() => setFocusedSummaryField('installment')}
                       onChange={(event) => setInstallmentValueInput(event.target.value.replace(/[^\d.,]/g, ''))}
@@ -1199,9 +1190,7 @@ export function FinancingFormPage({ session, company, saleId, initialModality, o
                 <div className="mt-1 flex items-baseline gap-1">
                   <span className="text-[13px] text-[var(--muted)]">R$</span>
                   {modality === 'price' ? (
-                    <input
-                      type="text"
-                      inputMode="decimal"
+                    <MoneyInput
                       value={totalInterestInput}
                       onFocus={() => setFocusedSummaryField('interest')}
                       onChange={(event) => setTotalInterestInput(event.target.value.replace(/[^\d.,]/g, ''))}
@@ -1225,9 +1214,7 @@ export function FinancingFormPage({ session, company, saleId, initialModality, o
                 <div className="mt-1 flex items-baseline gap-1">
                   <span className="text-[13px] text-[var(--muted)]">R$</span>
                   {modality === 'price' ? (
-                    <input
-                      type="text"
-                      inputMode="decimal"
+                    <MoneyInput
                       value={totalAmountInput}
                       onFocus={() => setFocusedSummaryField('total')}
                       onChange={(event) => setTotalAmountInput(event.target.value.replace(/[^\d.,]/g, ''))}
@@ -1289,9 +1276,7 @@ export function FinancingFormPage({ session, company, saleId, initialModality, o
                             />
                           </td>
                           <td className="px-2 py-1.5 pr-5">
-                            <input
-                              type="text"
-                              inputMode="decimal"
+                            <MoneyInput
                               value={item.amount}
                               onChange={(event) => {
                                 const updated = previewList.map((row, i) =>

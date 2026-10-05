@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { MoneyInput } from '../components/form/MoneyInput'
 import {
   createInvestment,
   updateInvestment,
@@ -375,9 +376,7 @@ export function InvestmentFormPage({ session, company, investmentId, onBack, onS
                 </label>
                 <label className="flex flex-col gap-1.5">
                   <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Valor investido (R$)</span>
-                  <input
-                    type="text"
-                    inputMode="decimal"
+                  <MoneyInput
                     placeholder="0,00"
                     value={investedAmount}
                     onChange={(event) => setInvestedAmount(event.target.value.replace(/[^\d.,]/g, ''))}
@@ -386,9 +385,7 @@ export function InvestmentFormPage({ session, company, investmentId, onBack, onS
                 </label>
                 <label className="flex flex-col gap-1.5">
                   <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Valor atual estimado (R$)</span>
-                  <input
-                    type="text"
-                    inputMode="decimal"
+                  <MoneyInput
                     placeholder="igual ao investido"
                     value={currentAmount}
                     onChange={(event) => setCurrentAmount(event.target.value.replace(/[^\d.,]/g, ''))}
@@ -614,9 +611,7 @@ export function InvestmentFormPage({ session, company, investmentId, onBack, onS
                   </label>
                   <label className="flex flex-col gap-1.5">
                     <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Valor de venda / resgate (R$)</span>
-                    <input
-                      type="text"
-                      inputMode="decimal"
+                    <MoneyInput
                       value={redemptionAmount}
                       onChange={(event) => setRedemptionAmount(event.target.value.replace(/[^\d.,]/g, ''))}
                       className="w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
@@ -785,9 +780,7 @@ export function InvestmentFormPage({ session, company, investmentId, onBack, onS
                 </label>
                 <label className="flex flex-col gap-1.5">
                   <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Valor (R$)</span>
-                  <input
-                    type="text"
-                    inputMode="decimal"
+                  <MoneyInput
                     value={entryAmount}
                     onChange={(event) => setEntryAmount(event.target.value.replace(/[^\d.,]/g, ''))}
                     className="w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"

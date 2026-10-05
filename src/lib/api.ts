@@ -38,6 +38,41 @@ function resolveErrorMessage(status: number, raw: unknown): string {
   return extractMessage(raw) ?? fallbackMessage(status)
 }
 
+const NUMBER_FIELD_LABELS: Record<string, string> = {
+  amount: 'Valor',
+  bill_value: 'Valor pago',
+  discount: 'Desconto',
+  fees: 'Juros',
+  sale_value: 'Valor de venda',
+  cost_value: 'Valor de custo',
+  purchase_cost: 'Custo de compra',
+  monthlyValue: 'Valor',
+  securityDeposit: 'Caução',
+  limit_credit: 'Limite de crédito',
+  delivery_fee: 'Taxa de entrega',
+  minimum_order_value: 'Pedido mínimo',
+  net_total: 'Total',
+  quantity: 'Quantidade',
+}
+
+function numberFieldLabel(key: string): string {
+  if (NUMBER_FIELD_LABELS[key]) return NUMBER_FIELD_LABELS[key]
+  const spaced = key.replace(/_/g, ' ').replace(/([a-z])([A-Z])/g, '$1 $2').trim()
+  return spaced ? spaced.charAt(0).toUpperCase() + spaced.slice(1) : 'numérico'
+}
+
+// Escudo contra "NaN": se algum campo numérico chegou inválido (ex.: valor
+// digitado com vírgula num campo sem máscara), avisa qual campo é em vez de
+// mandar null e receber um erro técnico do servidor.
+function serializeBody(body: unknown): string {
+  return JSON.stringify(body, (key, value) => {
+    if (typeof value === 'number' && !Number.isFinite(value)) {
+      throw new ApiError(`O campo "${numberFieldLabel(key)}" está com um número inválido. Confira o valor digitado.`, 422)
+    }
+    return value
+  })
+}
+
 interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
   token?: string
@@ -60,12 +95,14 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   if (token) headers.Authorization = `Bearer ${token}`
   if (!form) headers['Content-Type'] = 'application/json'
 
+  const requestBody = form ?? (body !== undefined ? serializeBody(body) : undefined)
+
   let response: Response
   try {
     response = await fetch(url.toString(), {
       method,
       headers,
-      body: form ?? (body !== undefined ? JSON.stringify(body) : undefined),
+      body: requestBody,
     })
   } catch {
     throw new ApiError(fallbackMessage(0), 0)

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
+import { MoneyInput } from '../components/form/MoneyInput'
 import {
   createNfe,
   fetchNfe,
@@ -501,9 +502,7 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
                         onChange={(event) => handleUpdateProduct(item.tempId, { amount: event.target.value.replace(/[^\d.,]/g, '') })}
                         className="w-16 flex-none rounded-lg bg-[var(--surface)] px-3 py-2 text-right text-[13px] text-[var(--ink)] ring-1 ring-transparent focus:outline-none focus:ring-[var(--blue-300)]"
                       />
-                      <input
-                        type="text"
-                        inputMode="decimal"
+                      <MoneyInput
                         placeholder="Vl. unit."
                         title="Valor unitário"
                         value={item.costValue}
@@ -561,9 +560,7 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <label className="flex flex-col gap-1.5">
                 <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Frete (R$)</span>
-                <input
-                  type="text"
-                  inputMode="decimal"
+                <MoneyInput
                   value={valorFrete}
                   onChange={(event) => setValorFrete(event.target.value.replace(/[^\d.,]/g, ''))}
                   placeholder="0,00"
@@ -572,9 +569,7 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
               </label>
               <label className="flex flex-col gap-1.5">
                 <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Seguro (R$)</span>
-                <input
-                  type="text"
-                  inputMode="decimal"
+                <MoneyInput
                   value={valorSeguro}
                   onChange={(event) => setValorSeguro(event.target.value.replace(/[^\d.,]/g, ''))}
                   placeholder="0,00"
@@ -583,9 +578,7 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
               </label>
               <label className="flex flex-col gap-1.5">
                 <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Desconto (R$)</span>
-                <input
-                  type="text"
-                  inputMode="decimal"
+                <MoneyInput
                   value={valorDesconto}
                   onChange={(event) => setValorDesconto(event.target.value.replace(/[^\d.,]/g, ''))}
                   placeholder="0,00"
@@ -594,9 +587,7 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
               </label>
               <label className="flex flex-col gap-1.5">
                 <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Outras despesas (R$)</span>
-                <input
-                  type="text"
-                  inputMode="decimal"
+                <MoneyInput
                   value={valorOutrasDespesas}
                   onChange={(event) => setValorOutrasDespesas(event.target.value.replace(/[^\d.,]/g, ''))}
                   placeholder="0,00"
@@ -698,9 +689,7 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
                         </label>
                         <label className="flex flex-col gap-1.5">
                           <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Valor do pagamento</span>
-                          <input
-                            type="text"
-                            inputMode="decimal"
+                          <MoneyInput
                             placeholder="0,00"
                             value={payment.valorPagamento}
                             onChange={(event) =>
