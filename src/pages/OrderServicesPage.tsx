@@ -1,8 +1,9 @@
+import { isSoftwareHouse } from '../lib/systemTypes'
 import { useEffect, useMemo, useState } from 'react'
 import {
   fetchOrderServices,
   deleteOrderService,
-  ORDER_SERVICE_STATUS_LABELS,
+  orderServiceStatusLabels,
   type OrderServiceRecord,
 } from '../lib/orderServices'
 import { formatCurrency, formatDate } from '../lib/format'
@@ -49,6 +50,15 @@ function statusTone(status: number): string {
   return 'bg-[var(--amber-100)] text-[var(--amber-500)]'
 }
 
+function equipmentLabel(orderService: OrderServiceRecord): string {
+  const description = [orderService.equipment_received, orderService.brand, orderService.model]
+    .filter(Boolean)
+    .join(' ')
+  const serial = orderService.serial_number
+  if (description && serial) return `${description} · ${serial}`
+  return description || serial || '—'
+}
+
 function vehicleLabel(orderService: OrderServiceRecord): string {
   const modelParts = [orderService.vehicle?.brand, orderService.vehicle?.model].filter(Boolean)
   const model = modelParts.join(' ')
@@ -63,6 +73,9 @@ function orderServiceTotal(orderService: OrderServiceRecord): number {
 
 
 export function OrderServicesPage({ session, company, onCreate, onEdit }: OrderServicesPageProps) {
+  const softwareHouse = isSoftwareHouse(company.system_type)
+  const statusLabels = orderServiceStatusLabels(softwareHouse)
+  const assetLabel = (os: OrderServiceRecord) => (softwareHouse ? equipmentLabel(os) : vehicleLabel(os))
   const [search, setSearch] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
@@ -146,7 +159,9 @@ export function OrderServicesPage({ session, company, onCreate, onEdit }: OrderS
       return (
         String(os.code ?? '').includes(term) ||
         (os.people?.name ?? '').toLowerCase().includes(term) ||
-        (os.vehicle?.license_plate ?? '').toLowerCase().includes(term)
+        (os.vehicle?.license_plate ?? '').toLowerCase().includes(term) ||
+        (os.serial_number ?? '').toLowerCase().includes(term) ||
+        equipmentLabel(os).toLowerCase().includes(term)
       )
     })
   }, [orderServices, search, statusFilter])
@@ -363,7 +378,7 @@ export function OrderServicesPage({ session, company, onCreate, onEdit }: OrderS
         <SearchIcon className="h-4 w-4 flex-none text-[var(--muted)]" />
         <input
           type="text"
-          placeholder="Buscar por código, cliente ou placa"
+          placeholder={softwareHouse ? 'Buscar por código, cliente, equipamento ou série' : 'Buscar por código, cliente ou placa'}
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           className="w-full bg-transparent text-[13.5px] text-[var(--ink)] placeholder:text-[var(--muted)] focus:outline-none"
@@ -378,6 +393,7 @@ export function OrderServicesPage({ session, company, onCreate, onEdit }: OrderS
         person={personFilter}
         onPersonChange={setPersonFilter}
         personLabel="Cliente"
+        hideVehicle={softwareHouse}
         dateFrom={dateFrom}
         onDateFromChange={setDateFrom}
         dateTo={dateTo}
@@ -450,12 +466,12 @@ export function OrderServicesPage({ session, company, onCreate, onEdit }: OrderS
                           #{os.code} · {os.people?.name || '—'}
                         </p>
                         <span className={`flex-none rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${statusTone(os.status)}`}>
-                          {ORDER_SERVICE_STATUS_LABELS[os.status] ?? '—'}
+                          {statusLabels[os.status] ?? '—'}
                         </span>
                       </div>
                       <p className="mt-1 flex items-center gap-1.5 truncate text-[12px] text-[var(--ink-soft)]">
                         <TruckIcon className="h-3.5 w-3.5 flex-none text-[var(--muted)]" />
-                        {vehicleLabel(os)}
+                        {assetLabel(os)}
                       </p>
                       <p className="mt-0.5 text-[12px] text-[var(--muted)]">
                         {os.date_start ? formatDate(os.date_start) : '—'} ·{' '}
@@ -491,7 +507,7 @@ export function OrderServicesPage({ session, company, onCreate, onEdit }: OrderS
                         aria-label="Selecionar todos"
                       />
                     </th>
-                    <th className="w-[34%] px-2 pb-2.5">Cliente / Veículo</th>
+                    <th className="w-[34%] px-2 pb-2.5">{softwareHouse ? 'Cliente / Equipamento' : 'Cliente / Veículo'}</th>
                     <SortableTh
                       label="Data de início"
                       field="date_start"
@@ -548,10 +564,10 @@ export function OrderServicesPage({ session, company, onCreate, onEdit }: OrderS
                             </p>
                             <p
                               className="mt-1 flex items-center gap-1 truncate text-[12px] text-[var(--ink-soft)]"
-                              title={vehicleLabel(os)}
+                              title={assetLabel(os)}
                             >
                               <TruckIcon className="h-3.5 w-3.5 flex-none text-[var(--muted)]" />
-                              <span className="min-w-0 truncate">{vehicleLabel(os)}</span>
+                              <span className="min-w-0 truncate">{assetLabel(os)}</span>
                             </p>
                           </div>
                         </div>
@@ -562,7 +578,7 @@ export function OrderServicesPage({ session, company, onCreate, onEdit }: OrderS
                       </td>
                       <td className="px-2 py-2.5">
                         <span className={`rounded-full px-2 py-1 text-[10.5px] font-bold leading-tight ${statusTone(os.status)}`}>
-                          {ORDER_SERVICE_STATUS_LABELS[os.status] ?? '—'}
+                          {statusLabels[os.status] ?? '—'}
                         </span>
                       </td>
                       <td className="py-2.5 pr-3 text-right">
@@ -647,7 +663,7 @@ export function OrderServicesPage({ session, company, onCreate, onEdit }: OrderS
           !printTarget
             ? undefined
             : [
-                { label: 'Veículo', value: vehicleLabel(printTarget) },
+                { label: softwareHouse ? 'Equipamento' : 'Veículo', value: assetLabel(printTarget) },
                 {
                   label: 'Data de início',
                   value: printTarget.date_start ? formatDate(printTarget.date_start) : '—',
@@ -656,10 +672,14 @@ export function OrderServicesPage({ session, company, onCreate, onEdit }: OrderS
                   label: 'Data de término',
                   value: printTarget.date_finish ? formatDate(printTarget.date_finish) : '—',
                 },
-                {
-                  label: 'KM do veículo',
-                  value: printTarget.entryMileage ? `${printTarget.entryMileage.toLocaleString('pt-BR')} km` : '—',
-                },
+                ...(softwareHouse
+                  ? [{ label: 'Acessórios recebidos', value: printTarget.accessories_received || '—' }]
+                  : [
+                      {
+                        label: 'KM do veículo',
+                        value: printTarget.entryMileage ? `${printTarget.entryMileage.toLocaleString('pt-BR')} km` : '—',
+                      },
+                    ]),
                 ...(printMode === 'summary'
                   ? []
                   : [{ label: 'Descrição do serviço', value: printTarget.note_service || printTarget.reportedProblem || '' }]),

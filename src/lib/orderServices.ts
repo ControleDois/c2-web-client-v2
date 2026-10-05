@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiPut, apiDelete } from './api'
+import { apiGet, apiPost, apiPostForm, apiPut, apiDelete } from './api'
 import type { SalePerson, SaleVehicleRef } from './sales'
 
 export interface OrderServiceItemRecord {
@@ -41,6 +41,22 @@ export interface OrderServiceEventRecord {
   user?: { id: string; name: string } | null
 }
 
+export type OrderServicePhotoStage = 'entry' | 'during' | 'exit'
+
+export interface OrderServicePhotoRecord {
+  id: string
+  stage: OrderServicePhotoStage
+  caption?: string | null
+  fileName: string
+  fileUrl: string
+}
+
+export const ORDER_SERVICE_PHOTO_STAGES: { value: OrderServicePhotoStage; label: string }[] = [
+  { value: 'entry', label: 'Entrada' },
+  { value: 'during', label: 'Durante' },
+  { value: 'exit', label: 'Saída' },
+]
+
 export interface OrderServiceRecord {
   id: string
   code?: number
@@ -50,8 +66,14 @@ export interface OrderServiceRecord {
   entryMileage?: number | null
   entryFuelLevel?: string | null
   note_service?: string | null
+  equipment_received?: string | null
+  brand?: string | null
+  model?: string | null
+  serial_number?: string | null
+  accessories_received?: string | null
   reportedProblem?: string | null
   diagnosis?: string | null
+  photos?: OrderServicePhotoRecord[]
   saleId?: string | null
   sale?: { id: string; code?: number } | null
   people?: SalePerson | null
@@ -72,6 +94,13 @@ export interface OrderServicePayload {
   entryMileage?: number
   entryFuelLevel?: string
   note_service?: string
+  equipment_received?: string
+  brand?: string
+  model?: string
+  serial_number?: string
+  accessories_received?: string
+  reportedProblem?: string
+  diagnosis?: string
   items?: OrderServiceItemPayload[]
 }
 
@@ -83,6 +112,11 @@ interface Paginated<T> {
     current_page: number
     last_page: number
   }
+}
+
+// Mesmo fluxo de status; só muda o primeiro passo no nicho de TI.
+export function orderServiceStatusLabels(softwareHouse: boolean): Record<number, string> {
+  return softwareHouse ? { ...ORDER_SERVICE_STATUS_LABELS, 0: 'Equipamento recebido' } : ORDER_SERVICE_STATUS_LABELS
 }
 
 export const ORDER_SERVICE_STATUS_LABELS: Record<number, string> = {
@@ -148,4 +182,22 @@ export function updateOrderServiceStatus(token: string, id: string, status: numb
 
 export function billOrderService(token: string, id: string) {
   return apiPost<{ sale: { id: string; code?: number } }>(`/orderService/${id}/bill`, {}, token)
+}
+
+export function uploadOrderServicePhotos(
+  token: string,
+  id: string,
+  stage: OrderServicePhotoStage,
+  files: File[],
+  caption?: string
+) {
+  const form = new FormData()
+  form.append('stage', stage)
+  if (caption) form.append('caption', caption)
+  files.forEach((file) => form.append('photos', file))
+  return apiPostForm<OrderServicePhotoRecord[]>(`/orderService/${id}/photos`, form, token)
+}
+
+export function deleteOrderServicePhoto(token: string, id: string, photoId: string) {
+  return apiDelete<void>(`/orderService/${id}/photos/${photoId}`, token)
 }

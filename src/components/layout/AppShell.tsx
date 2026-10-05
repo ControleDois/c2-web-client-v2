@@ -160,6 +160,10 @@ function buildNavGroups(
                 : []),
               { page: 'products' as const, label: 'Produtos e Serviços', icon: BoxIcon },
               { page: 'towing-sales' as const, label: 'Vendas', icon: CoinIcon },
+              // TI: ordem de serviço por equipamento (formatação, limpeza, reparo).
+              ...(isSoftwareHouse(systemType)
+                ? [{ page: 'order-services' as const, label: 'Ordens de Serviço', icon: WrenchIcon }]
+                : []),
             ]
           : [
               { page: 'dashboard' as const, label: 'Dashboard', icon: GridIcon },

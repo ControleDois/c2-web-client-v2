@@ -4,7 +4,9 @@ import {
   fetchOrderService,
   updateOrderService,
   billOrderService,
-  ORDER_SERVICE_STATUS_LABELS,
+  orderServiceStatusLabels,
+  uploadOrderServicePhotos,
+  type OrderServicePhotoRecord,
   type OrderServiceRecord,
   type OrderServiceItemPayload,
 } from '../lib/orderServices'
@@ -12,15 +14,16 @@ import { fetchPeople, type PersonRecord } from '../lib/people'
 import { fetchVehicles, type VehicleRecord } from '../lib/vehicles'
 import { fetchProducts, type ProductRecord } from '../lib/products'
 import { FUEL_LEVEL_OPTIONS } from '../lib/sales'
-import { isLocacaoVeiculos } from '../lib/systemTypes'
+import { isLocacaoVeiculos, isSoftwareHouse } from '../lib/systemTypes'
 import { formatDocument } from '../lib/formatDocument'
 import { formatCurrency, formatDate } from '../lib/format'
 import { ApiError } from '../lib/api'
 import { TextField } from '../components/form/TextField'
 import { SelectField } from '../components/form/SelectField'
 import { SearchSelectField } from '../components/form/SearchSelectField'
-import { TrashIcon, ChevronLeftIcon, ChevronDownIcon, ClockIcon } from '../components/icons'
+import { TrashIcon, ChevronLeftIcon, ChevronDownIcon, ClockIcon, WrenchIcon, TagIcon, BoxIcon, FileTextIcon } from '../components/icons'
 import { SectionCard } from '../components/SectionCard'
+import { OrderServicePhotosCard, type PendingPhoto } from '../components/OrderServicePhotosCard'
 import { useMyCompanyPerson } from '../hooks/useMyCompanyPerson'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
@@ -98,6 +101,19 @@ export function OrderServiceFormPage({ session, company, orderServiceId, onBack,
   const [entryFuelLevel, setEntryFuelLevel] = useState('')
   const [noteService, setNoteService] = useState('')
 
+  // Nicho TI: a OS é de equipamento (notebook, desktop…), não de veículo.
+  const softwareHouse = isSoftwareHouse(company.system_type)
+  const statusLabels = orderServiceStatusLabels(softwareHouse)
+  const [equipmentReceived, setEquipmentReceived] = useState('')
+  const [brand, setBrand] = useState('')
+  const [model, setModel] = useState('')
+  const [serialNumber, setSerialNumber] = useState('')
+  const [accessories, setAccessories] = useState('')
+  const [reportedProblem, setReportedProblem] = useState('')
+  const [diagnosis, setDiagnosis] = useState('')
+  const [photos, setPhotos] = useState<OrderServicePhotoRecord[]>([])
+  const [pendingPhotos, setPendingPhotos] = useState<PendingPhoto[]>([])
+
   const [items, setItems] = useState<ItemEntry[]>([])
   const [code, setCode] = useState<number | undefined>(undefined)
   const [saleId, setSaleId] = useState<string | null>(null)
@@ -134,6 +150,14 @@ export function OrderServiceFormPage({ session, company, orderServiceId, onBack,
         setEntryMileage(os.entryMileage ? String(os.entryMileage) : '')
         setEntryFuelLevel(os.entryFuelLevel ?? '')
         setNoteService(os.note_service ?? '')
+        setEquipmentReceived(os.equipment_received ?? '')
+        setBrand(os.brand ?? '')
+        setModel(os.model ?? '')
+        setSerialNumber(os.serial_number ?? '')
+        setAccessories(os.accessories_received ?? '')
+        setReportedProblem(os.reportedProblem ?? '')
+        setDiagnosis(os.diagnosis ?? '')
+        setPhotos(os.photos ?? [])
         setSaleId(os.saleId ?? null)
         setSaleCode(os.sale?.code)
         setEvents(os.events ?? [])
@@ -298,6 +322,17 @@ export function OrderServiceFormPage({ session, company, orderServiceId, onBack,
       entryMileage: entryMileage ? Number(entryMileage) : undefined,
       entryFuelLevel: entryFuelLevel || undefined,
       note_service: noteService || undefined,
+      ...(softwareHouse
+        ? {
+            equipment_received: equipmentReceived || undefined,
+            brand: brand || undefined,
+            model: model || undefined,
+            serial_number: serialNumber || undefined,
+            accessories_received: accessories || undefined,
+            reportedProblem: reportedProblem || undefined,
+            diagnosis: diagnosis || undefined,
+          }
+        : {}),
       items: itemsPayload,
     }
 
@@ -306,7 +341,15 @@ export function OrderServiceFormPage({ session, company, orderServiceId, onBack,
       if (orderServiceId) {
         await updateOrderService(session.token.token, orderServiceId, payload)
       } else {
-        await createOrderService(session.token.token, payload)
+        const created = await createOrderService(session.token.token, payload)
+        // As fotos tiradas antes de salvar sobem agora, por etapa.
+        if (pendingPhotos.length) {
+          for (const stage of ['entry', 'during', 'exit'] as const) {
+            for (const photo of pendingPhotos.filter((item) => item.stage === stage)) {
+              await uploadOrderServicePhotos(session.token.token, created.id, stage, [photo.file], photo.caption || undefined)
+            }
+          }
+        }
       }
       onSaved()
     } catch (err) {
@@ -365,19 +408,21 @@ export function OrderServiceFormPage({ session, company, orderServiceId, onBack,
                 onSelect={(item: PersonRecord) => setClient({ id: item.id, label: item.name, sub: item.document ?? undefined })}
                 onClear={() => setClient(null)}
               />
-              <SearchSelectField
-                label="Veículo"
-                placeholder="Buscar por placa, marca ou modelo"
-                selectedLabel={vehicle?.label ?? null}
-                selectedSubLabel={vehicle?.sub}
-                onSearch={searchVehicles}
-                getOptionLabel={(item: VehicleRecord) => [item.brand, item.model].filter(Boolean).join(' ') || item.license_plate}
-                getOptionSubLabel={(item: VehicleRecord) => item.license_plate}
-                onSelect={(item: VehicleRecord) =>
-                  setVehicle({ id: item.id, label: [item.brand, item.model].filter(Boolean).join(' ') || item.license_plate, sub: item.license_plate })
-                }
-                onClear={() => setVehicle(null)}
-              />
+              {!softwareHouse && (
+                <SearchSelectField
+                  label="Veículo"
+                  placeholder="Buscar por placa, marca ou modelo"
+                  selectedLabel={vehicle?.label ?? null}
+                  selectedSubLabel={vehicle?.sub}
+                  onSearch={searchVehicles}
+                  getOptionLabel={(item: VehicleRecord) => [item.brand, item.model].filter(Boolean).join(' ') || item.license_plate}
+                  getOptionSubLabel={(item: VehicleRecord) => item.license_plate}
+                  onSelect={(item: VehicleRecord) =>
+                    setVehicle({ id: item.id, label: [item.brand, item.model].filter(Boolean).join(' ') || item.license_plate, sub: item.license_plate })
+                  }
+                  onClear={() => setVehicle(null)}
+                />
+              )}
               <SearchSelectField
                 label="Responsável"
                 placeholder="Buscar por nome"
@@ -393,7 +438,7 @@ export function OrderServiceFormPage({ session, company, orderServiceId, onBack,
           <SectionCard title="Detalhes do serviço">
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               <SelectField label="Status" value={status} onChange={(event) => setStatus(Number(event.target.value))}>
-                {Object.entries(ORDER_SERVICE_STATUS_LABELS).map(([value, label]) => (
+                {Object.entries(statusLabels).map(([value, label]) => (
                   <option key={value} value={value}>
                     {label}
                   </option>
@@ -417,24 +462,94 @@ export function OrderServiceFormPage({ session, company, orderServiceId, onBack,
                   className="min-w-0 w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
                 />
               </label>
-              <TextField
-                label="KM de entrada"
-                icon={<ClockIcon className="h-4 w-4" />}
-                placeholder="Opcional"
-                inputMode="numeric"
-                value={entryMileage}
-                onChange={(event) => setEntryMileage(event.target.value.replace(/\D/g, ''))}
-              />
-              <SelectField label="Nível de combustível" value={entryFuelLevel} onChange={(event) => setEntryFuelLevel(event.target.value)}>
-                <option value="">—</option>
-                {FUEL_LEVEL_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </SelectField>
+              {!softwareHouse && (
+                <>
+                  <TextField
+                    label="KM de entrada"
+                    icon={<ClockIcon className="h-4 w-4" />}
+                    placeholder="Opcional"
+                    inputMode="numeric"
+                    value={entryMileage}
+                    onChange={(event) => setEntryMileage(event.target.value.replace(/\D/g, ''))}
+                  />
+                  <SelectField label="Nível de combustível" value={entryFuelLevel} onChange={(event) => setEntryFuelLevel(event.target.value)}>
+                    <option value="">—</option>
+                    {FUEL_LEVEL_OPTIONS.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </SelectField>
+                </>
+              )}
             </div>
           </SectionCard>
+
+          {softwareHouse && (
+            <SectionCard title="Equipamento" subtitle="Um equipamento por ordem de serviço">
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                <TextField
+                  label="Equipamento"
+                  icon={<BoxIcon className="h-4 w-4" />}
+                  placeholder="Notebook, Desktop, All-in-one…"
+                  value={equipmentReceived}
+                  onChange={(event) => setEquipmentReceived(event.target.value)}
+                />
+                <TextField label="Marca" icon={<TagIcon className="h-4 w-4" />} placeholder="Dell, Lenovo…" value={brand} onChange={(event) => setBrand(event.target.value)} />
+                <TextField label="Modelo" icon={<WrenchIcon className="h-4 w-4" />} placeholder="Inspiron 15…" value={model} onChange={(event) => setModel(event.target.value)} />
+                <TextField
+                  label="Número de série"
+                  icon={<FileTextIcon className="h-4 w-4" />}
+                  placeholder="Etiqueta do aparelho"
+                  value={serialNumber}
+                  onChange={(event) => setSerialNumber(event.target.value)}
+                />
+                <div className="sm:col-span-2">
+                  <TextField
+                    label="Acessórios recebidos"
+                    icon={<BoxIcon className="h-4 w-4" />}
+                    placeholder="Carregador, mouse, bolsa…"
+                    value={accessories}
+                    onChange={(event) => setAccessories(event.target.value)}
+                  />
+                </div>
+              </div>
+              <label className="mt-4 flex flex-col gap-1.5">
+                <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Problema relatado pelo cliente</span>
+                <textarea
+                  value={reportedProblem}
+                  onChange={(event) => setReportedProblem(event.target.value)}
+                  rows={2}
+                  placeholder="Ex.: lento, não liga, precisa de formatação…"
+                  className="w-full resize-none rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent focus:outline-none focus:ring-[var(--blue-300)]"
+                />
+              </label>
+              <label className="mt-4 flex flex-col gap-1.5">
+                <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Diagnóstico</span>
+                <textarea
+                  value={diagnosis}
+                  onChange={(event) => setDiagnosis(event.target.value)}
+                  rows={2}
+                  placeholder="O que foi encontrado e o que será feito"
+                  className="w-full resize-none rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent focus:outline-none focus:ring-[var(--blue-300)]"
+                />
+              </label>
+              <p className="mt-3 text-[12px] text-[var(--muted)]">
+                Não guarde a senha do computador aqui. Se o cliente informou a senha, anote só "senha informada" nas observações.
+              </p>
+            </SectionCard>
+          )}
+
+          {softwareHouse && (
+            <OrderServicePhotosCard
+              session={session}
+              orderServiceId={orderServiceId}
+              photos={photos}
+              onPhotosChange={setPhotos}
+              pending={pendingPhotos}
+              onPendingChange={setPendingPhotos}
+            />
+          )}
 
           <SectionCard
             title="Serviços e peças"

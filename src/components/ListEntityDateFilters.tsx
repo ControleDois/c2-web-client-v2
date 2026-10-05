@@ -25,6 +25,8 @@ interface ListEntityDateFiltersProps {
   person: EntityPick | null
   onPersonChange: (person: EntityPick | null) => void
   personLabel?: string
+  // Nichos sem veículo (ex: TI) escondem o filtro de veículo.
+  hideVehicle?: boolean
   dateFrom: string
   onDateFromChange: (value: string) => void
   dateTo: string
@@ -44,6 +46,7 @@ export function ListEntityDateFilters({
   person,
   onPersonChange,
   personLabel = 'Pessoa',
+  hideVehicle,
   dateFrom,
   onDateFromChange,
   dateTo,
@@ -65,22 +68,24 @@ export function ListEntityDateFilters({
 
   return (
     <div className="flex flex-wrap items-end gap-3">
-      <div className="min-w-[200px] flex-1">
-        <SearchSelectField
-          label="Veículo"
-          placeholder="Buscar por placa, marca ou modelo"
-          variant="surface"
-          selectedLabel={vehicle?.label ?? null}
-          selectedSubLabel={vehicle?.sub}
-          onSearch={searchVehicles}
-          getOptionLabel={(item: VehicleRecord) => [item.brand, item.model].filter(Boolean).join(' ') || item.license_plate}
-          getOptionSubLabel={(item: VehicleRecord) => item.license_plate}
-          onSelect={(item: VehicleRecord) =>
-            onVehicleChange({ id: item.id, label: [item.brand, item.model].filter(Boolean).join(' ') || item.license_plate, sub: item.license_plate })
-          }
-          onClear={() => onVehicleChange(null)}
-        />
-      </div>
+      {!hideVehicle && (
+        <div className="min-w-[200px] flex-1">
+          <SearchSelectField
+            label="Veículo"
+            placeholder="Buscar por placa, marca ou modelo"
+            variant="surface"
+            selectedLabel={vehicle?.label ?? null}
+            selectedSubLabel={vehicle?.sub}
+            onSearch={searchVehicles}
+            getOptionLabel={(item: VehicleRecord) => [item.brand, item.model].filter(Boolean).join(' ') || item.license_plate}
+            getOptionSubLabel={(item: VehicleRecord) => item.license_plate}
+            onSelect={(item: VehicleRecord) =>
+              onVehicleChange({ id: item.id, label: [item.brand, item.model].filter(Boolean).join(' ') || item.license_plate, sub: item.license_plate })
+            }
+            onClear={() => onVehicleChange(null)}
+          />
+        </div>
+      )}
       <div className="min-w-[200px] flex-1">
         <SearchSelectField
           label={personLabel}
