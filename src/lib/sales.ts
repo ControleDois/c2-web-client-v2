@@ -303,6 +303,10 @@ export function deleteSale(token: string, id: string) {
   return apiDelete<void>(`/sale/${id}`, token)
 }
 
+export function printLoanContract(token: string, id: string) {
+  return apiPost<{ url: string; html: string | null; signed?: boolean }>(`/loan-contract/print/${id}`, {}, token)
+}
+
 export function printSaleContract(token: string, id: string) {
   return apiPost<{ url: string; html: string | null; signed?: boolean }>(`/sale/print-contract/${id}`, {}, token)
 }

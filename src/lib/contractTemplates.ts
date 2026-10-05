@@ -59,6 +59,7 @@ export const TARGET_TYPE_LABELS: Record<string, string> = {
   general: 'Geral',
   ti: 'TI',
   support_contract: 'Contrato de Suporte',
+  loan: 'Empréstimo',
 }
 
 export const TARGET_TYPE_VARIABLES: Record<string, string[]> = {
@@ -119,6 +120,31 @@ export const TARGET_TYPE_VARIABLES: Record<string, string[]> = {
   // não há dado dinâmico do cliente pra puxar automaticamente - só as
   // variáveis comuns (empresa, CNPJ, data), como no Geral.
   ti: [],
+  loan: [
+    '{{contract.id}}',
+    '{{contract.date_long}}',
+    '{{creditor.name}}',
+    '{{creditor.document_label}}',
+    '{{debtor.name}}',
+    '{{debtor.document_type}}',
+    '{{debtor.document}}',
+    '{{debtor.birth_label}}',
+    '{{debtor.address_line1}}',
+    '{{debtor.address_line2}}',
+    '{{debtor.address_line3}}',
+    '{{debtor.zip_label}}',
+    '{{values.principal_formatted}}',
+    '{{values.interest_formatted}}',
+    '{{values.total_formatted}}',
+    '{{values.installments_count}}',
+    '{{values.installments_label}}',
+    '{{values.payment_summary}}',
+    '{{#each installments}}',
+    '{{item.number}}',
+    '{{item.date_label}}',
+    '{{item.amount_formatted}}',
+    '{{/each}}',
+  ],
   support_contract: [
     '{{people.name}}',
     '{{people.document}}',

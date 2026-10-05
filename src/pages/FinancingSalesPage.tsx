@@ -4,10 +4,11 @@ import { formatCurrency, formatDate } from '../lib/format'
 import { ApiError } from '../lib/api'
 import { getCached, setCached } from '../lib/cache'
 import { useRowSelection } from '../hooks/useRowSelection'
-import { SearchIcon, PlusIcon, PencilIcon, TrashIcon } from '../components/icons'
+import { SearchIcon, PlusIcon, PencilIcon, TrashIcon, PrinterIcon } from '../components/icons'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { NewLoanModal } from '../components/NewLoanModal'
 import { LoanSaleDetailModal } from '../components/LoanSaleDetailModal'
+import { SaleContractPreviewModal } from '../components/SaleContractPreviewModal'
 import { RowActionsMenu, type RowAction } from '../components/RowActionsMenu'
 import { computeNextDue, avatarColorFor, initialsFor, type Modality, type SalesStatusFilter } from '../lib/loanModalities'
 import type { AuthSession, AuthCompany } from '../lib/auth'
@@ -46,6 +47,7 @@ export function FinancingSalesPage({
   const [showPicker, setShowPicker] = useState(false)
   const [detailSaleId, setDetailSaleId] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<SaleRecord | null>(null)
+  const [contractTarget, setContractTarget] = useState<SaleRecord | null>(null)
   const [deletingSelected, setDeletingSelected] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
@@ -190,6 +192,12 @@ export function FinancingSalesPage({
         label: 'Editar',
         icon: <PencilIcon className="h-4 w-4" />,
         onClick: () => onEdit(sale),
+      },
+      {
+        key: 'contract',
+        label: 'Contrato',
+        icon: <PrinterIcon className="h-4 w-4" />,
+        onClick: () => setContractTarget(sale),
       },
       {
         key: 'delete',
@@ -482,6 +490,14 @@ export function FinancingSalesPage({
           </div>
         )}
       </div>
+
+      <SaleContractPreviewModal
+        open={Boolean(contractTarget)}
+        session={session}
+        sale={contractTarget}
+        kind="loan"
+        onClose={() => setContractTarget(null)}
+      />
 
       <ConfirmDialog
         open={Boolean(deleteTarget)}

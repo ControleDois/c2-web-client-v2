@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { printSaleContract, type SaleRecord } from '../lib/sales'
+import { printLoanContract, printSaleContract, type SaleRecord } from '../lib/sales'
 import { ApiError } from '../lib/api'
 import { CloseIcon, PrinterIcon, CheckCircleIcon } from './icons'
 import type { AuthSession } from '../lib/auth'
@@ -8,10 +8,17 @@ interface SaleContractPreviewModalProps {
   open: boolean
   session: AuthSession
   sale: SaleRecord | null
+  kind?: 'sale' | 'loan'
   onClose: () => void
 }
 
-export function SaleContractPreviewModal({ open, session, sale, onClose }: SaleContractPreviewModalProps) {
+export function SaleContractPreviewModal({
+  open,
+  session,
+  sale,
+  kind = 'sale',
+  onClose,
+}: SaleContractPreviewModalProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [url, setUrl] = useState<string | null>(null)
@@ -25,7 +32,8 @@ export function SaleContractPreviewModal({ open, session, sale, onClose }: SaleC
     setUrl(null)
     setSigned(false)
 
-    printSaleContract(session.token.token, sale.id)
+    const print = kind === 'loan' ? printLoanContract : printSaleContract
+    print(session.token.token, sale.id)
       .then((res) => {
         if (cancelled) return
         setUrl(res.url)
@@ -42,7 +50,7 @@ export function SaleContractPreviewModal({ open, session, sale, onClose }: SaleC
     return () => {
       cancelled = true
     }
-  }, [open, sale, session.token.token])
+  }, [open, sale, kind, session.token.token])
 
   if (!open || !sale) return null
 
