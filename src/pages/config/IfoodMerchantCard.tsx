@@ -3,6 +3,7 @@ import {
   fetchIfoodMerchants,
   connectIfoodMerchant,
   confirmIfoodMerchant,
+  linkIfoodMerchant,
   syncIfoodCatalog,
   deleteIfoodMerchant,
   type IfoodMerchantRecord,
@@ -52,6 +53,11 @@ export function IfoodMerchantCard({ session, company }: IfoodMerchantCardProps) 
   const [syncError, setSyncError] = useState<string | null>(null)
 
   const [importTarget, setImportTarget] = useState<IfoodMerchantRecord | null>(null)
+
+  const [linkOpen, setLinkOpen] = useState(false)
+  const [linkMerchantId, setLinkMerchantId] = useState('')
+  const [linking, setLinking] = useState(false)
+  const [linkError, setLinkError] = useState<string | null>(null)
 
   const [revokeTarget, setRevokeTarget] = useState<IfoodMerchantRecord | null>(null)
   const [revoking, setRevoking] = useState(false)
@@ -111,6 +117,25 @@ export function IfoodMerchantCard({ session, company }: IfoodMerchantCardProps) 
     }
   }
 
+  async function handleLink() {
+    if (!linkMerchantId.trim()) {
+      setLinkError('Informe o ID da loja (merchantId) no iFood.')
+      return
+    }
+    setLinking(true)
+    setLinkError(null)
+    try {
+      await linkIfoodMerchant(token, company.id, linkMerchantId.trim())
+      setLinkOpen(false)
+      setLinkMerchantId('')
+      load()
+    } catch (err) {
+      setLinkError(err instanceof ApiError ? err.message : 'Não foi possível vincular a loja.')
+    } finally {
+      setLinking(false)
+    }
+  }
+
   async function handleSync(merchant: IfoodMerchantRecord) {
     setSyncingId(merchant.id)
     setSyncError(null)
@@ -146,15 +171,56 @@ export function IfoodMerchantCard({ session, company }: IfoodMerchantCardProps) 
         <h4 className="flex items-center gap-1.5 text-[12.5px] font-bold text-[var(--ink)]">
           <LinkIcon className="h-3.5 w-3.5" /> iFood
         </h4>
-        <button
-          type="button"
-          onClick={handleConnect}
-          disabled={connecting}
-          className="rounded-lg bg-[var(--blue-500)] px-3 py-1.5 text-[11.5px] font-bold text-white hover:bg-[var(--blue-700)] disabled:opacity-60"
-        >
-          {connecting ? 'Gerando código…' : '+ Conectar loja'}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setLinkError(null)
+              setLinkOpen((open) => !open)
+            }}
+            className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-[11.5px] font-bold text-[var(--ink-soft)] hover:text-[var(--ink)]"
+          >
+            Vincular por ID da loja
+          </button>
+          <button
+            type="button"
+            onClick={handleConnect}
+            disabled={connecting}
+            className="rounded-lg bg-[var(--blue-500)] px-3 py-1.5 text-[11.5px] font-bold text-white hover:bg-[var(--blue-700)] disabled:opacity-60"
+          >
+            {connecting ? 'Gerando código…' : '+ Conectar loja'}
+          </button>
+        </div>
       </div>
+
+      {linkOpen && (
+        <div className="mb-4 rounded-xl border border-[var(--blue-300)] bg-[var(--surface)] p-3.5">
+          <p className="text-[12px] font-semibold text-[var(--ink)]">Vincular uma loja que já liberou o aplicativo</p>
+          <p className="mt-1 text-[11px] text-[var(--muted)]">
+            Para aplicativo <b>Centralizado</b> no iFood (o código de autorização não se aplica). O responsável pela loja
+            libera o aplicativo no Portal do Parceiro; aqui você informa o ID da loja (merchantId) e conferimos com o
+            iFood.
+          </p>
+          <div className="mt-2.5 flex flex-wrap items-center gap-2">
+            <input
+              type="text"
+              value={linkMerchantId}
+              onChange={(event) => setLinkMerchantId(event.target.value)}
+              placeholder="ID da loja, ex: 2edf8c8d-7b31-4498-b8ef-704736c80edb"
+              className="min-w-[260px] flex-1 rounded-lg border border-[var(--border)] bg-[var(--page)] px-3 py-2 text-[12.5px] text-[var(--ink)] placeholder:text-[var(--muted)] focus:border-[var(--blue-500)] focus:outline-none"
+            />
+            <button
+              type="button"
+              onClick={handleLink}
+              disabled={linking}
+              className="rounded-lg bg-[var(--blue-500)] px-3.5 py-2 text-[12px] font-bold text-white hover:bg-[var(--blue-700)] disabled:opacity-60"
+            >
+              {linking ? 'Conferindo…' : 'Vincular'}
+            </button>
+          </div>
+          {linkError && <p className="mt-2 text-[12px] font-medium text-[var(--red-500)]">{linkError}</p>}
+        </div>
+      )}
 
       {error && <p className="mb-3 text-[12px] font-medium text-[var(--red-500)]">{error}</p>}
 

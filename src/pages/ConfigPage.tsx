@@ -427,7 +427,9 @@ export function ConfigPage({ session, company, onNavigate, onSaved }: ConfigPage
                 <IntegracoesApisSection value={formState} onChange={handleChange} session={session} company={company} />
               )}
               {activeTab === 'cobrancas' && <CobrancasSection value={formState} onChange={handleChange} />}
-              {activeTab === 'loja-online' && <LojaOnlineSection value={formState} onChange={handleChange} />}
+              {activeTab === 'loja-online' && (
+                <LojaOnlineSection value={formState} onChange={handleChange} session={session} company={company} />
+              )}
               {activeTab === 'compras' && (
                 <ComprasSection
                   value={formState}

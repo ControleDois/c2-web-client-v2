@@ -154,6 +154,10 @@ function buildNavGroups(
           ? [
               { page: 'dashboard' as const, label: 'Dashboard', icon: GridIcon },
               { page: 'people' as const, label: 'Pessoas', icon: UserIcon },
+              // Distribuidora de bebidas cadastra as motos das entregas na tabela de veículos.
+              ...(isDistribuidoraBebidas(systemType)
+                ? [{ page: 'vehicles' as const, label: 'Veículos', icon: TruckIcon }]
+                : []),
               { page: 'products' as const, label: 'Produtos e Serviços', icon: BoxIcon },
               { page: 'towing-sales' as const, label: 'Vendas', icon: CoinIcon },
             ]

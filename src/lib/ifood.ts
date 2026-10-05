@@ -33,6 +33,14 @@ export function connectIfoodMerchant(token: string, companyId: string) {
   return apiPost<IfoodConnectResult>('/ifood/merchants/connect', { company_id: companyId }, token)
 }
 
+export function linkIfoodMerchant(token: string, companyId: string, merchantId: string) {
+  return apiPost<{ id: string; status: IfoodMerchantStatus; merchant_name: string | null }>(
+    '/ifood/merchants/link',
+    { company_id: companyId, merchant_id: merchantId },
+    token
+  )
+}
+
 export function confirmIfoodMerchant(
   token: string,
   id: string,

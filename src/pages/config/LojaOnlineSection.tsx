@@ -1,11 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { ConfigPayload, ShopOpeningHour, ShopPayload } from '../../lib/config'
 import { TextField } from '../../components/form/TextField'
+import { SectionCard } from '../../components/SectionCard'
+import { IfoodMerchantCard } from './IfoodMerchantCard'
+import type { AuthSession, AuthCompany } from '../../lib/auth'
 import { LinkIcon, TagIcon, PaperclipIcon, TrashIcon, PlusIcon, CheckCircleIcon } from '../../components/icons'
 
 interface LojaOnlineSectionProps {
   value: ConfigPayload
   onChange: (patch: Partial<ConfigPayload>) => void
+  session: AuthSession
+  company: AuthCompany
 }
 
 const WEEKDAY_LABELS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
@@ -18,7 +23,7 @@ function defaultShop(): ShopPayload {
   return { link_url: '', is_active: false, accepting_orders: true, opening_hours: defaultOpeningHours(), categories: [] }
 }
 
-export function LojaOnlineSection({ value, onChange }: LojaOnlineSectionProps) {
+export function LojaOnlineSection({ value, onChange, session, company }: LojaOnlineSectionProps) {
   const [categoryInput, setCategoryInput] = useState('')
   const [copied, setCopied] = useState(false)
 
@@ -259,6 +264,10 @@ export function LojaOnlineSection({ value, onChange }: LojaOnlineSectionProps) {
           ))}
         </div>
       </div>
+
+      <SectionCard title="iFood" subtitle="Conecte a loja ao app do iFood, importe o cardápio e sincronize">
+        <IfoodMerchantCard session={session} company={company} />
+      </SectionCard>
     </div>
   )
 }
