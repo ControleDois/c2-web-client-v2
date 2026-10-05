@@ -15,9 +15,9 @@ import { fetchVehicles, type VehicleRecord } from '../lib/vehicles'
 import { fetchBills, FORM_PAYMENT_LABELS } from '../lib/bills'
 import { fetchCategories, type CategoryRecord } from '../lib/categories'
 import { fetchRentalTypes, type RentalTypeRecord } from '../lib/rentalTypes'
-import { computeRentalUnits, rentalUnitsLabel, nextDueDate, buildPeriodPlots } from '../lib/rentalPlots'
+import { computeRentalUnits, rentalUnitsLabel, nextDueDate, buildPeriodPlots, effectiveRentalEnd } from '../lib/rentalPlots'
 import { formatDocument } from '../lib/formatDocument'
-import { formatCurrency } from '../lib/format'
+import { formatCurrency, formatDateTime } from '../lib/format'
 import { ApiError } from '../lib/api'
 import { TextField } from '../components/form/TextField'
 import { SelectField } from '../components/form/SelectField'
@@ -74,6 +74,7 @@ export function VehicleRentalFormPage({ session, company, saleId, onBack, onSave
   const [rentalFrequency, setRentalFrequency] = useState('monthly')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
+  const [returnDate, setReturnDate] = useState<string | null>(null)
   const [startTimeInput, setStartTimeInput] = useState('')
   const [endTimeInput, setEndTimeInput] = useState('')
   const [billingDay, setBillingDay] = useState('')
@@ -159,7 +160,11 @@ export function VehicleRentalFormPage({ session, company, saleId, onBack, onSave
         setVehicleOwnerType(contract?.vehicleOwnerType ?? 0)
         setRentalFrequency(contract?.rentalFrequency ?? 'monthly')
         setStartDate(contract?.startDate ? contract.startDate.slice(0, 10) : '')
-        setEndDate(contract?.endDate ? contract.endDate.slice(0, 10) : '')
+        // Devolvido antes do fim contratado: o término passa a ser o dia da
+        // devolução (o "Atualizar parcelas pendentes" abaixo ajusta as contas).
+        const effectiveEnd = contract ? effectiveRentalEnd(contract) : null
+        setEndDate(effectiveEnd ? effectiveEnd.slice(0, 10) : '')
+        setReturnDate(contract?.returnDate ?? null)
         setStartTimeInput(contract?.startTime ? contract.startTime.slice(0, 5) : '')
         setEndTimeInput(contract?.endTime ? contract.endTime.slice(0, 5) : '')
         setBillingDay(contract?.billingDay ? String(contract.billingDay) : '')
@@ -732,6 +737,17 @@ export function VehicleRentalFormPage({ session, company, saleId, onBack, onSave
                   className="min-w-0 w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
                 />
               </label>
+              {returnDate && (
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Data da devolução</span>
+                  <input
+                    type="text"
+                    readOnly
+                    value={formatDateTime(returnDate)}
+                    className="min-w-0 w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] font-semibold text-[var(--green-600)] ring-1 ring-transparent focus:outline-none"
+                  />
+                </label>
+              )}
               {rentalDayCount !== null && (
                 <div className="flex items-end sm:col-span-2 xl:col-span-1">
                   <span className="inline-flex items-center gap-1.5 rounded-xl bg-[var(--blue-100)] px-3.5 py-2.5 text-[13px] font-semibold text-[var(--blue-700)]">

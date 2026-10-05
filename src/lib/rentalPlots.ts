@@ -68,3 +68,30 @@ export function buildPeriodPlots(
     amount: ratePerPeriod,
   }))
 }
+
+// Dia (YYYY-MM-DD) em que o veículo foi devolvido, no fuso de Cuiabá.
+export function returnDayIso(returnDate?: string | null): string | null {
+  if (!returnDate) return null
+  const date = new Date(returnDate)
+  if (Number.isNaN(date.getTime())) return null
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Cuiaba' }).format(date)
+}
+
+// Aluguel devolvido antes do fim contratado termina, de fato, na devolução:
+// período, diárias e total passam a contar só até esse dia. Mantém o resto do
+// texto da data original (hora/fuso) pra seguir o mesmo formato do contrato.
+export function effectiveRentalEnd(contract: {
+  status?: number | null
+  startDate?: string | null
+  endDate?: string | null
+  returnDate?: string | null
+}): string | null {
+  if (!contract.endDate) return null
+  const returnDay = returnDayIso(contract.returnDate)
+  if (Number(contract.status) === 2 && returnDay && returnDay < contract.endDate.slice(0, 10)) {
+    const startDay = contract.startDate?.slice(0, 10)
+    const day = startDay && returnDay < startDay ? startDay : returnDay
+    return `${day}${contract.endDate.slice(10)}`
+  }
+  return contract.endDate
+}

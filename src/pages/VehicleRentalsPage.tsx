@@ -7,7 +7,8 @@ import {
   type SaleRecord,
   type VehicleRentalContractRecord,
 } from '../lib/sales'
-import { formatCurrency, formatDate } from '../lib/format'
+import { formatCurrency, formatDate, formatDateTime } from '../lib/format'
+import { effectiveRentalEnd } from '../lib/rentalPlots'
 import { ApiError } from '../lib/api'
 import { getCached, setCached } from '../lib/cache'
 import { fetchConfig } from '../lib/config'
@@ -140,10 +141,13 @@ function RentalDueBadge({ contract }: { contract: VehicleRentalContractRecord })
   )
 }
 
+const rentalEffectiveEnd = effectiveRentalEnd
+
 function rentalUnits(contract: VehicleRentalContractRecord): number | null {
-  if (!contract.startDate || !contract.endDate) return null
+  const endDate = rentalEffectiveEnd(contract)
+  if (!contract.startDate || !endDate) return null
   const start = new Date(contract.startDate)
-  const end = new Date(contract.endDate)
+  const end = new Date(endDate)
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) return null
 
   const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
@@ -683,10 +687,15 @@ export function VehicleRentalsPage({ session, company, onCreate, onEdit }: Vehic
                           }`}
                         >
                           {contract.startDate ? formatDate(contract.startDate) : '—'}
-                          {contract.endDate ? ` – ${formatDate(contract.endDate)}` : ''}
+                          {rentalEffectiveEnd(contract) ? ` – ${formatDate(rentalEffectiveEnd(contract)!)}` : ''}
                           {units !== null ? ` (${rentalUnitsLabel(contract.rentalFrequency, units)})` : ''}
                         </p>
                         <RentalDueBadge contract={contract} />
+                        {contract.returnDate && (
+                          <p className="text-[11px] font-semibold text-[var(--green-600)]">
+                            Devolvido em {formatDateTime(contract.returnDate)}
+                          </p>
+                        )}
                         <p className="mt-0.5 text-[12px] text-[var(--muted)]">
                           {contract.purchaseOption ? 'Parcela' : frequencyLabel(contract.rentalFrequency)}:{' '}
                           {periodValue !== null ? formatCurrency(periodValue) : '—'}
@@ -811,7 +820,7 @@ export function VehicleRentalsPage({ session, company, onCreate, onEdit }: Vehic
                         <td className="px-2 py-2.5 text-[var(--ink-soft)]">
                           <p className={dueInfo?.status === 'vencido' ? 'font-semibold text-[var(--red-500)]' : undefined}>
                             {contract.startDate ? formatDate(contract.startDate) : '—'}
-                            {contract.endDate ? ` – ${formatDate(contract.endDate)}` : ''}
+                            {rentalEffectiveEnd(contract) ? ` – ${formatDate(rentalEffectiveEnd(contract)!)}` : ''}
                           </p>
                           {units !== null && (
                             <p className="text-[11px] text-[var(--muted)]">
@@ -819,6 +828,11 @@ export function VehicleRentalsPage({ session, company, onCreate, onEdit }: Vehic
                             </p>
                           )}
                           <RentalDueBadge contract={contract} />
+                          {contract.returnDate && (
+                            <p className="text-[11px] font-semibold text-[var(--green-600)]">
+                              Devolvido em {formatDateTime(contract.returnDate)}
+                            </p>
+                          )}
                         </td>
                         <td className="px-2 py-2.5 text-right font-semibold text-[var(--ink)]">
                           {periodValue !== null ? formatCurrency(periodValue) : '—'}
