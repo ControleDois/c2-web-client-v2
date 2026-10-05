@@ -3,6 +3,7 @@ import type { ConfigPayload, ShopOpeningHour, ShopPayload } from '../../lib/conf
 import { TextField } from '../../components/form/TextField'
 import { SectionCard } from '../../components/SectionCard'
 import { IfoodMerchantCard } from './IfoodMerchantCard'
+import { ShopCatalogCard } from './ShopCatalogCard'
 import type { AuthSession, AuthCompany } from '../../lib/auth'
 import { LinkIcon, TagIcon, PaperclipIcon, TrashIcon, PlusIcon, CheckCircleIcon } from '../../components/icons'
 
@@ -264,6 +265,10 @@ export function LojaOnlineSection({ value, onChange, session, company }: LojaOnl
           ))}
         </div>
       </div>
+
+      <SectionCard title="Produtos no cardápio" subtitle="Publique de uma vez os produtos que já têm preço de delivery">
+        <ShopCatalogCard session={session} company={company} />
+      </SectionCard>
 
       <SectionCard title="iFood" subtitle="Conecte a loja ao app do iFood, importe o cardápio e sincronize">
         <IfoodMerchantCard session={session} company={company} />
