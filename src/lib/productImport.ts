@@ -116,3 +116,44 @@ export function applyHeroImport(
 ) {
   return apiPost<ImportBatchResult>('/product-import/hero/apply', { companyId, rows, ...options }, token)
 }
+
+export interface HeroImageRow {
+  id?: number | string | null
+  name?: string | null
+  ean?: string | number | null
+  image_url?: string | null
+}
+
+export interface HeroImagePreview {
+  total: number
+  willImport: number
+  alreadyHasImage: number
+  noMatch: number
+  noShop: number
+  invalidUrl: number
+  duplicate: number
+}
+
+export interface HeroImageBatchResult {
+  imported: number
+  failed: { name: string; reason: string }[]
+  alreadyHasImage: number
+  noMatch: number
+  noShop: number
+  invalidUrl: number
+  duplicate: number
+}
+
+export async function parseHeroImagesFile(file: File): Promise<HeroImageRow[]> {
+  const parsed: unknown = JSON.parse(await file.text())
+  if (!Array.isArray(parsed)) throw new Error('O arquivo precisa ser uma lista de produtos com foto.')
+  return parsed as HeroImageRow[]
+}
+
+export function previewHeroImages(token: string, companyId: string, rows: HeroImageRow[]) {
+  return apiPost<HeroImagePreview>('/product-import/hero/images/preview', { companyId, rows }, token)
+}
+
+export function applyHeroImages(token: string, companyId: string, rows: HeroImageRow[]) {
+  return apiPost<HeroImageBatchResult>('/product-import/hero/images/apply', { companyId, rows }, token)
+}

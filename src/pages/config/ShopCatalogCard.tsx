@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ApiError } from '../../lib/api'
 import type { AuthCompany, AuthSession } from '../../lib/auth'
+import { ProductHeroImagesModal } from '../../components/ProductHeroImagesModal'
 import {
   fetchShopCatalogSummary,
   publishShopCatalog,
@@ -28,6 +29,8 @@ export function ShopCatalogCard({ session, company }: ShopCatalogCardProps) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
+  const [imagesOpen, setImagesOpen] = useState(false)
+  const [onlyWithImage, setOnlyWithImage] = useState(true)
 
   function load() {
     fetchShopCatalogSummary(token, company.id)
@@ -51,11 +54,13 @@ export function ShopCatalogCard({ session, company }: ShopCatalogCardProps) {
     }
   }
 
+  const publishCount = summary ? (onlyWithImage ? summary.publishable_with_image : summary.publishable) : 0
+
   function handlePublish() {
-    if (!summary?.publishable) return
-    if (!window.confirm(`Publicar ${summary.publishable} produto(s) com preço no cardápio online?`)) return
+    if (!publishCount) return
+    if (!window.confirm(`Publicar ${publishCount} produto(s) no cardápio online?`)) return
     run(async () => {
-      const result = await publishShopCatalog(token, company.id)
+      const result = await publishShopCatalog(token, company.id, onlyWithImage)
       return `${result.published} produto(s) publicados no cardápio.`
     })
   }
@@ -89,14 +94,24 @@ export function ShopCatalogCard({ session, company }: ShopCatalogCardProps) {
         </p>
       )}
 
+      <label className="flex items-center gap-2 text-[13px] text-[var(--ink-soft)]">
+        <input
+          type="checkbox"
+          checked={onlyWithImage}
+          onChange={(event) => setOnlyWithImage(event.target.checked)}
+          className="h-4 w-4 accent-[var(--blue-500)]"
+        />
+        Publicar só produtos com foto
+      </label>
+
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
-          disabled={busy || !summary?.publishable}
+          disabled={busy || !publishCount}
           onClick={handlePublish}
           className="rounded-xl bg-[var(--blue-500)] px-4 py-2.5 text-[13px] font-bold text-white hover:bg-[var(--blue-700)] disabled:opacity-50"
         >
-          Publicar produtos com preço
+          Publicar {publishCount ? `${publishCount} produtos` : 'produtos'}
         </button>
         <button
           type="button"
@@ -106,7 +121,23 @@ export function ShopCatalogCard({ session, company }: ShopCatalogCardProps) {
         >
           Tirar todos do cardápio
         </button>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => setImagesOpen(true)}
+          className="rounded-xl border border-[var(--border)] px-4 py-2.5 text-[13px] font-bold text-[var(--ink-soft)] hover:text-[var(--ink)] disabled:opacity-50"
+        >
+          Importar fotos do Hero
+        </button>
       </div>
+
+      <ProductHeroImagesModal
+        open={imagesOpen}
+        session={session}
+        company={company}
+        onClose={() => setImagesOpen(false)}
+        onImported={load}
+      />
 
       {message && <p className="text-[12.5px] font-medium text-[var(--green-600,#16a34a)]">{message}</p>}
       {error && <p className="text-[12.5px] font-medium text-[var(--red-500)]">{error}</p>}
