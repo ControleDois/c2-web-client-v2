@@ -21,16 +21,29 @@ export interface ShopOpeningHour {
   closes: string
 }
 
+// A API devolve a loja em snake_case (o modelo Shop não usa a serialização
+// camelCase); as chaves camelCase ficam só como reserva.
 export interface ShopRecord {
   id: string
+  link_url?: string | null
+  banner_url?: string | null
+  color_default?: string | null
+  is_active?: boolean
+  accepting_orders?: boolean
+  delivery_fee?: number | string | null
+  minimum_order_value?: number | string | null
+  delivery_radius_km?: number | string | null
+  estimated_delivery_minutes?: number | null
+  opening_hours?: ShopOpeningHour[] | null
+  categories?: { id: string; name: string }[]
   linkUrl?: string | null
   bannerUrl?: string | null
   colorDefault?: string | null
   isActive?: boolean
   acceptingOrders?: boolean
-  deliveryFee?: number | null
-  minimumOrderValue?: number | null
-  deliveryRadiusKm?: number | null
+  deliveryFee?: number | string | null
+  minimumOrderValue?: number | string | null
+  deliveryRadiusKm?: number | string | null
   estimatedDeliveryMinutes?: number | null
   openingHours?: ShopOpeningHour[] | null
 }
@@ -322,7 +335,30 @@ export interface ShopPayload {
   estimated_delivery_minutes?: number
   opening_hours?: ShopOpeningHour[]
   categories?: string[]
+  banner_url?: string
   banner_file?: File
+}
+
+function numberOrUndefined(value: number | string | null | undefined): number | undefined {
+  if (value === null || value === undefined || value === '') return undefined
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : undefined
+}
+
+export function shopPayloadFromRecord(shop: ShopRecord): ShopPayload {
+  return {
+    link_url: shop.link_url ?? shop.linkUrl ?? '',
+    color_default: shop.color_default ?? shop.colorDefault ?? undefined,
+    is_active: shop.is_active ?? shop.isActive ?? false,
+    accepting_orders: shop.accepting_orders ?? shop.acceptingOrders ?? true,
+    delivery_fee: numberOrUndefined(shop.delivery_fee ?? shop.deliveryFee),
+    minimum_order_value: numberOrUndefined(shop.minimum_order_value ?? shop.minimumOrderValue),
+    delivery_radius_km: numberOrUndefined(shop.delivery_radius_km ?? shop.deliveryRadiusKm),
+    estimated_delivery_minutes: numberOrUndefined(shop.estimated_delivery_minutes ?? shop.estimatedDeliveryMinutes),
+    opening_hours: shop.opening_hours ?? shop.openingHours ?? undefined,
+    categories: shop.categories?.map((category) => category.name),
+    banner_url: shop.banner_url ?? shop.bannerUrl ?? undefined,
+  }
 }
 
 export interface ConfigPayload {
@@ -584,6 +620,7 @@ function buildConfigForm(payload: ConfigPayload): FormData {
   if (shop) {
     appendScalar(form, 'shop[link_url]', shop.link_url)
     appendScalar(form, 'shop[color_default]', shop.color_default)
+    appendScalar(form, 'shop[banner_url]', shop.banner_url)
     if (shop.is_active !== undefined) form.append('shop[is_active]', shop.is_active ? 'true' : 'false')
     if (shop.accepting_orders !== undefined) {
       form.append('shop[accepting_orders]', shop.accepting_orders ? 'true' : 'false')

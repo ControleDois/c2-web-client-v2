@@ -14,6 +14,18 @@ interface LojaOnlineSectionProps {
   company: AuthCompany
 }
 
+const CARDAPIO_BASE_URL = (import.meta.env.VITE_CARDAPIO_URL ?? 'https://cardapio.controledois.com.br').replace(/\/$/, '')
+
+function toSlug(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, '-')
+    .replace(/-{2,}/g, '-')
+    .replace(/^-/, '')
+}
+
 const WEEKDAY_LABELS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
 
 function defaultOpeningHours(): ShopOpeningHour[] {
@@ -33,18 +45,19 @@ export function LojaOnlineSection({ value, onChange, session, company }: LojaOnl
 
   const publicUrl = useMemo(() => {
     if (!shop.link_url) return ''
-    return `${window.location.origin}/delivery/${shop.link_url}`
+    return `${CARDAPIO_BASE_URL}/${shop.link_url}`
   }, [shop.link_url])
 
-  const bannerPreviewUrl = useMemo(
+  const newBannerUrl = useMemo(
     () => (shop.banner_file ? URL.createObjectURL(shop.banner_file) : null),
     [shop.banner_file]
   )
+  const bannerPreviewUrl = newBannerUrl ?? shop.banner_url ?? null
   useEffect(() => {
     return () => {
-      if (bannerPreviewUrl) URL.revokeObjectURL(bannerPreviewUrl)
+      if (newBannerUrl) URL.revokeObjectURL(newBannerUrl)
     }
-  }, [bannerPreviewUrl])
+  }, [newBannerUrl])
 
   function patchShop(patch: Partial<ShopPayload>) {
     onChange({ shop: { ...shop, ...patch } })
@@ -82,7 +95,7 @@ export function LojaOnlineSection({ value, onChange, session, company }: LojaOnl
         <div className="mt-1.5 flex items-center gap-2 rounded-xl bg-[var(--page)] px-3.5 py-2.5">
           <LinkIcon className="h-4 w-4 flex-none text-[var(--muted)]" />
           <span className="w-full truncate text-[13px] text-[var(--ink-soft)]">
-            {publicUrl || 'Defina o slug abaixo para gerar o link'}
+            {publicUrl || 'Defina o nome da loja no link abaixo para gerar o endereço'}
           </span>
           {publicUrl && (
             <button
@@ -124,11 +137,11 @@ export function LojaOnlineSection({ value, onChange, session, company }: LojaOnl
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <TextField
-          label="Slug (link_url)"
+          label="Nome da loja no link"
           icon={<LinkIcon className="h-4 w-4" />}
           placeholder="minha-loja"
           value={shop.link_url}
-          onChange={(event) => patchShop({ link_url: event.target.value })}
+          onChange={(event) => patchShop({ link_url: toSlug(event.target.value) })}
         />
         <label className="flex flex-col gap-1.5">
           <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Cor padrão</span>

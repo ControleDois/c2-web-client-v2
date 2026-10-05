@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { fetchConfig, updateConfig, parseCentralBoxPaymentMethods, type ConfigPayload, type ConfigRecord } from '../lib/config'
+import {
+  fetchConfig,
+  updateConfig,
+  parseCentralBoxPaymentMethods,
+  shopPayloadFromRecord,
+  type ConfigPayload,
+  type ConfigRecord,
+} from '../lib/config'
 import { isProtecaoVeicular, isEmprestimo, isLojaOnline, isVistoriasNiche } from '../lib/systemTypes'
 import { ApiError } from '../lib/api'
 import { CompanyFormPage } from './CompanyFormPage'
@@ -208,19 +215,7 @@ function buildConfigPayload(companyId: string, config: ConfigRecord | null): Con
     time_clock_hours_month_divisor: config?.time_clock_hours_month_divisor ?? 220,
     time_clock_auto_checkout_hours: config?.time_clock_auto_checkout_hours ?? undefined,
 
-    shop: config?.company?.shop
-      ? {
-          link_url: config.company.shop.linkUrl ?? '',
-          color_default: config.company.shop.colorDefault ?? undefined,
-          is_active: config.company.shop.isActive ?? false,
-          accepting_orders: config.company.shop.acceptingOrders ?? true,
-          delivery_fee: config.company.shop.deliveryFee ?? undefined,
-          minimum_order_value: config.company.shop.minimumOrderValue ?? undefined,
-          delivery_radius_km: config.company.shop.deliveryRadiusKm ?? undefined,
-          estimated_delivery_minutes: config.company.shop.estimatedDeliveryMinutes ?? undefined,
-          opening_hours: config.company.shop.openingHours ?? undefined,
-        }
-      : undefined,
+    shop: config?.company?.shop ? shopPayloadFromRecord(config.company.shop) : undefined,
   }
 }
 
