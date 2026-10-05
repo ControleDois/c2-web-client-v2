@@ -77,9 +77,10 @@ export function returnDayIso(returnDate?: string | null): string | null {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Cuiaba' }).format(date)
 }
 
-// Aluguel devolvido antes do fim contratado termina, de fato, na devolução:
-// período, diárias e total passam a contar só até esse dia. Mantém o resto do
-// texto da data original (hora/fuso) pra seguir o mesmo formato do contrato.
+// Aluguel devolvido termina, de fato, no dia da devolução: antes do fim
+// contratado, período/diárias/total passam a contar só até esse dia; depois do
+// fim (atraso), o período se estende até a devolução. Mantém o resto do texto
+// da data original (hora/fuso) pra seguir o mesmo formato do contrato.
 export function effectiveRentalEnd(contract: {
   status?: number | null
   startDate?: string | null
@@ -88,7 +89,7 @@ export function effectiveRentalEnd(contract: {
 }): string | null {
   if (!contract.endDate) return null
   const returnDay = returnDayIso(contract.returnDate)
-  if (Number(contract.status) === 2 && returnDay && returnDay < contract.endDate.slice(0, 10)) {
+  if (Number(contract.status) === 2 && returnDay && returnDay !== contract.endDate.slice(0, 10)) {
     const startDay = contract.startDate?.slice(0, 10)
     const day = startDay && returnDay < startDay ? startDay : returnDay
     return `${day}${contract.endDate.slice(10)}`

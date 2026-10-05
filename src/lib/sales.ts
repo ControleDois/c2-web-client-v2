@@ -61,6 +61,14 @@ export interface VehicleRentalContractRecord {
     pendingBillsCount: number
     pendingBillsTotal: number
   } | null
+  // Devolução depois do fim contratado: o servidor estende o aluguel até a
+  // devolução e já cria as contas a receber dos períodos a mais.
+  lateReturn?: {
+    contractedEndDate: string
+    actualReturnDate: string
+    extraPeriods: number
+    extraTotal: number
+  } | null
 }
 
 export interface VehicleSaleContractRecord {

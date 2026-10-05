@@ -85,6 +85,7 @@ export function RentalOperationModal({ session, company, sale, mode, detailedReq
   // preenchido pelo backend junto com a resposta de updateVehicleRentalOperation
   // quando ainda existem parcelas pendentes de dias que não vão mais
   // acontecer. Fica pendente de resposta do usuário antes de fechar o modal.
+  const [lateReturnInfo, setLateReturnInfo] = useState<NonNullable<VehicleRentalContractRecord['lateReturn']> | null>(null)
   const [earlyReturnInfo, setEarlyReturnInfo] = useState<NonNullable<VehicleRentalContractRecord['earlyReturn']> | null>(null)
   const [recalculating, setRecalculating] = useState(false)
   const [recalculateError, setRecalculateError] = useState<string | null>(null)
@@ -442,6 +443,14 @@ export function RentalOperationModal({ session, company, sale, mode, detailedReq
         // Devolução antecipada com parcelas pendentes de dias que não vão
         // mais acontecer - pergunta antes de fechar, em vez de sair
         // direto (ver handleConfirmRecalculate/handleSkipRecalculate).
+        // Devolução em atraso: o servidor já estendeu o aluguel e gerou as
+        // contas dos períodos a mais — só avisa o que foi feito.
+        if (updated.lateReturn && updated.lateReturn.extraPeriods > 0) {
+          setLateReturnInfo(updated.lateReturn)
+          setSubmitting(false)
+          return
+        }
+
         if (updated.earlyReturn && updated.earlyReturn.pendingBillsCount > 0) {
           setEarlyReturnInfo(updated.earlyReturn)
           setSubmitting(false)
@@ -883,6 +892,33 @@ export function RentalOperationModal({ session, company, sale, mode, detailedReq
     )}
 
     <canvas ref={canvasRef} className="hidden" />
+
+    <ConfirmDialog
+      open={Boolean(lateReturnInfo)}
+      title="Devolução em atraso"
+      message={
+        lateReturnInfo
+          ? `O veículo foi devolvido em ${formatDate(lateReturnInfo.actualReturnDate)} — depois do fim contratado (${formatDate(
+              lateReturnInfo.contractedEndDate
+            )}). O aluguel foi estendido até a devolução e ${lateReturnInfo.extraPeriods} período${
+              lateReturnInfo.extraPeriods === 1 ? '' : 's'
+            } a mais ${lateReturnInfo.extraPeriods === 1 ? 'foi lançado' : 'foram lançados'} em Contas a Receber, totalizando ${formatCurrency(
+              lateReturnInfo.extraTotal
+            )}.`
+          : ''
+      }
+      confirmLabel="OK"
+      cancelLabel="Fechar"
+      danger={false}
+      onConfirm={() => {
+        setLateReturnInfo(null)
+        onCompleted()
+      }}
+      onCancel={() => {
+        setLateReturnInfo(null)
+        onCompleted()
+      }}
+    />
 
     <ConfirmDialog
       open={Boolean(earlyReturnInfo)}
