@@ -32,6 +32,21 @@ function defaultOpeningHours(): ShopOpeningHour[] {
   return Array.from({ length: 7 }).map((_, weekday) => ({ weekday, enabled: false, opens: '08:00', closes: '18:00' }))
 }
 
+// Garante ao menos um período (desligado) em cada dia da semana e agrupa por dia,
+// mantendo a ordem dos períodos dentro do dia.
+function normalizeOpeningHours(hours: ShopOpeningHour[]): ShopOpeningHour[] {
+  const all = [...hours]
+  for (let weekday = 0; weekday < 7; weekday += 1) {
+    if (!all.some((hour) => hour.weekday === weekday)) {
+      all.push({ weekday, enabled: false, opens: '08:00', closes: '18:00' })
+    }
+  }
+  return all
+    .map((hour, index) => ({ hour, index }))
+    .sort((a, b) => a.hour.weekday - b.hour.weekday || a.index - b.index)
+    .map((entry) => entry.hour)
+}
+
 function defaultShop(): ShopPayload {
   return { link_url: '', is_active: false, accepting_orders: true, opening_hours: defaultOpeningHours(), categories: [] }
 }
@@ -41,7 +56,7 @@ export function LojaOnlineSection({ value, onChange, session, company }: LojaOnl
   const [copied, setCopied] = useState(false)
 
   const shop = value.shop ?? defaultShop()
-  const openingHours = shop.opening_hours ?? defaultOpeningHours()
+  const openingHours = normalizeOpeningHours(shop.opening_hours ?? defaultOpeningHours())
 
   const publicUrl = useMemo(() => {
     if (!shop.link_url) return ''
@@ -63,8 +78,40 @@ export function LojaOnlineSection({ value, onChange, session, company }: LojaOnl
     onChange({ shop: { ...shop, ...patch } })
   }
 
-  function updateOpeningHour(weekday: number, patch: Partial<ShopOpeningHour>) {
-    patchShop({ opening_hours: openingHours.map((hour) => (hour.weekday === weekday ? { ...hour, ...patch } : hour)) })
+  // Cada período é uma entrada em opening_hours (um dia pode ter várias).
+  // `index` é a posição na lista inteira; o dia ligado/desligado vale para
+  // todos os períodos dele.
+  function updatePeriod(index: number, patch: Partial<ShopOpeningHour>) {
+    patchShop({ opening_hours: openingHours.map((hour, i) => (i === index ? { ...hour, ...patch } : hour)) })
+  }
+
+  function setDayEnabled(weekday: number, enabled: boolean) {
+    patchShop({
+      opening_hours: openingHours.map((hour) => (hour.weekday === weekday ? { ...hour, enabled } : hour)),
+    })
+  }
+
+  function addPeriod(weekday: number) {
+    const dayPeriods = openingHours.filter((hour) => hour.weekday === weekday)
+    const last = dayPeriods[dayPeriods.length - 1]
+    const opens = last && last.closes > last.opens ? last.closes : '18:00'
+    const entry: ShopOpeningHour = { weekday, enabled: true, opens, closes: '23:59' }
+    const lastIndex = openingHours.map((hour) => hour.weekday).lastIndexOf(weekday)
+    const next = [...openingHours]
+    next.splice(lastIndex + 1, 0, entry)
+    patchShop({ opening_hours: next })
+  }
+
+  function removePeriod(index: number) {
+    const weekday = openingHours[index].weekday
+    if (openingHours.filter((hour) => hour.weekday === weekday).length <= 1) return
+    patchShop({ opening_hours: openingHours.filter((_, i) => i !== index) })
+  }
+
+  function copyDayToAll(weekday: number) {
+    const source = openingHours.filter((hour) => hour.weekday === weekday)
+    const copied = WEEKDAY_LABELS.flatMap((_, day) => source.map((hour) => ({ ...hour, weekday: day })))
+    patchShop({ opening_hours: copied })
   }
 
   function addCategory() {
@@ -247,35 +294,89 @@ export function LojaOnlineSection({ value, onChange, session, company }: LojaOnl
 
       <div>
         <h3 className="mb-2 text-[13px] font-bold text-[var(--ink)]">Horário de funcionamento</h3>
+        <p className="mb-2 text-[12px] text-[var(--muted)]">
+          Um dia pode ter vários períodos (ex.: 09:00 às 12:00 e 18:00 às 23:00). Se o fechamento for menor que a
+          abertura, a loja fecha depois da meia-noite (ex.: 09:00 às 01:00 fecha à 1h do dia seguinte).
+        </p>
         <div className="flex flex-col gap-2">
-          {openingHours.map((hour) => (
-            <div key={hour.weekday} className="flex flex-wrap items-center gap-3 rounded-xl bg-[var(--page)] px-4 py-2.5">
-              <label className="flex w-32 flex-none items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={hour.enabled}
-                  onChange={(event) => updateOpeningHour(hour.weekday, { enabled: event.target.checked })}
-                  className="h-4 w-4 accent-[var(--blue-500)]"
-                />
-                <span className="text-[13px] font-semibold text-[var(--ink)]">{WEEKDAY_LABELS[hour.weekday]}</span>
-              </label>
-              <input
-                type="time"
-                value={hour.opens}
-                disabled={!hour.enabled}
-                onChange={(event) => updateOpeningHour(hour.weekday, { opens: event.target.value })}
-                className="rounded-xl bg-[var(--surface)] px-3 py-1.5 text-[13px] text-[var(--ink)] ring-1 ring-transparent focus:outline-none focus:ring-[var(--blue-300)] disabled:opacity-50"
-              />
-              <span className="text-[12px] text-[var(--muted)]">até</span>
-              <input
-                type="time"
-                value={hour.closes}
-                disabled={!hour.enabled}
-                onChange={(event) => updateOpeningHour(hour.weekday, { closes: event.target.value })}
-                className="rounded-xl bg-[var(--surface)] px-3 py-1.5 text-[13px] text-[var(--ink)] ring-1 ring-transparent focus:outline-none focus:ring-[var(--blue-300)] disabled:opacity-50"
-              />
-            </div>
-          ))}
+          {WEEKDAY_LABELS.map((label, weekday) => {
+            const periods = openingHours
+              .map((hour, index) => ({ hour, index }))
+              .filter((entry) => entry.hour.weekday === weekday)
+            const enabled = periods.some((entry) => entry.hour.enabled)
+            return (
+              <div key={weekday} className="flex flex-wrap items-start gap-3 rounded-xl bg-[var(--page)] px-4 py-2.5">
+                <label className="flex w-32 flex-none items-center gap-2 pt-1.5">
+                  <input
+                    type="checkbox"
+                    checked={enabled}
+                    onChange={(event) => setDayEnabled(weekday, event.target.checked)}
+                    className="h-4 w-4 accent-[var(--blue-500)]"
+                  />
+                  <span className="text-[13px] font-semibold text-[var(--ink)]">{label}</span>
+                </label>
+
+                <div className="flex min-w-0 flex-1 flex-col gap-2">
+                  {periods.map(({ hour, index }) => {
+                    const crossesMidnight = hour.closes <= hour.opens
+                    return (
+                      <div key={index} className="flex flex-wrap items-center gap-2">
+                        <input
+                          type="time"
+                          value={hour.opens}
+                          disabled={!enabled}
+                          onChange={(event) => updatePeriod(index, { opens: event.target.value })}
+                          className="rounded-xl bg-[var(--surface)] px-3 py-1.5 text-[13px] text-[var(--ink)] ring-1 ring-transparent focus:outline-none focus:ring-[var(--blue-300)] disabled:opacity-50"
+                        />
+                        <span className="text-[12px] text-[var(--muted)]">até</span>
+                        <input
+                          type="time"
+                          value={hour.closes}
+                          disabled={!enabled}
+                          onChange={(event) => updatePeriod(index, { closes: event.target.value })}
+                          className="rounded-xl bg-[var(--surface)] px-3 py-1.5 text-[13px] text-[var(--ink)] ring-1 ring-transparent focus:outline-none focus:ring-[var(--blue-300)] disabled:opacity-50"
+                        />
+                        {enabled && crossesMidnight && (
+                          <span className="text-[11.5px] font-semibold text-[var(--amber-500)]">
+                            fecha às {hour.closes} do dia seguinte
+                          </span>
+                        )}
+                        {periods.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removePeriod(index)}
+                            aria-label="Remover período"
+                            className="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--muted)] hover:bg-[var(--surface)] hover:text-[var(--red-500)]"
+                          >
+                            <TrashIcon className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    )
+                  })}
+                  {enabled && (
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => addPeriod(weekday)}
+                        className="flex items-center gap-1 text-[12px] font-bold text-[var(--blue-500)] hover:underline"
+                      >
+                        <PlusIcon className="h-3 w-3" />
+                        Adicionar período
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => copyDayToAll(weekday)}
+                        className="text-[12px] font-semibold text-[var(--muted)] hover:text-[var(--ink)] hover:underline"
+                      >
+                        Copiar para todos os dias
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          })}
         </div>
       </div>
 
