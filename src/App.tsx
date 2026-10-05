@@ -28,6 +28,8 @@ import { CategoriesPage } from './pages/CategoriesPage'
 import { CategoryFormPage } from './pages/CategoryFormPage'
 import { CostCentersPage } from './pages/CostCentersPage'
 import { CostCenterFormPage } from './pages/CostCenterFormPage'
+import { DeliveryCouriersPage } from './pages/DeliveryCouriersPage'
+import { DeliveryNeighborhoodsPage } from './pages/DeliveryNeighborhoodsPage'
 import { BillsPage } from './pages/BillsPage'
 import { BillFormPage } from './pages/BillFormPage'
 import { UsersPage } from './pages/UsersPage'
@@ -469,6 +471,10 @@ function App() {
             onEdit={(category) => categoriesView.edit(category.id)}
           />
         )
+    } else if (page === 'delivery-couriers') {
+      pageContent = <DeliveryCouriersPage session={session} company={activeCompany} />
+    } else if (page === 'delivery-neighborhoods') {
+      pageContent = <DeliveryNeighborhoodsPage session={session} company={activeCompany} />
     } else if (page === 'cost-centers') {
       pageContent =
         costCentersView.view.mode === 'form' ? (

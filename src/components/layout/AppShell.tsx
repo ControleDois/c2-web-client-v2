@@ -80,6 +80,8 @@ export type AppPage =
   | 'support-contracts'
   | 'support-visits'
   | 'investments'
+  | 'delivery-couriers'
+  | 'delivery-neighborhoods'
 
 interface AppShellProps {
   session: AuthSession
@@ -181,7 +183,11 @@ function buildNavGroups(
   if (isDistribuidoraBebidas(systemType)) {
     groups.splice(1, 0, {
       title: 'Delivery',
-      items: [{ href: DELIVERY_BOARD_URL, label: 'Pedidos de Delivery', icon: TruckIcon }],
+      items: [
+        { href: DELIVERY_BOARD_URL, label: 'Pedidos de Delivery', icon: TruckIcon },
+        { page: 'delivery-couriers' as const, label: 'Entregadores', icon: UserIcon },
+        { page: 'delivery-neighborhoods' as const, label: 'Bairros e taxas', icon: RouteIcon },
+      ],
     })
   }
 
