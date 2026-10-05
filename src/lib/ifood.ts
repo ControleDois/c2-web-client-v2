@@ -48,3 +48,41 @@ export function syncIfoodCatalog(token: string, id: string) {
 export function deleteIfoodMerchant(token: string, id: string) {
   return apiDelete<{ id: string; status: IfoodMerchantStatus }>(`/ifood/merchants/${id}`, token)
 }
+
+export interface IfoodImportPreview {
+  totals: {
+    items: number
+    categories: number
+    available: number
+    noName: number
+    noPrice: number
+    already: number
+    matched: number
+    new: number
+  }
+  categories: { name: string; count: number }[]
+  matched: {
+    ifoodName: string | null
+    ifoodPrice: number
+    ourName: string
+    ourPrice: number
+    by: 'barcode' | 'name' | null
+  }[]
+  unmatched: { name: string | null; price: number; category: string }[]
+  diagnostics: { categoryKeys: string[]; itemKeys: string[] }
+}
+
+export interface IfoodImportResult {
+  linked: number
+  created: number
+  skipped: number
+  errors: { name: string; error: string }[]
+}
+
+export function previewIfoodCatalogImport(token: string, id: string) {
+  return apiPost<IfoodImportPreview>(`/ifood/merchants/${id}/import-catalog/preview`, {}, token)
+}
+
+export function importIfoodCatalog(token: string, id: string, createMissing: boolean) {
+  return apiPost<IfoodImportResult>(`/ifood/merchants/${id}/import-catalog`, { createMissing }, token)
+}

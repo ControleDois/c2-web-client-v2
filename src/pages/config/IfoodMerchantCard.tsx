@@ -11,6 +11,7 @@ import {
 } from '../../lib/ifood'
 import { ApiError } from '../../lib/api'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
+import { IfoodCatalogImportModal } from '../../components/IfoodCatalogImportModal'
 import { LinkIcon, CopyIcon, RefreshIcon, TrashIcon, CheckCircleIcon, ClockIcon } from '../../components/icons'
 import type { AuthSession, AuthCompany } from '../../lib/auth'
 
@@ -49,6 +50,8 @@ export function IfoodMerchantCard({ session, company }: IfoodMerchantCardProps) 
   const [syncingId, setSyncingId] = useState<string | null>(null)
   const [syncResult, setSyncResult] = useState<{ merchantId: string; result: IfoodCatalogSyncResult } | null>(null)
   const [syncError, setSyncError] = useState<string | null>(null)
+
+  const [importTarget, setImportTarget] = useState<IfoodMerchantRecord | null>(null)
 
   const [revokeTarget, setRevokeTarget] = useState<IfoodMerchantRecord | null>(null)
   const [revoking, setRevoking] = useState(false)
@@ -234,6 +237,15 @@ export function IfoodMerchantCard({ session, company }: IfoodMerchantCardProps) 
                 {merchant.status === 'authorized' && (
                   <button
                     type="button"
+                    onClick={() => setImportTarget(merchant)}
+                    className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-1.5 text-[11.5px] font-bold text-[var(--ink-soft)] hover:text-[var(--ink)]"
+                  >
+                    Importar cardápio
+                  </button>
+                )}
+                {merchant.status === 'authorized' && (
+                  <button
+                    type="button"
                     onClick={() => handleSync(merchant)}
                     disabled={syncingId === merchant.id}
                     className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-1.5 text-[11.5px] font-bold text-[var(--ink-soft)] hover:text-[var(--ink)] disabled:opacity-60"
@@ -308,6 +320,14 @@ export function IfoodMerchantCard({ session, company }: IfoodMerchantCardProps) 
           ))}
         </div>
       )}
+
+      <IfoodCatalogImportModal
+        open={Boolean(importTarget)}
+        token={token}
+        merchantId={importTarget?.id ?? null}
+        merchantName={importTarget?.merchant_name ?? null}
+        onClose={() => setImportTarget(null)}
+      />
 
       <ConfirmDialog
         open={Boolean(revokeTarget)}
