@@ -367,6 +367,14 @@ export function LinkIcon(props: SVGProps<SVGSVGElement>) {
   )
 }
 
+export function ArrowUpRightIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" {...props}>
+      <path d="M6.5 13.5l7-7M7.5 6.5h6v6" />
+    </svg>
+  )
+}
+
 export function XCircleIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" {...props}>

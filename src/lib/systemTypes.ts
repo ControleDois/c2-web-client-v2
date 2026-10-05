@@ -24,6 +24,7 @@ export const SYSTEM_TYPE_LABELS: Record<number, string> = {
 export const SYSTEM_TYPE_PROTECAO_VEICULAR = 1
 export const SYSTEM_TYPE_EMPRESTIMO = 3
 export const SYSTEM_TYPE_LOCACAO_VEICULOS = 6
+export const SYSTEM_TYPE_DISTRIBUIDORA_BEBIDAS = 8
 export const SYSTEM_TYPE_PIZZARIA = 14
 export const SYSTEM_TYPE_LANCHONETE = 15
 export const SYSTEM_TYPE_HAMBURGUERIA = 16
@@ -33,7 +34,7 @@ export const SYSTEM_TYPE_GARAGEM_INVESTIDOR = 19
 // Loja Online cobre qualquer nicho com delivery/cardápio próprio (inclui os
 // 4 nichos de comida - Pizzaria/Lanchonete ficavam de fora antes por omissão,
 // não por design; corrigido junto da criação de Hamburgeria/Padaria).
-export const SYSTEM_TYPES_LOJA_ONLINE = [10, 12, 14, 15, 16, 17]
+export const SYSTEM_TYPES_LOJA_ONLINE = [8, 10, 12, 14, 15, 16, 17]
 export const SYSTEM_TYPES_VISTORIAS = [6, 7, 9]
 
 export function isProtecaoVeicular(systemType?: number): boolean {
@@ -46,6 +47,13 @@ export function isLocacaoVeiculos(systemType?: number): boolean {
 
 export function isEmprestimo(systemType?: number): boolean {
   return systemType === SYSTEM_TYPE_EMPRESTIMO
+}
+
+// Distribuidora de bebidas: vende produtos e atende por delivery (iFood, Zé
+// Delivery e cardápio próprio) - sem veículos, vistoria, busca de veículo nem
+// o relatório de faturamento do guincho; tem o grupo Delivery no menu.
+export function isDistribuidoraBebidas(systemType?: number): boolean {
+  return systemType === SYSTEM_TYPE_DISTRIBUIDORA_BEBIDAS
 }
 
 // Nicho sem veículos: não usa vistoria, busca de veículo nem o relatório de
@@ -77,7 +85,7 @@ export function isSoftwareHouse(systemType?: number): boolean {
   return systemType === SYSTEM_TYPE_SOFTWARE_HOUSE
 }
 
-// Pizzaria, Lanchonete, Hamburgeria, Padaria e SoftwareHouse/TI compartilham
+// Pizzaria, Lanchonete, Hamburgeria, Padaria, SoftwareHouse/TI e Distribuidora de Bebidas compartilham
 // o traço "sem veículo" (sem grupo Operação, sem relatório de faturamento
 // do guincho) — ficam como nichos distintos porque o menu Principal de cada
 // um pode divergir (ver Padaria acima).
@@ -87,7 +95,8 @@ export function isNoVehicleNiche(systemType?: number): boolean {
     isLanchonete(systemType) ||
     isHamburgueria(systemType) ||
     isPadaria(systemType) ||
-    isSoftwareHouse(systemType)
+    isSoftwareHouse(systemType) ||
+    isDistribuidoraBebidas(systemType)
   )
 }
 

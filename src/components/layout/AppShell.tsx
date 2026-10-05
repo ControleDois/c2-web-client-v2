@@ -24,6 +24,7 @@ import {
   FileTextIcon,
   MailIcon,
   ClockIcon,
+  ArrowUpRightIcon,
 } from '../icons'
 import { getCompanyName, type AuthCompany, type AuthSession } from '../../lib/auth'
 import {
@@ -33,6 +34,7 @@ import {
   isNoVehicleNiche,
   isSoftwareHouse,
   isGaragemInvestidor,
+  isDistribuidoraBebidas,
 } from '../../lib/systemTypes'
 
 export type AppPage =
@@ -94,7 +96,12 @@ interface AppShellProps {
   children: ReactNode
 }
 
-type NavGroup = { title: string; items: { page: AppPage; label: string; icon: typeof GridIcon }[] }
+// Item do menu: tela interna do painel (page) ou link externo que abre em outra
+// aba (href) - o quadro de pedidos do delivery é um projeto separado.
+type NavItem = { page: AppPage; label: string; icon: typeof GridIcon } | { href: string; label: string; icon: typeof GridIcon }
+type NavGroup = { title: string; items: NavItem[] }
+
+const DELIVERY_BOARD_URL = import.meta.env.VITE_DELIVERY_URL ?? 'https://delivery.controledois.com.br'
 
 function buildNavGroups(
   systemType?: number,
@@ -168,6 +175,15 @@ function buildNavGroups(
       ],
     },
   ]
+
+  // Distribuidora de bebidas: pedidos de delivery (iFood, Zé Delivery e
+  // cardápio próprio) acompanhados no quadro do projeto c2-web-delivery.
+  if (isDistribuidoraBebidas(systemType)) {
+    groups.splice(1, 0, {
+      title: 'Delivery',
+      items: [{ href: DELIVERY_BOARD_URL, label: 'Pedidos de Delivery', icon: TruckIcon }],
+    })
+  }
 
   // Grupo exclusivo do nicho SoftwareHouse/TI - contratos de suporte
   // recorrente e visitas técnicas (coleta de equipamento/atendimento no
@@ -314,21 +330,42 @@ export function AppShell({
               {group.title}
             </div>
             <div className="flex flex-col gap-1">
-              {group.items.map(({ page, label, icon: Icon }) => (
-                <button
-                  key={page}
-                  type="button"
-                  onClick={() => handleNavigate(page)}
-                  className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-[13.5px] font-bold transition ${
-                    activePage === page
-                      ? 'bg-[var(--blue-500)] text-white shadow-sm'
-                      : 'text-[var(--ink-soft)] hover:bg-[var(--surface)]'
-                  }`}
-                >
-                  <Icon className="h-[17px] w-[17px]" />
-                  {label}
-                </button>
-              ))}
+              {group.items.map((item) => {
+                const Icon = item.icon
+
+                if ('href' in item) {
+                  return (
+                    <a
+                      key={item.href}
+                      href={item.href}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={() => setMobileNavOpen(false)}
+                      className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-[13.5px] font-bold text-[var(--ink-soft)] transition hover:bg-[var(--surface)]"
+                    >
+                      <Icon className="h-[17px] w-[17px]" />
+                      <span className="flex-1">{item.label}</span>
+                      <ArrowUpRightIcon className="h-3.5 w-3.5 opacity-60" />
+                    </a>
+                  )
+                }
+
+                return (
+                  <button
+                    key={item.page}
+                    type="button"
+                    onClick={() => handleNavigate(item.page)}
+                    className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-[13.5px] font-bold transition ${
+                      activePage === item.page
+                        ? 'bg-[var(--blue-500)] text-white shadow-sm'
+                        : 'text-[var(--ink-soft)] hover:bg-[var(--surface)]'
+                    }`}
+                  >
+                    <Icon className="h-[17px] w-[17px]" />
+                    {item.label}
+                  </button>
+                )
+              })}
             </div>
           </div>
         ))}
