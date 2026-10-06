@@ -1,10 +1,11 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { createPerson, fetchPeople, type PersonPayload, type PersonRecord } from '../lib/people'
+import { createPerson, fetchPeople, PERSON_IE_INDICATOR_LABELS, type PersonPayload, type PersonRecord } from '../lib/people'
 import { fetchCnpjData } from '../lib/cnpjLookup'
 import { formatDocument } from '../lib/formatDocument'
 import { formatPhone } from '../lib/formatPhone'
 import { ApiError } from '../lib/api'
 import { TextField } from './form/TextField'
+import { SelectField } from './form/SelectField'
 import { CloseIcon, FileTextIcon, MailIcon, UserIcon, WhatsappIcon } from './icons'
 import type { AuthCompany, AuthSession } from '../lib/auth'
 
@@ -33,6 +34,8 @@ export function QuickPersonModal({ request, session, company, onClose }: QuickPe
   const [document, setDocument] = useState('')
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
+  const [ieIndicator, setIeIndicator] = useState(9)
+  const [stateRegistration, setStateRegistration] = useState('')
   const [address, setAddress] = useState<PersonPayload['address']>(undefined)
   const [lookingUp, setLookingUp] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -45,6 +48,8 @@ export function QuickPersonModal({ request, session, company, onClose }: QuickPe
     setDocument('')
     setPhone('')
     setEmail('')
+    setIeIndicator(9)
+    setStateRegistration('')
     setAddress(undefined)
     setError(null)
     setExisting(null)
@@ -100,6 +105,11 @@ export function QuickPersonModal({ request, session, company, onClose }: QuickPe
       return
     }
 
+    if (ieIndicator === 1 && !stateRegistration.trim()) {
+      setError('Informe a inscrição estadual ou marque o cliente como "Não contribuinte".')
+      return
+    }
+
     setSaving(true)
     try {
       const created = await createPerson(session.token.token, {
@@ -111,6 +121,8 @@ export function QuickPersonModal({ request, session, company, onClose }: QuickPe
         status: [0],
         phone: phone.replace(/\D/g, '') || undefined,
         email: email.trim() || undefined,
+        state_registration_indicator: ieIndicator,
+        state_registration: ieIndicator === 1 ? stateRegistration.trim() : undefined,
         address,
       })
       request.onCreated(created)
@@ -189,6 +201,28 @@ export function QuickPersonModal({ request, session, company, onClose }: QuickPe
               value={email}
               onChange={(event) => setEmail(event.target.value)}
             />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <SelectField
+              label="Contribuinte de ICMS"
+              value={ieIndicator}
+              onChange={(event) => setIeIndicator(Number(event.target.value))}
+            >
+              {Object.entries(PERSON_IE_INDICATOR_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </SelectField>
+            {ieIndicator === 1 && (
+              <TextField
+                label="Inscrição estadual"
+                icon={<FileTextIcon className="h-4 w-4" />}
+                placeholder="Número da IE"
+                value={stateRegistration}
+                onChange={(event) => setStateRegistration(event.target.value)}
+              />
+            )}
           </div>
         </div>
 

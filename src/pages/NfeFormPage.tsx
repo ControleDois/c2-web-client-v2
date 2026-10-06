@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { MoneyInput } from '../components/form/MoneyInput'
 import {
   createNfe,
   fetchNfe,
   updateNfe,
+  sendNfe,
+  formatNfeProviderError,
   NFE_STATUS_LABELS,
   NFE_PRESENCA_COMPRADOR_OPTIONS,
   NFE_INDICADOR_PAGAMENTO_OPTIONS,
@@ -28,6 +30,10 @@ import { SelectField } from '../components/form/SelectField'
 import { SearchSelectField } from '../components/form/SearchSelectField'
 import { useQuickPerson } from '../hooks/useQuickPerson'
 import { SectionCard } from '../components/SectionCard'
+import { ConfirmDialog } from '../components/ConfirmDialog'
+import { NfeCustomerSummary } from '../components/NfeCustomerSummary'
+import { QuickNatureOperationModal, type QuickNatureOperationRequest } from '../components/QuickNatureOperationModal'
+import { QuickProductModal, type QuickProductRequest } from '../components/QuickProductModal'
 import { TrashIcon, ChevronLeftIcon, PlusIcon, ChevronDownIcon, AlertTriangleIcon } from '../components/icons'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
@@ -122,6 +128,8 @@ function productTotal(item: ProductEntry): number {
   return parseAmount(item.amount) * parseAmount(item.costValue)
 }
 
+const STEPS = ['Cliente', 'Produtos', 'Avançado'] as const
+
 function today(): string {
   return new Date().toISOString().slice(0, 10)
 }
@@ -134,6 +142,13 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
   const [error, setError] = useState<string[]>([])
   const [pendencies, setPendencies] = useState<Pendencies | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
+  const [step, setStep] = useState(0)
+  const [savedId, setSavedId] = useState<string | undefined>(nfeId)
+  const [confirmEmit, setConfirmEmit] = useState(false)
+  const [natureRequest, setNatureRequest] = useState<QuickNatureOperationRequest | null>(null)
+  const [productRequest, setProductRequest] = useState<QuickProductRequest | null>(null)
+  // Nota nova: o 1º pagamento acompanha o total da nota até a pessoa mexer no valor.
+  const [autoPayment, setAutoPayment] = useState(!nfeId)
 
   const [code, setCode] = useState<number | undefined>(undefined)
   const [status, setStatus] = useState(0)
@@ -218,7 +233,14 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
   )
 
   const productsTotal = useMemo(() => products.reduce((sum, item) => sum + productTotal(item), 0), [products])
-  const grandTotal = Math.max(0, productsTotal - parseAmount(valorDesconto))
+  const grandTotal = Math.max(
+    0,
+    productsTotal +
+      parseAmount(valorFrete) +
+      parseAmount(valorSeguro) +
+      parseAmount(valorOutrasDespesas) -
+      parseAmount(valorDesconto)
+  )
   const paymentsTotal = useMemo(
     () => payments.reduce((sum, payment) => sum + parseAmount(payment.valorPagamento), 0),
     [payments]
@@ -248,52 +270,98 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
   }
 
   function handleAddPayment() {
-    setPayments((prev) => [...prev, emptyPaymentEntry(`payment-${Date.now()}-${prev.length}`)])
+    setAutoPayment(false)
+    setPayments((prev) => {
+      const entry = emptyPaymentEntry(`payment-${Date.now()}-${prev.length}`)
+      const paid = prev.reduce((sum, payment) => sum + parseAmount(payment.valorPagamento), 0)
+      const remaining = grandTotal - paid
+      return [...prev, { ...entry, valorPagamento: remaining > 0 ? remaining.toFixed(2) : '' }]
+    })
   }
 
   function handleUpdatePayment(tempId: string, patch: Partial<PaymentEntry>) {
+    if (patch.valorPagamento !== undefined) setAutoPayment(false)
     setPayments((prev) => prev.map((payment) => (payment.tempId === tempId ? { ...payment, ...patch } : payment)))
   }
+
+  // Ao chegar no passo Avançado sem pagamento, já sugere um pagamento em dinheiro com o total.
+  useEffect(() => {
+    if (step !== 2 || payments.length > 0 || loading) return
+    setPayments([{ ...emptyPaymentEntry('payment-auto'), valorPagamento: grandTotal > 0 ? grandTotal.toFixed(2) : '' }])
+  }, [step, payments.length, loading, grandTotal])
+
+  useEffect(() => {
+    if (!autoPayment || payments.length !== 1) return
+    const target = grandTotal > 0 ? grandTotal.toFixed(2) : ''
+    setPayments((prev) => (prev.length === 1 && prev[0].valorPagamento !== target ? [{ ...prev[0], valorPagamento: target }] : prev))
+  }, [autoPayment, payments.length, grandTotal])
 
   function handleRemovePayment(tempId: string) {
     setPayments((prev) => prev.filter((payment) => payment.tempId !== tempId))
   }
 
-  async function handleSubmit(event: FormEvent) {
-    event.preventDefault()
+  function validateStep(target: number): string[] {
+    if (target === 0) {
+      const messages: string[] = []
+      if (!customer) messages.push('Selecione o cliente da NF-e.')
+      if (!natureOperation) messages.push('Selecione a natureza de operação da NF-e.')
+      return messages
+    }
+    if (target === 1) {
+      return products.length === 0 ? ['Adicione pelo menos um produto.'] : []
+    }
+    if (payments.length === 0) return ['Adicione pelo menos uma forma de pagamento.']
+    const messages: string[] = []
+    payments.forEach((payment, index) => {
+      if (parseAmount(payment.valorPagamento) <= 0) {
+        messages.push(`Pagamento ${index + 1}: informe um valor maior que zero.`)
+      }
+      if (payment.formaPagamento === '99' && !payment.descricaoPagamento.trim()) {
+        messages.push(`Pagamento ${index + 1}: descreva a forma de pagamento (obrigatório para "Outros").`)
+      }
+    })
+    return messages
+  }
+
+  function goNext() {
+    const messages = validateStep(step)
+    setError(messages)
+    if (messages.length === 0) setStep((current) => Math.min(current + 1, STEPS.length - 1))
+  }
+
+  function goToStep(target: number) {
+    if (target <= step) {
+      setError([])
+      setStep(target)
+      return
+    }
+    for (let index = step; index < target; index++) {
+      const messages = validateStep(index)
+      if (messages.length > 0) {
+        setStep(index)
+        setError(messages)
+        return
+      }
+    }
+    setError([])
+    setStep(target)
+  }
+
+  async function handleSubmit(emit = false) {
     setError([])
 
-    if (!customer) {
-      setError(['Selecione o cliente da NF-e.'])
-      return
-    }
-    if (!natureOperation) {
-      setError(['Selecione a natureza de operação da NF-e.'])
-      return
-    }
-    if (products.length === 0) {
-      setError(['Adicione pelo menos um produto.'])
-      return
-    }
-    if (payments.length === 0) {
-      setError(['Adicione pelo menos uma forma de pagamento.'])
-      return
-    }
-    const missingDescricao = payments
-      .map((payment, index) => ({ payment, index }))
-      .filter(({ payment }) => payment.formaPagamento === '99' && !payment.descricaoPagamento.trim())
-    if (missingDescricao.length > 0) {
-      setError(
-        missingDescricao.map(
-          ({ index }) => `Pagamento ${index + 1}: descreva a forma de pagamento (obrigatório para "Outros").`
-        )
-      )
-      return
+    for (let index = 0; index < STEPS.length; index++) {
+      const messages = validateStep(index)
+      if (messages.length > 0) {
+        setStep(index)
+        setError(messages)
+        return
+      }
     }
 
     const payload: NfeDraftPayload = {
-      peopleId: customer.id,
-      nfeNatureOperationId: natureOperation.id,
+      peopleId: customer!.id,
+      nfeNatureOperationId: natureOperation!.id,
       modelo: 55,
       presenca_comprador: presencaComprador,
       local_destino_override: localDestinoOverride ? Number(localDestinoOverride) : undefined,
@@ -328,10 +396,19 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
 
     setSubmitting(true)
     try {
-      if (nfeId) {
-        await updateNfe(session.token.token, nfeId, payload)
-      } else {
-        await createNfe(session.token.token, payload)
+      const record = savedId ? await updateNfe(session.token.token, savedId, payload) : await createNfe(session.token.token, payload)
+      const id = record?.id ?? savedId
+      if (id) setSavedId(id)
+
+      if (emit && id) {
+        try {
+          await sendNfe(session.token.token, id)
+        } catch (err) {
+          const found = extractPendencies(err)
+          if (found) setPendencies(found)
+          else setError([formatNfeProviderError(err, 'A nota foi salva como rascunho, mas não foi possível emitir.')])
+          return
+        }
       }
       onSaved()
     } catch (err) {
@@ -383,7 +460,7 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
           </button>
         </div>
       ) : (
-        <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+        <form onSubmit={(event) => event.preventDefault()} className="flex flex-col gap-6">
           {nfeId && status !== 0 && (
             <div className="rounded-2xl bg-[var(--amber-100)] px-4 py-3 text-[13px] font-medium text-[var(--amber-500)]">
               Esta NF-e já está com status "{NFE_STATUS_LABELS[status] ?? status}". Editar o rascunho não altera a
@@ -391,8 +468,43 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
             </div>
           )}
 
-          <SectionCard title="Dados da NF-e">
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <nav aria-label="Etapas da NF-e" className="grid grid-cols-3 gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-2">
+            {STEPS.map((label, index) => {
+              const active = index === step
+              const done = index < step
+              return (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => goToStep(index)}
+                  aria-current={active ? 'step' : undefined}
+                  className={`flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-[13.5px] font-bold transition ${
+                    active
+                      ? 'bg-[var(--blue-500)] text-white'
+                      : 'text-[var(--ink-soft)] hover:bg-[var(--page)] hover:text-[var(--ink)]'
+                  }`}
+                >
+                  <span
+                    className={`flex h-6 w-6 flex-none items-center justify-center rounded-full text-[12px] ${
+                      active
+                        ? 'bg-white/25 text-white'
+                        : done
+                          ? 'bg-[var(--green-600)] text-white'
+                          : 'bg-[var(--page)] text-[var(--ink-soft)]'
+                    }`}
+                  >
+                    {done ? '✓' : index + 1}
+                  </span>
+                  {label}
+                </button>
+              )
+            })}
+          </nav>
+
+          {step === 0 && (
+            <>
+          <SectionCard title="Cliente e natureza da operação">
+            <div className="grid gap-4 sm:grid-cols-2">
               <SearchSelectField
                 label="Cliente"
                 placeholder="Buscar por nome ou documento"
@@ -408,63 +520,33 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
                 onClear={() => setCustomer(null)}
               />
               <SearchSelectField
-                label="Natureza de operação"
+                label="Natureza da operação"
                 placeholder="Buscar natureza de operação"
                 selectedLabel={natureOperation?.label ?? null}
                 onSearch={searchNatureOperations}
                 getOptionLabel={(item: NfeNatureOperationRecord) => item.description}
                 onSelect={(item: NfeNatureOperationRecord) => setNatureOperation({ id: item.id, label: item.description })}
+                onCreate={(typed) =>
+                  setNatureRequest({
+                    description: typed,
+                    onCreated: (item: NfeNatureOperationRecord) => setNatureOperation({ id: item.id, label: item.description }),
+                  })
+                }
                 onClear={() => setNatureOperation(null)}
               />
-              <SelectField
-                label="Presença do comprador"
-                value={presencaComprador}
-                onChange={(event) => setPresencaComprador(Number(event.target.value))}
-              >
-                {NFE_PRESENCA_COMPRADOR_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </SelectField>
-              <SelectField
-                label="Classificação da operação (CFOP/idDest)"
-                value={localDestinoOverride}
-                onChange={(event) => setLocalDestinoOverride(event.target.value)}
-              >
-                {NFE_LOCAL_DESTINO_OVERRIDE_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </SelectField>
-              <SelectField
-                label="Consumidor final"
-                value={consumidorFinalOverride}
-                onChange={(event) => setConsumidorFinalOverride(event.target.value)}
-              >
-                {NFE_CONSUMIDOR_FINAL_OVERRIDE_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </SelectField>
             </div>
-            {(localDestinoOverride || consumidorFinalOverride) && (
-              <p className="mt-3 flex items-start gap-2 rounded-xl bg-[var(--amber-100)] px-3.5 py-2.5 text-[12.5px] font-medium text-[var(--amber-500)]">
-                <AlertTriangleIcon className="mt-0.5 h-3.5 w-3.5 flex-none" />
-                Você está forçando manualmente {localDestinoOverride && consumidorFinalOverride
-                  ? 'a classificação da operação e o consumidor final'
-                  : localDestinoOverride
-                    ? 'a classificação da operação'
-                    : 'o consumidor final'}{' '}
-                em vez de deixar o sistema calcular pelo cadastro do cliente. A SEFAZ pode rejeitar se isso não
-                corresponder à situação fiscal real (ex: inscrição estadual de substituto tributário no estado de
-                destino). Use por sua conta e risco.
-              </p>
+            {customer && (
+              <div className="mt-5">
+                <h3 className="mb-2 text-[12.5px] font-bold text-[var(--ink)]">Dados do cliente</h3>
+                <NfeCustomerSummary token={session.token.token} personId={customer.id} />
+              </div>
             )}
           </SectionCard>
+            </>
+          )}
 
+          {step === 1 && (
+            <>
           <SectionCard
             title="Produtos"
             headerExtra={<span className="text-[13.5px] font-bold text-[var(--ink)]">Total: {formatCurrency(productsTotal)}</span>}
@@ -478,6 +560,7 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
                 getOptionLabel={(item: ProductRecord) => item.name}
                 getOptionSubLabel={(item: ProductRecord) => (item.sale_value ? formatCurrency(item.sale_value) : undefined)}
                 onSelect={(item: ProductRecord) => handleAddProduct(item)}
+                onCreate={(typed) => setProductRequest({ name: typed, onCreated: handleAddProduct })}
                 onClear={() => {}}
               />
             </div>
@@ -562,57 +645,11 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
             )}
           </SectionCard>
 
-          <SectionCard title="Frete, seguro e despesas">
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <label className="flex flex-col gap-1.5">
-                <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Frete (R$)</span>
-                <MoneyInput
-                  value={valorFrete}
-                  onChange={(event) => setValorFrete(event.target.value.replace(/[^\d.,]/g, ''))}
-                  placeholder="0,00"
-                  className="rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
-                />
-              </label>
-              <label className="flex flex-col gap-1.5">
-                <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Seguro (R$)</span>
-                <MoneyInput
-                  value={valorSeguro}
-                  onChange={(event) => setValorSeguro(event.target.value.replace(/[^\d.,]/g, ''))}
-                  placeholder="0,00"
-                  className="rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
-                />
-              </label>
-              <label className="flex flex-col gap-1.5">
-                <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Desconto (R$)</span>
-                <MoneyInput
-                  value={valorDesconto}
-                  onChange={(event) => setValorDesconto(event.target.value.replace(/[^\d.,]/g, ''))}
-                  placeholder="0,00"
-                  className="rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
-                />
-              </label>
-              <label className="flex flex-col gap-1.5">
-                <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Outras despesas (R$)</span>
-                <MoneyInput
-                  value={valorOutrasDespesas}
-                  onChange={(event) => setValorOutrasDespesas(event.target.value.replace(/[^\d.,]/g, ''))}
-                  placeholder="0,00"
-                  className="rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
-                />
-              </label>
-            </div>
-          </SectionCard>
+            </>
+          )}
 
-          <SectionCard title="Observações" subtitle="Aparece em Informações Complementares no DANFE">
-            <textarea
-              value={observacoes}
-              onChange={(event) => setObservacoes(event.target.value)}
-              rows={3}
-              placeholder="Ex: Nota fiscal referente ao evento realizado em..."
-              className="w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition placeholder:text-[var(--muted)] focus:outline-none focus:ring-[var(--blue-300)]"
-            />
-          </SectionCard>
-
+          {step === 2 && (
+            <>
           <SectionCard
             title="Pagamentos"
             headerExtra={
@@ -624,7 +661,7 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
               </div>
             }
           >
-            <div className="mb-4">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <button
                 type="button"
                 onClick={handleAddPayment}
@@ -633,6 +670,17 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
                 <PlusIcon className="h-3.5 w-3.5" />
                 Adicionar pagamento
               </button>
+              {payments.length === 1 && (
+                <label className="flex items-center gap-2 text-[12.5px] font-semibold text-[var(--ink-soft)]">
+                  <input
+                    type="checkbox"
+                    checked={autoPayment}
+                    onChange={(event) => setAutoPayment(event.target.checked)}
+                    className="h-4 w-4 accent-[var(--blue-500)]"
+                  />
+                  Calcular automaticamente
+                </label>
+              )}
             </div>
 
             {payments.length === 0 ? (
@@ -726,6 +774,10 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
                         </label>
                       </div>
 
+                      <details className="mt-3.5 rounded-xl bg-[var(--surface)] px-3.5 py-2.5">
+                        <summary className="cursor-pointer text-[12.5px] font-bold text-[var(--ink-soft)]">
+                          Dados de cartão / PIX (opcional)
+                        </summary>
                       <div className="mt-3.5 grid gap-3.5 sm:grid-cols-2 xl:grid-cols-3">
                         <SelectField
                           label="Tipo de integração"
@@ -819,12 +871,122 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
                           />
                         </label>
                       </div>
+                      </details>
                     </div>
                   )
                 })}
               </div>
             )}
           </SectionCard>
+
+          <SectionCard title="Frete, seguro, desconto e despesas">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <label className="flex flex-col gap-1.5">
+                <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Frete (R$)</span>
+                <MoneyInput
+                  value={valorFrete}
+                  onChange={(event) => setValorFrete(event.target.value.replace(/[^\d.,]/g, ''))}
+                  placeholder="0,00"
+                  className="rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
+                />
+              </label>
+              <label className="flex flex-col gap-1.5">
+                <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Seguro (R$)</span>
+                <MoneyInput
+                  value={valorSeguro}
+                  onChange={(event) => setValorSeguro(event.target.value.replace(/[^\d.,]/g, ''))}
+                  placeholder="0,00"
+                  className="rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
+                />
+              </label>
+              <label className="flex flex-col gap-1.5">
+                <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Desconto (R$)</span>
+                <MoneyInput
+                  value={valorDesconto}
+                  onChange={(event) => setValorDesconto(event.target.value.replace(/[^\d.,]/g, ''))}
+                  placeholder="0,00"
+                  className="rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
+                />
+              </label>
+              <label className="flex flex-col gap-1.5">
+                <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Outras despesas (R$)</span>
+                <MoneyInput
+                  value={valorOutrasDespesas}
+                  onChange={(event) => setValorOutrasDespesas(event.target.value.replace(/[^\d.,]/g, ''))}
+                  placeholder="0,00"
+                  className="rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
+                />
+              </label>
+            </div>
+          </SectionCard>
+
+          <SectionCard
+            title="Operação"
+            subtitle="Presença do comprador e ajustes da classificação — o sistema calcula pelo cadastro do cliente"
+            defaultCollapsed
+          >
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              <SelectField
+                label="Presença do comprador"
+                value={presencaComprador}
+                onChange={(event) => setPresencaComprador(Number(event.target.value))}
+              >
+                {NFE_PRESENCA_COMPRADOR_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </SelectField>
+              <SelectField
+                label="Classificação da operação (CFOP/idDest)"
+                value={localDestinoOverride}
+                onChange={(event) => setLocalDestinoOverride(event.target.value)}
+              >
+                {NFE_LOCAL_DESTINO_OVERRIDE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </SelectField>
+              <SelectField
+                label="Consumidor final"
+                value={consumidorFinalOverride}
+                onChange={(event) => setConsumidorFinalOverride(event.target.value)}
+              >
+                {NFE_CONSUMIDOR_FINAL_OVERRIDE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </SelectField>
+            </div>
+            {(localDestinoOverride || consumidorFinalOverride) && (
+              <p className="mt-3 flex items-start gap-2 rounded-xl bg-[var(--amber-100)] px-3.5 py-2.5 text-[12.5px] font-medium text-[var(--amber-500)]">
+                <AlertTriangleIcon className="mt-0.5 h-3.5 w-3.5 flex-none" />
+                Você está forçando manualmente {localDestinoOverride && consumidorFinalOverride
+                  ? 'a classificação da operação e o consumidor final'
+                  : localDestinoOverride
+                    ? 'a classificação da operação'
+                    : 'o consumidor final'}{' '}
+                em vez de deixar o sistema calcular pelo cadastro do cliente. A SEFAZ pode rejeitar se isso não
+                corresponder à situação fiscal real (ex: inscrição estadual de substituto tributário no estado de
+                destino). Use por sua conta e risco.
+              </p>
+            )}
+          </SectionCard>
+
+          <SectionCard title="Observações" subtitle="Aparece em Informações Complementares no DANFE">
+            <textarea
+              value={observacoes}
+              onChange={(event) => setObservacoes(event.target.value)}
+              rows={3}
+              placeholder="Ex: Nota fiscal referente ao evento realizado em..."
+              className="w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition placeholder:text-[var(--muted)] focus:outline-none focus:ring-[var(--blue-300)]"
+            />
+          </SectionCard>
+
+            </>
+          )}
 
           <PendenciesDialog pendencies={pendencies} onClose={() => setPendencies(null)} />
 
@@ -838,25 +1000,86 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
             </div>
           )}
 
-          <div className="flex items-center gap-3">
-            <button
-              type="submit"
-              disabled={submitting}
-              className="rounded-xl bg-[var(--blue-500)] px-6 py-2.5 text-[14px] font-bold text-white transition hover:bg-[var(--blue-700)] disabled:opacity-60"
-            >
-              {submitting ? 'Salvando…' : nfeId && status !== 0 ? 'Salvar alterações' : 'Salvar rascunho'}
-            </button>
-            <button
-              type="button"
-              onClick={onBack}
-              className="rounded-xl px-5 py-2.5 text-[14px] font-semibold text-[var(--ink-soft)] hover:text-[var(--ink)]"
-            >
-              Cancelar
-            </button>
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
+            <div className="flex items-center gap-4">
+              <button
+                type="button"
+                onClick={step === 0 ? onBack : () => goToStep(step - 1)}
+                className="rounded-xl border border-[var(--border)] px-5 py-2.5 text-[14px] font-semibold text-[var(--ink-soft)] hover:text-[var(--ink)]"
+              >
+                {step === 0 ? 'Cancelar' : 'Voltar'}
+              </button>
+              <span className="text-[13px] font-semibold text-[var(--ink-soft)]">
+                Total da nota: <span className="text-[var(--ink)]">{formatCurrency(grandTotal)}</span>
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={() => handleSubmit(false)}
+                disabled={submitting}
+                className="rounded-xl border border-[var(--border)] px-5 py-2.5 text-[14px] font-bold text-[var(--blue-700)] transition hover:bg-[var(--page)] disabled:opacity-60"
+              >
+                {submitting ? 'Salvando…' : nfeId && status !== 0 ? 'Salvar alterações' : 'Salvar rascunho'}
+              </button>
+              {step < STEPS.length - 1 ? (
+                <button
+                  type="button"
+                  onClick={goNext}
+                  className="rounded-xl bg-[var(--blue-500)] px-6 py-2.5 text-[14px] font-bold text-white transition hover:bg-[var(--blue-700)]"
+                >
+                  Avançar
+                </button>
+              ) : (
+                (!nfeId || status === 0) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const messages = [0, 1, 2].flatMap((index) => validateStep(index))
+                      if (messages.length > 0) {
+                        handleSubmit(false)
+                        return
+                      }
+                      setConfirmEmit(true)
+                    }}
+                    disabled={submitting}
+                    className="rounded-xl bg-[var(--blue-500)] px-6 py-2.5 text-[14px] font-bold text-white transition hover:bg-[var(--blue-700)] disabled:opacity-60"
+                  >
+                    Salvar e emitir
+                  </button>
+                )
+              )}
+            </div>
           </div>
+
+          <ConfirmDialog
+            open={confirmEmit}
+            title="Emitir NF-e agora?"
+            message={`A nota de ${formatCurrency(grandTotal)} será salva e enviada à SEFAZ. Depois de autorizada, só dá para cancelar com justificativa ou corrigir por carta de correção.`}
+            confirmLabel="Emitir"
+            danger={false}
+            loading={submitting}
+            onConfirm={() => {
+              setConfirmEmit(false)
+              handleSubmit(true)
+            }}
+            onCancel={() => setConfirmEmit(false)}
+          />
         </form>
       )}
       {quickPerson.modal}
+      <QuickNatureOperationModal
+        request={natureRequest}
+        session={session}
+        company={company}
+        onClose={() => setNatureRequest(null)}
+      />
+      <QuickProductModal
+        request={productRequest}
+        session={session}
+        company={company}
+        onClose={() => setProductRequest(null)}
+      />
     </div>
   )
 }

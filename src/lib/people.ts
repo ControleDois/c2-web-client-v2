@@ -79,6 +79,8 @@ export interface PersonPayload {
   status?: number[]
   phone?: string
   email?: string
+  state_registration_indicator?: number
+  state_registration?: string
   internal_code?: number
   birth?: string
   limit_credit?: number
