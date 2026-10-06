@@ -78,6 +78,7 @@ export function CompanyFormPage({ session, companyId, onBack, onSaved, embedded 
   const [city, setCity] = useState('')
   const [state, setState] = useState('')
   const [complement, setComplement] = useState('')
+  const [codeIbge, setCodeIbge] = useState('')
 
   const [cnpjLoading, setCnpjLoading] = useState(false)
   const [cnpjMessage, setCnpjMessage] = useState<string | null>(null)
@@ -133,6 +134,7 @@ export function CompanyFormPage({ session, companyId, onBack, onSaved, embedded 
       setCity(company.address?.city ?? '')
       setState(company.address?.state ?? '')
       setComplement(company.address?.complement ?? '')
+      setCodeIbge(company.address?.code_ibge ?? '')
       setCertificatePath(company.certificate_path ?? null)
       setCertificatePassword(company.certificate_password ?? '')
       setExistingLogoUrl(company.file_url ?? null)
@@ -227,6 +229,7 @@ export function CompanyFormPage({ session, companyId, onBack, onSaved, embedded 
       if (result.district) setDistrict(result.district)
       if (result.city) setCity(result.city)
       if (result.state) setState(result.state)
+      if (result.codeIbge) setCodeIbge(result.codeIbge)
     } catch {
       setCnpjMessage('Não foi possível encontrar o CNPJ.')
     } finally {
@@ -246,6 +249,7 @@ export function CompanyFormPage({ session, companyId, onBack, onSaved, embedded 
       if (result.district) setDistrict(result.district)
       if (result.city) setCity(result.city)
       if (result.state) setState(result.state)
+      if (result.codeIbge) setCodeIbge(result.codeIbge)
     } catch {
       setCepMessage('Não foi possível encontrar o CEP.')
     } finally {
@@ -272,6 +276,7 @@ export function CompanyFormPage({ session, companyId, onBack, onSaved, embedded 
       city: city || undefined,
       state: state || undefined,
       complement: complement || undefined,
+      code_ibge: codeIbge || undefined,
     }
     const hasAddress = Object.values(address).some(Boolean)
 
@@ -555,7 +560,14 @@ export function CompanyFormPage({ session, companyId, onBack, onSaved, embedded 
                   </option>
                 ))}
               </SelectField>
-              <div className="sm:col-span-2">
+              <TextField
+                label="Código IBGE do município"
+                icon={<UserIcon className="h-4 w-4" />}
+                placeholder="Preenchido ao buscar o CEP"
+                value={codeIbge}
+                onChange={(event) => setCodeIbge(event.target.value.replace(/\D/g, '').slice(0, 7))}
+              />
+              <div className="sm:col-span-3">
                 <TextField
                   label="Complemento"
                   icon={<UserIcon className="h-4 w-4" />}

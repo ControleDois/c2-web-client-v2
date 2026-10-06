@@ -6,6 +6,7 @@ import {
   updatePerson,
   ROLE_LABELS,
   STATUS_LABELS,
+  PERSON_IE_INDICATOR_LABELS,
   type PersonRecord,
   type PersonDocumentInput,
 } from '../lib/people'
@@ -116,6 +117,9 @@ export function PeopleFormPage({
   const [city, setCity] = useState('')
   const [state, setState] = useState('')
   const [complement, setComplement] = useState('')
+  const [codeIbge, setCodeIbge] = useState('')
+  const [ieIndicator, setIeIndicator] = useState(9)
+  const [stateRegistration, setStateRegistration] = useState('')
 
   const [documents, setDocuments] = useState<DocEntry[]>([])
   const [viewerIndex, setViewerIndex] = useState<number | null>(null)
@@ -195,6 +199,16 @@ export function PeopleFormPage({
         setCity(person.address?.city ?? '')
         setState(person.address?.state ?? '')
         setComplement(person.address?.complement ?? '')
+        setCodeIbge(person.address?.code_ibge ?? '')
+        // Cadastros antigos (indicador vazio/0) com IE são contribuintes; sem IE, consumo.
+        setIeIndicator(
+          person.state_registration_indicator && [1, 2, 9].includes(person.state_registration_indicator)
+            ? person.state_registration_indicator
+            : person.state_registration
+              ? 1
+              : 9
+        )
+        setStateRegistration(person.state_registration ?? '')
         setDocuments(
           (person.documents ?? []).map((doc) => ({
             id: doc.id,
@@ -238,6 +252,7 @@ export function PeopleFormPage({
       if (result.district) setDistrict(result.district)
       if (result.city) setCity(result.city)
       if (result.state) setState(result.state)
+      if (result.codeIbge) setCodeIbge(result.codeIbge)
     } catch {
       setCnpjMessage('Não foi possível encontrar o CNPJ.')
     } finally {
@@ -257,6 +272,7 @@ export function PeopleFormPage({
       if (result.district) setDistrict(result.district)
       if (result.city) setCity(result.city)
       if (result.state) setState(result.state)
+      if (result.codeIbge) setCodeIbge(result.codeIbge)
     } catch {
       setCepMessage('Não foi possível encontrar o CEP.')
     } finally {
@@ -294,6 +310,7 @@ export function PeopleFormPage({
       city: city || undefined,
       state: state || undefined,
       complement: complement || undefined,
+      code_ibge: codeIbge || undefined,
     }
     const hasAddress = Object.values(address).some(Boolean)
 
@@ -327,6 +344,8 @@ export function PeopleFormPage({
       time_clock_salary_type: timeClockEnabled && tcSalaryType ? tcSalaryType : undefined,
       time_clock_salary_value: timeClockEnabled && tcSalaryValue.trim() ? parseCurrencyInput(tcSalaryValue) : undefined,
       address: hasAddress ? address : undefined,
+      state_registration_indicator: ieIndicator,
+      state_registration: ieIndicator === 1 ? stateRegistration.trim() || undefined : undefined,
       documents: documentEntries,
       file: avatarFile,
     }
@@ -684,7 +703,14 @@ export function PeopleFormPage({
                     </option>
                   ))}
                 </SelectField>
-                <div className="sm:col-span-2">
+                <TextField
+                  label="Código IBGE do município"
+                  icon={<UserIcon className="h-4 w-4" />}
+                  placeholder="Preenchido ao buscar o CEP"
+                  value={codeIbge}
+                  onChange={(event) => setCodeIbge(event.target.value.replace(/\D/g, '').slice(0, 7))}
+                />
+                <div className="sm:col-span-3">
                   <TextField
                     label="Complemento"
                     icon={<UserIcon className="h-4 w-4" />}
@@ -693,6 +719,34 @@ export function PeopleFormPage({
                     onChange={(event) => setComplement(event.target.value)}
                   />
                 </div>
+              </div>
+            </div>
+
+            <div className="mt-6">
+              <h2 className="mb-1 text-[14px] font-bold text-[var(--ink)]">Fiscal (NF-e)</h2>
+              <p className="mb-4 text-[12px] text-[var(--muted)]">
+                Cliente que compra para consumo e não tem inscrição estadual deve ficar como “Não contribuinte”.
+              </p>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <SelectField
+                  label="Inscrição estadual"
+                  value={ieIndicator}
+                  onChange={(event) => setIeIndicator(Number(event.target.value))}
+                >
+                  {Object.entries(PERSON_IE_INDICATOR_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </SelectField>
+                {ieIndicator === 1 && (
+                  <TextField
+                    label="Número da inscrição estadual"
+                    icon={<UserIcon className="h-4 w-4" />}
+                    value={stateRegistration}
+                    onChange={(event) => setStateRegistration(event.target.value)}
+                  />
+                )}
               </div>
             </div>
           </div>

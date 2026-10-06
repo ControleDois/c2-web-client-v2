@@ -11,6 +11,14 @@ export interface PersonAddress {
   code_ibge?: string
 }
 
+// Indicador de IE do destinatário na NF-e (SEFAZ): 9 = não contribuinte (consumo),
+// 1 = contribuinte (precisa de IE), 2 = isento.
+export const PERSON_IE_INDICATOR_LABELS: Record<number, string> = {
+  9: 'Não contribuinte (consumo, sem IE)',
+  1: 'Contribuinte (tem IE)',
+  2: 'Contribuinte isento',
+}
+
 export interface PersonDocument {
   id: string
   title: string
@@ -42,6 +50,8 @@ export interface PersonRecord {
   birth?: string | null
   file_url?: string | null
   address?: PersonAddress | null
+  state_registration_indicator?: number | null
+  state_registration?: string | null
   documents?: PersonDocument[]
   // Limite de crédito (nicho Empréstimo) - `limit_credit` é o total
   // cadastrado, `available_limit` já desconta o que está em aberto.
