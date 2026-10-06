@@ -722,14 +722,14 @@ export function PeopleFormPage({
               </div>
             </div>
 
-            <div className="mt-6">
-              <h2 className="mb-1 text-[14px] font-bold text-[var(--ink)]">Fiscal (NF-e)</h2>
-              <p className="mb-4 text-[12px] text-[var(--muted)]">
-                Cliente que compra para consumo e não tem inscrição estadual deve ficar como “Não contribuinte”.
+            <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6">
+              <h2 className="text-[14px] font-bold text-[var(--ink)]">Fiscal (NF-e)</h2>
+              <p className="mb-4 mt-0.5 text-[12px] text-[var(--muted)]">
+                Para compra de consumo, sem inscrição estadual, deixe como “Não contribuinte”.
               </p>
               <div className="grid gap-4 sm:grid-cols-3">
                 <SelectField
-                  label="Inscrição estadual"
+                  label="Contribuinte de ICMS"
                   value={ieIndicator}
                   onChange={(event) => setIeIndicator(Number(event.target.value))}
                 >
@@ -741,8 +741,9 @@ export function PeopleFormPage({
                 </SelectField>
                 {ieIndicator === 1 && (
                   <TextField
-                    label="Número da inscrição estadual"
+                    label="Inscrição estadual"
                     icon={<UserIcon className="h-4 w-4" />}
+                    placeholder="Número da IE"
                     value={stateRegistration}
                     onChange={(event) => setStateRegistration(event.target.value)}
                   />

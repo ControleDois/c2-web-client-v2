@@ -14,9 +14,9 @@ export interface PersonAddress {
 // Indicador de IE do destinatário na NF-e (SEFAZ): 9 = não contribuinte (consumo),
 // 1 = contribuinte (precisa de IE), 2 = isento.
 export const PERSON_IE_INDICATOR_LABELS: Record<number, string> = {
-  9: 'Não contribuinte (consumo, sem IE)',
-  1: 'Contribuinte (tem IE)',
-  2: 'Contribuinte isento',
+  9: 'Não contribuinte',
+  1: 'Contribuinte',
+  2: 'Isento',
 }
 
 export interface PersonDocument {
