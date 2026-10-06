@@ -22,6 +22,8 @@ import { fetchProducts, type ProductRecord } from '../lib/products'
 import { formatDocument } from '../lib/formatDocument'
 import { formatCurrency } from '../lib/format'
 import { ApiError } from '../lib/api'
+import { extractPendencies, type Pendencies } from '../lib/pendencies'
+import { PendenciesDialog } from '../components/PendenciesDialog'
 import { SelectField } from '../components/form/SelectField'
 import { SearchSelectField } from '../components/form/SearchSelectField'
 import { useQuickPerson } from '../hooks/useQuickPerson'
@@ -130,6 +132,7 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
   const [loadError, setLoadError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string[]>([])
+  const [pendencies, setPendencies] = useState<Pendencies | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
 
   const [code, setCode] = useState<number | undefined>(undefined)
@@ -332,7 +335,10 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
       }
       onSaved()
     } catch (err) {
-      if (err instanceof ApiError) {
+      const found = extractPendencies(err)
+      if (found) {
+        setPendencies(found)
+      } else if (err instanceof ApiError) {
         setError([err.message])
       } else {
         setError(['Não foi possível salvar a NF-e.'])
@@ -819,6 +825,8 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
               </div>
             )}
           </SectionCard>
+
+          <PendenciesDialog pendencies={pendencies} onClose={() => setPendencies(null)} />
 
           {error.length > 0 && (
             <div className="rounded-2xl bg-[var(--red-100)] p-4 text-[13.5px] font-medium text-[var(--red-500)]">

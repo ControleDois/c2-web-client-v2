@@ -12,6 +12,8 @@ import {
 import { formatNfeProviderError, formatNfeMensagemSefaz } from '../lib/nfes'
 import { useNfseStatusUpdates } from '../hooks/useNfseStatusUpdates'
 import { ApiError } from '../lib/api'
+import { extractPendencies, type Pendencies } from '../lib/pendencies'
+import { PendenciesDialog } from '../components/PendenciesDialog'
 import { formatCurrency, formatDateTime } from '../lib/format'
 import {
   SearchIcon,
@@ -59,6 +61,7 @@ export function NfsesPage({ session, company, onCreate, onEdit }: NfsesPageProps
   const [deleteTarget, setDeleteTarget] = useState<NfseRecord | null>(null)
   const [busy, setBusy] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [pendencies, setPendencies] = useState<Pendencies | null>(null)
   const [logsTarget, setLogsTarget] = useState<NfseRecord | null>(null)
   const [logs, setLogs] = useState<NfseSendLogRecord[]>([])
   const [loadingLogs, setLoadingLogs] = useState(false)
@@ -88,6 +91,13 @@ export function NfsesPage({ session, company, onCreate, onEdit }: NfsesPageProps
     setErrorTarget((prev) => (prev && prev.id === updated.id ? { ...prev, ...(updated as Partial<NfseRecord>) } : prev))
   })
 
+  // Lista de pendências do cadastro abre um quadro organizado; erro simples segue no aviso.
+  function showActionError(err: unknown, fallback: string) {
+    const found = extractPendencies(err)
+    if (found) setPendencies(found)
+    else setActionError(formatNfeProviderError(err, fallback))
+  }
+
   async function handleSend(nfse: NfseRecord) {
     setBusyId(nfse.id)
     setActionError(null)
@@ -95,7 +105,7 @@ export function NfsesPage({ session, company, onCreate, onEdit }: NfsesPageProps
       await sendNfse(token, nfse.id)
       load()
     } catch (err) {
-      setActionError(formatNfeProviderError(err, 'Não foi possível enviar a NFS-e.'))
+      showActionError(err, 'Não foi possível enviar a NFS-e.')
     } finally {
       setBusyId(null)
     }
@@ -108,7 +118,7 @@ export function NfsesPage({ session, company, onCreate, onEdit }: NfsesPageProps
       await forceSendNfse(token, nfse.id)
       load()
     } catch (err) {
-      setActionError(formatNfeProviderError(err, 'Não foi possível forçar o reenvio.'))
+      showActionError(err, 'Não foi possível forçar o reenvio.')
     } finally {
       setBusyId(null)
     }
@@ -489,6 +499,8 @@ export function NfsesPage({ session, company, onCreate, onEdit }: NfsesPageProps
           </div>
         </div>
       )}
+
+      <PendenciesDialog pendencies={pendencies} onClose={() => setPendencies(null)} />
 
       {actionError && (
         <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-xl bg-[var(--red-500)] px-4 py-2.5 text-[13px] font-semibold text-white shadow-lg">

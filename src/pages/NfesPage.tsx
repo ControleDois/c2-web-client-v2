@@ -22,6 +22,8 @@ import { fetchPeople, type PersonRecord } from '../lib/people'
 import { formatCurrency, formatDate, formatDateTime } from '../lib/format'
 import { formatLogPayload } from '../lib/logs'
 import { ApiError } from '../lib/api'
+import { extractPendencies, type Pendencies } from '../lib/pendencies'
+import { PendenciesDialog } from '../components/PendenciesDialog'
 import { useNfeStatusUpdates } from '../hooks/useNfeStatusUpdates'
 import {
   SearchIcon,
@@ -82,6 +84,7 @@ export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) 
   const [deleting, setDeleting] = useState(false)
   const [actionMessage, setActionMessage] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [pendencies, setPendencies] = useState<Pendencies | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
 
   const [cancelTarget, setCancelTarget] = useState<NfeRecord | null>(null)
@@ -188,6 +191,13 @@ export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) 
     }
   }
 
+  // Lista de pendências do cadastro abre um quadro organizado; erro simples segue no aviso.
+  function showActionError(err: unknown, fallback: string) {
+    const found = extractPendencies(err)
+    if (found) setPendencies(found)
+    else setActionError(formatNfeProviderError(err, fallback))
+  }
+
   async function handleSend(nfe: NfeRecord) {
     setBusyId(nfe.id)
     setActionError(null)
@@ -197,7 +207,7 @@ export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) 
       setActionMessage(res.mensagem)
       reload()
     } catch (err) {
-      setActionError(formatNfeProviderError(err, 'Não foi possível enviar a NF-e.'))
+      showActionError(err, 'Não foi possível enviar a NF-e.')
     } finally {
       setBusyId(null)
     }
@@ -212,7 +222,7 @@ export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) 
       setActionMessage(res.mensagem)
       reload()
     } catch (err) {
-      setActionError(formatNfeProviderError(err, 'Não foi possível forçar o reenvio da NF-e.'))
+      showActionError(err, 'Não foi possível forçar o reenvio da NF-e.')
     } finally {
       setBusyId(null)
     }
@@ -227,7 +237,7 @@ export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) 
       setActionMessage('Numeração pulada com sucesso.')
       reload()
     } catch (err) {
-      setActionError(formatNfeProviderError(err, 'Não foi possível pular a numeração da NF-e.'))
+      showActionError(err, 'Não foi possível pular a numeração da NF-e.')
     } finally {
       setBusyId(null)
     }
@@ -244,7 +254,7 @@ export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) 
       const created = await duplicateNfe(session.token.token, nfe.id)
       onEdit(created)
     } catch (err) {
-      setActionError(formatNfeProviderError(err, 'Não foi possível duplicar a NF-e.'))
+      showActionError(err, 'Não foi possível duplicar a NF-e.')
     } finally {
       setBusyId(null)
     }
@@ -256,7 +266,7 @@ export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) 
     try {
       await downloadNfeFile(session.token.token, nfe, type)
     } catch (err) {
-      setActionError(formatNfeProviderError(err, `Não foi possível baixar o ${type === 'xml' ? 'XML' : 'DANFE'}.`))
+      showActionError(err, `Não foi possível baixar o ${type === 'xml' ? 'XML' : 'DANFE'}.`)
     } finally {
       setBusyId(null)
     }
@@ -272,7 +282,7 @@ export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) 
       setPreviewTarget(nfe)
       setPreviewUrl(url)
     } catch (err) {
-      setActionError(formatNfeProviderError(err, 'Não foi possível gerar a prévia do DANFE.'))
+      showActionError(err, 'Não foi possível gerar a prévia do DANFE.')
     } finally {
       setBusyId(null)
     }
@@ -864,6 +874,8 @@ export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) 
           }}
         />
       )}
+
+      <PendenciesDialog pendencies={pendencies} onClose={() => setPendencies(null)} />
 
       {(actionMessage || actionError) && (
         <div
