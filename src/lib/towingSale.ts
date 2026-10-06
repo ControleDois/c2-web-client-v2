@@ -1,3 +1,4 @@
+import type { SendTimeline, SignatureEvidence } from './supportContracts'
 import { apiGet, apiPost, apiPut, apiDelete } from './api'
 
 export interface TowingPerson {
@@ -40,6 +41,12 @@ export interface TowingSaleRecord {
   id: string
   code: number
   status: number
+  // Vêm na listagem: contrato enviado/assinado e o tipo de assinatura
+  // ('nativo' = assinatura própria, 'autentique').
+  contract_sent?: boolean
+  contract_signed?: boolean
+  contract_provider?: string | null
+  contract_link?: string | null
   collection_status?: number
   collection_driver_id?: string | null
   vehicle_inspection_id?: string | null
@@ -140,7 +147,7 @@ export const COLLECTION_STATUS_LABELS: Record<number, string> = {
 }
 
 export function getContractLink(sale: TowingSaleRecord): string {
-  return sale.autentique_short_link || sale.autentiqueShortLink || ''
+  return sale.contract_link || sale.autentique_short_link || sale.autentiqueShortLink || ''
 }
 
 export function fetchTowingSales(
@@ -234,4 +241,12 @@ export function sendTowingSaleContractLink(token: string, id: string, whatsappId
     { whatsappId },
     token
   )
+}
+
+export function fetchTowingSendTimeline(token: string, id: string) {
+  return apiGet<SendTimeline>(`/towing-sale/send-timeline/${id}`, {}, token)
+}
+
+export function fetchTowingSignatureEvidence(token: string, id: string) {
+  return apiGet<{ signature: SignatureEvidence | null }>(`/towing-sale/signature-evidence/${id}`, {}, token)
 }

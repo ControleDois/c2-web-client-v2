@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { fetchSupportContractSendTimeline, type SendTimeline, type SendTimelineEvent } from '../lib/supportContracts'
 import { fetchLoanSendTimeline } from '../lib/sales'
+import { fetchTowingSendTimeline } from '../lib/towingSale'
 import { ApiError } from '../lib/api'
 import { CheckCircleIcon, CloseIcon } from './icons'
 import type { AuthSession } from '../lib/auth'
@@ -9,7 +10,7 @@ interface SupportContractTimelineModalProps {
   open: boolean
   session: AuthSession
   contract: { id: string; people?: { name?: string | null } | null } | null
-  flow?: 'support' | 'loan'
+  flow?: 'support' | 'loan' | 'towing'
   onClose: () => void
 }
 
@@ -61,7 +62,8 @@ export function SupportContractTimelineModal({
     setError(null)
     setTimeline(null)
 
-    const fetchTimeline = flow === 'loan' ? fetchLoanSendTimeline : fetchSupportContractSendTimeline
+    const fetchTimeline =
+      flow === 'loan' ? fetchLoanSendTimeline : flow === 'towing' ? fetchTowingSendTimeline : fetchSupportContractSendTimeline
     fetchTimeline(session.token.token, contract.id)
       .then((res) => {
         if (!cancelled) setTimeline(res)
@@ -103,7 +105,8 @@ export function SupportContractTimelineModal({
           <div>
             <h2 className="text-[15px] font-bold text-[var(--ink)]">Detalhes do envio</h2>
             <p className="mt-1 text-[12.5px] text-[var(--ink-soft)]">
-              {contract.people?.name ?? (flow === 'loan' ? 'Contrato de empréstimo' : 'Contrato de suporte')}
+              {contract.people?.name ??
+              (flow === 'loan' ? 'Contrato de empréstimo' : flow === 'towing' ? 'Contrato de guincho' : 'Contrato de suporte')}
             </p>
           </div>
           <button

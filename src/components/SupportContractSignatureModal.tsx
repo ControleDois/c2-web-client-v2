@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { fetchSupportContractSignatureEvidence, type SignatureEvidence } from '../lib/supportContracts'
 import { fetchLoanSignatureEvidence } from '../lib/sales'
+import { fetchTowingSignatureEvidence } from '../lib/towingSale'
 import { ApiError } from '../lib/api'
 import { CloseIcon } from './icons'
 import type { AuthSession } from '../lib/auth'
@@ -9,7 +10,7 @@ interface SupportContractSignatureModalProps {
   open: boolean
   session: AuthSession
   contract: { id: string; people?: { name?: string | null } | null } | null
-  flow?: 'support' | 'loan'
+  flow?: 'support' | 'loan' | 'towing'
   onClose: () => void
 }
 
@@ -49,7 +50,12 @@ export function SupportContractSignatureModal({
     setError(null)
     setSignature(null)
 
-    const fetchEvidence = flow === 'loan' ? fetchLoanSignatureEvidence : fetchSupportContractSignatureEvidence
+    const fetchEvidence =
+      flow === 'loan'
+        ? fetchLoanSignatureEvidence
+        : flow === 'towing'
+          ? fetchTowingSignatureEvidence
+          : fetchSupportContractSignatureEvidence
     fetchEvidence(session.token.token, contract.id)
       .then((res) => {
         if (!cancelled) setSignature(res.signature)
@@ -83,7 +89,8 @@ export function SupportContractSignatureModal({
           <div>
             <h2 className="text-[15px] font-bold text-[var(--ink)]">Facial e assinatura</h2>
             <p className="mt-1 text-[12.5px] text-[var(--ink-soft)]">
-              {contract.people?.name ?? (flow === 'loan' ? 'Contrato de empréstimo' : 'Contrato de suporte')}
+              {contract.people?.name ??
+                (flow === 'loan' ? 'Contrato de empréstimo' : flow === 'towing' ? 'Contrato de guincho' : 'Contrato de suporte')}
             </p>
           </div>
           <button

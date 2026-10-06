@@ -12,6 +12,8 @@ import {
 } from '../lib/towingSale'
 import { SALE_STATUS_LABELS, COLLECTION_STATUS_LABELS, getSaleValue } from '../lib/towingDashboard'
 import { formatCurrency } from '../lib/format'
+import { SupportContractTimelineModal } from '../components/SupportContractTimelineModal'
+import { SupportContractSignatureModal } from '../components/SupportContractSignatureModal'
 import { formatDocument } from '../lib/formatDocument'
 import { formatPhone } from '../lib/formatPhone'
 import { ApiError } from '../lib/api'
@@ -23,6 +25,8 @@ import {
   PencilIcon,
   TrashIcon,
   PrinterIcon,
+  ClockIcon,
+  CameraIcon,
   LinkIcon,
   CheckCircleIcon,
   XCircleIcon,
@@ -176,6 +180,8 @@ export function TowingSalesPage({ session, company, onCreate, onEdit }: TowingSa
   const [printOpen, setPrintOpen] = useState(false)
 
   const [contractSale, setContractSale] = useState<TowingSaleRecord | null>(null)
+  const [timelineSale, setTimelineSale] = useState<TowingSaleRecord | null>(null)
+  const [signatureSale, setSignatureSale] = useState<TowingSaleRecord | null>(null)
   const [sendContractSale, setSendContractSale] = useState<TowingSaleRecord | null>(null)
   const [statusConfirm, setStatusConfirm] = useState<{
     sale: TowingSaleRecord
@@ -375,6 +381,24 @@ export function TowingSalesPage({ session, company, onCreate, onEdit }: TowingSa
         label: 'Contrato e envio',
         icon: <WhatsappIcon className="h-4 w-4" />,
         onClick: () => setSendContractSale(sale),
+      })
+    }
+
+    if (sale.contract_sent) {
+      actions.push({
+        key: 'send-timeline',
+        label: 'Detalhes do envio',
+        icon: <ClockIcon className="h-4 w-4" />,
+        onClick: () => setTimelineSale(sale),
+      })
+    }
+
+    if (sale.contract_signed && sale.contract_provider === 'nativo') {
+      actions.push({
+        key: 'signature-evidence',
+        label: 'Facial e assinatura',
+        icon: <CameraIcon className="h-4 w-4" />,
+        onClick: () => setSignatureSale(sale),
       })
     }
 
@@ -907,6 +931,22 @@ export function TowingSalesPage({ session, company, onCreate, onEdit }: TowingSa
         session={session}
         sale={contractSale}
         onClose={() => setContractSale(null)}
+      />
+
+      <SupportContractTimelineModal
+        open={Boolean(timelineSale)}
+        session={session}
+        contract={timelineSale}
+        flow="towing"
+        onClose={() => setTimelineSale(null)}
+      />
+
+      <SupportContractSignatureModal
+        open={Boolean(signatureSale)}
+        session={session}
+        contract={signatureSale}
+        flow="towing"
+        onClose={() => setSignatureSale(null)}
       />
 
       <TowingSendContractModal

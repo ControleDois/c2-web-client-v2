@@ -124,7 +124,7 @@ export function TowingSendContractModal({
             <p className="mt-1 text-[12.5px] text-[var(--ink-soft)]">
               {hasLink
                 ? 'Reenvie o link já gerado ou gere um novo contrato.'
-                : 'Sem link do Autentique, o WhatsApp enviará o arquivo do contrato em PDF.'}
+                : 'Sem assinatura eletrônica configurada, o WhatsApp enviará o arquivo do contrato em PDF.'}
             </p>
           </div>
           <button
@@ -140,7 +140,7 @@ export function TowingSendContractModal({
 
         {hasLink && (
           <div className="mt-4 rounded-xl bg-[var(--green-100)] p-3.5">
-            <p className="text-[13px] font-bold text-[var(--green-600)]">Contrato já gerado no Autentique</p>
+            <p className="text-[13px] font-bold text-[var(--green-600)]">Contrato já gerado — link de assinatura</p>
             <p className="mt-1 text-[11.5px] break-all text-[var(--green-600)]">{getContractLink(sale)}</p>
           </div>
         )}
