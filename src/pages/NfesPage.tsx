@@ -10,6 +10,8 @@ import {
   fetchNfeLogs,
   downloadNfeFile,
   fetchNfePreviewDanfeUrl,
+  fetchNfeFileUrl,
+  fetchNfeXmlText,
   formatNfeProviderError,
   formatNfeMensagemSefaz,
   NFE_STATUS_LABELS,
@@ -45,6 +47,8 @@ import { RowActionsMenu, type RowAction } from '../components/RowActionsMenu'
 import { SearchSelectField } from '../components/form/SearchSelectField'
 import { SelectField } from '../components/form/SelectField'
 import { DocumentViewerModal } from '../components/DocumentViewerModal'
+import { NfeXmlViewerModal } from '../components/NfeXmlViewerModal'
+import { NfeCorrectionModal } from '../components/NfeCorrectionModal'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
 interface NfesPageProps {
@@ -98,6 +102,9 @@ export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) 
 
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [previewTarget, setPreviewTarget] = useState<NfeRecord | null>(null)
+  const [danfeView, setDanfeView] = useState<{ nfe: NfeRecord; url: string } | null>(null)
+  const [xmlView, setXmlView] = useState<{ nfe: NfeRecord; xml: string } | null>(null)
+  const [correctionTarget, setCorrectionTarget] = useState<NfeRecord | null>(null)
 
   const [errorTarget, setErrorTarget] = useState<NfeRecord | null>(null)
 
@@ -272,6 +279,32 @@ export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) 
     }
   }
 
+  async function handleViewDanfe(nfe: NfeRecord) {
+    setBusyId(nfe.id)
+    setActionError(null)
+    try {
+      const url = await fetchNfeFileUrl(session.token.token, nfe.id, 'danfe')
+      setDanfeView({ nfe, url })
+    } catch (err) {
+      showActionError(err, 'Não foi possível abrir o DANFE.')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  async function handleViewXml(nfe: NfeRecord) {
+    setBusyId(nfe.id)
+    setActionError(null)
+    try {
+      const xml = await fetchNfeXmlText(session.token.token, nfe.id)
+      setXmlView({ nfe, xml })
+    } catch (err) {
+      showActionError(err, 'Não foi possível abrir o XML.')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   // Pede a prévia do DANFE pro servidor próprio (Delphi) — assina localmente
   // pra ter chave/QR-code coerentes, mas nunca transmite pra SEFAZ.
   async function handlePreview(nfe: NfeRecord) {
@@ -375,6 +408,32 @@ export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) 
         icon: <XCircleIcon className="h-4 w-4" />,
         tone: 'danger',
         onClick: () => setCancelTarget(nfe),
+      })
+    }
+
+    if (nfe.status === 2 || nfe.status === 4) {
+      actions.push(
+        {
+          key: 'view-danfe',
+          label: 'Visualizar DANFE',
+          icon: <EyeIcon className="h-4 w-4" />,
+          onClick: () => handleViewDanfe(nfe),
+        },
+        {
+          key: 'view-xml',
+          label: 'Visualizar XML',
+          icon: <EyeIcon className="h-4 w-4" />,
+          onClick: () => handleViewXml(nfe),
+        }
+      )
+    }
+
+    if (nfe.status === 2 && Number(nfe.modelo) === 55) {
+      actions.push({
+        key: 'correction',
+        label: 'Carta de correção',
+        icon: <PencilIcon className="h-4 w-4" />,
+        onClick: () => setCorrectionTarget(nfe),
       })
     }
 
@@ -872,6 +931,42 @@ export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) 
             setPreviewUrl(null)
             setPreviewTarget(null)
           }}
+        />
+      )}
+
+      {danfeView && (
+        <DocumentViewerModal
+          documents={[
+            {
+              title: `DANFE — NF-e nº ${danfeView.nfe.numero ?? danfeView.nfe.code ?? ''}`,
+              url: danfeView.url,
+              fileName: `${danfeView.nfe.chave_nfe || danfeView.nfe.id}-danfe.pdf`,
+              type: 'pdf',
+            },
+          ]}
+          index={0}
+          onIndexChange={() => {}}
+          onClose={() => {
+            URL.revokeObjectURL(danfeView.url)
+            setDanfeView(null)
+          }}
+        />
+      )}
+
+      {xmlView && (
+        <NfeXmlViewerModal
+          title={`XML — NF-e nº ${xmlView.nfe.numero ?? xmlView.nfe.code ?? ''}`}
+          xml={xmlView.xml}
+          onDownload={() => handleDownload(xmlView.nfe, 'xml')}
+          onClose={() => setXmlView(null)}
+        />
+      )}
+
+      {correctionTarget && (
+        <NfeCorrectionModal
+          token={session.token.token}
+          nfe={correctionTarget}
+          onClose={() => setCorrectionTarget(null)}
         />
       )}
 

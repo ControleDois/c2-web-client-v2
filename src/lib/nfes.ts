@@ -442,3 +442,38 @@ export async function fetchNfePreviewDanfeUrl(token: string, id: string): Promis
   const blob = await apiFetchBlob(`/nfe/${id}/preview-danfe`, {}, token)
   return URL.createObjectURL(blob)
 }
+
+export interface NfeCorrectionRecord {
+  id: string
+  sequence: number
+  text: string
+  status: string
+  status_sefaz?: string | null
+  message?: string | null
+  xml_path?: string | null
+  pdf_path?: string | null
+  created_at?: string
+}
+
+export function fetchNfeCorrections(token: string, id: string) {
+  return apiGet<NfeCorrectionRecord[]>(`/nfe/${id}/corrections`, {}, token)
+}
+
+export function sendNfeCorrection(token: string, id: string, correcao: string) {
+  return apiPost<NfeCorrectionRecord>(`/nfe/${id}/correction`, { correcao }, token)
+}
+
+export async function fetchNfeCorrectionFileUrl(
+  token: string,
+  id: string,
+  correctionId: string,
+  type: 'xml' | 'pdf'
+): Promise<string> {
+  const blob = await apiFetchBlob(`/nfe/${id}/correction/${correctionId}/file/${type}`, {}, token)
+  return URL.createObjectURL(blob)
+}
+
+export async function fetchNfeXmlText(token: string, id: string): Promise<string> {
+  const blob = await apiFetchBlob(`/nfe/${id}/file/xml`, {}, token)
+  return blob.text()
+}
