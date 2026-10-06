@@ -11,6 +11,8 @@ import {
   consultarWebhookBoletoSicredi,
   criarWebhookBoletoSicredi,
   atualizarWebhookBoletoSicredi,
+  testCoraConnection,
+  registerCoraWebhook,
 } from '../../lib/config'
 import { ApiError } from '../../lib/api'
 import { SectionCard } from '../../components/SectionCard'
@@ -247,6 +249,72 @@ function SicrediBoletoWebhookCard({ token, companyId }: { token: string; company
   )
 }
 
+function CoraActionsCard({
+  token,
+  companyId,
+  ready,
+  webhookRegistered,
+}: {
+  token: string
+  companyId: string
+  ready: boolean
+  webhookRegistered: boolean
+}) {
+  const [loading, setLoading] = useState<'test' | 'webhook' | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
+
+  async function run(kind: 'test' | 'webhook') {
+    setLoading(kind)
+    setError(null)
+    setSuccess(null)
+    try {
+      const res = kind === 'test' ? await testCoraConnection(token, companyId) : await registerCoraWebhook(token, companyId)
+      setSuccess(res.message)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Não foi possível concluir a operação.')
+    } finally {
+      setLoading(null)
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border border-[var(--border)] p-4">
+      <h4 className="mb-1 text-[12.5px] font-bold text-[var(--ink)]">Conexão e aviso de pagamento</h4>
+      <p className="mb-3 text-[11.5px] text-[var(--muted)]">
+        Salve as configurações antes de testar. O aviso de pagamento faz a Cora avisar o sistema quando o boleto é
+        pago, para baixar o título sozinho.
+        {webhookRegistered ? ' Já registrado — registre de novo só se trocar de certificado ou ambiente.' : ''}
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => run('test')}
+          disabled={!ready || loading !== null}
+          className="rounded-lg border border-[var(--border)] px-3 py-2 text-[12px] font-bold text-[var(--ink-soft)] hover:text-[var(--ink)] disabled:opacity-60"
+        >
+          {loading === 'test' ? 'Testando…' : 'Testar conexão'}
+        </button>
+        <button
+          type="button"
+          onClick={() => run('webhook')}
+          disabled={!ready || loading !== null}
+          className="rounded-lg bg-[var(--blue-500)] px-3 py-2 text-[12px] font-bold text-white hover:bg-[var(--blue-700)] disabled:opacity-60"
+        >
+          {loading === 'webhook' ? 'Registrando…' : 'Registrar aviso de pagamento'}
+        </button>
+      </div>
+      {!ready && (
+        <p className="mt-2 text-[11.5px] text-[var(--muted)]">
+          Informe o Client ID, envie o certificado e a chave e salve para liberar estes botões.
+        </p>
+      )}
+      {error && <p className="mt-2 text-[12px] font-medium text-[var(--red-500)]">{error}</p>}
+      {success && !error && <p className="mt-2 text-[12px] font-medium text-[var(--green-600)]">{success}</p>}
+    </div>
+  )
+}
+
 function NumberField({
   label,
   value,
@@ -273,6 +341,126 @@ export function IntegracoesSection({ value, onChange, config, session, company }
   const token = session.token.token
   return (
     <div className="flex flex-col gap-4">
+      <SectionCard
+        title="Banco Cora"
+        subtitle="Boleto registrado com PIX pela integração direta da Cora"
+        defaultCollapsed={!config?.cora_enabled}
+      >
+        <div className="flex flex-col gap-5">
+          <label className="flex items-center gap-2.5">
+            <input
+              type="checkbox"
+              checked={Boolean(value.cora_enabled)}
+              onChange={(event) => onChange({ cora_enabled: event.target.checked })}
+              className="h-4 w-4 accent-[var(--blue-500)]"
+            />
+            <span className="text-[13.5px] font-semibold text-[var(--ink)]">Emitir boletos pelo Banco Cora</span>
+          </label>
+
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <TextField
+              label="Client ID"
+              icon={<LockIcon className="h-4 w-4" />}
+              placeholder="int-xxxxxxxxxxxxxxxx"
+              value={value.cora_client_id ?? ''}
+              onChange={(event) => onChange({ cora_client_id: event.target.value })}
+            />
+            <SelectField
+              label="Ambiente"
+              value={value.cora_environment ?? 'production'}
+              onChange={(event) => onChange({ cora_environment: event.target.value as 'production' | 'stage' })}
+            >
+              <option value="production">Produção</option>
+              <option value="stage">Testes (stage)</option>
+            </SelectField>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Certificado (certificate.pem)</span>
+              <label className="flex w-fit cursor-pointer items-center gap-2 rounded-xl border border-[var(--border)] px-3.5 py-2 text-[12.5px] font-bold text-[var(--ink-soft)] hover:text-[var(--ink)]">
+                <PaperclipIcon className="h-3.5 w-3.5 flex-none" />
+                {value.cora_cert_file?.name ?? config?.cora_cert_file_name ?? 'Selecionar arquivo'}
+                <input
+                  type="file"
+                  accept=".crt,.pem,.cer"
+                  className="hidden"
+                  onChange={(event) => onChange({ cora_cert_file: event.target.files?.[0] })}
+                />
+              </label>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Chave privada (private-key.key)</span>
+              <label className="flex w-fit cursor-pointer items-center gap-2 rounded-xl border border-[var(--border)] px-3.5 py-2 text-[12.5px] font-bold text-[var(--ink-soft)] hover:text-[var(--ink)]">
+                <PaperclipIcon className="h-3.5 w-3.5 flex-none" />
+                {value.cora_key_file?.name ?? config?.cora_key_file_name ?? 'Selecionar arquivo'}
+                <input
+                  type="file"
+                  accept=".key,.pem"
+                  className="hidden"
+                  onChange={(event) => onChange({ cora_key_file: event.target.files?.[0] })}
+                />
+              </label>
+            </div>
+          </div>
+          <p className="-mt-3 text-[11.5px] text-[var(--muted)]">
+            Gere o Client ID, o certificado e a chave no Cora Web (Conta &gt; Integrações via APIs). Os arquivos ficam
+            guardados de forma privada no servidor, nunca com link público.
+          </p>
+
+          <div>
+            <h4 className="mb-3 text-[12.5px] font-bold text-[var(--ink)]">Regras de cobrança</h4>
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <NumberField
+                label="Multa por atraso (%)"
+                value={value.cora_fine_rate}
+                onChange={(v) => onChange({ cora_fine_rate: v })}
+              />
+              <NumberField
+                label="Juros ao mês (%)"
+                value={value.cora_interest_rate}
+                onChange={(v) => onChange({ cora_interest_rate: v })}
+              />
+              <SelectField
+                label="Desconto por pagamento antecipado"
+                value={value.cora_discount_type ?? ''}
+                onChange={(event) =>
+                  onChange({ cora_discount_type: event.target.value as 'FIXED' | 'PERCENT' | '' })
+                }
+              >
+                <option value="">Sem desconto</option>
+                <option value="PERCENT">Percentual (%)</option>
+                <option value="FIXED">Valor fixo (R$)</option>
+              </SelectField>
+              {value.cora_discount_type && (
+                <NumberField
+                  label={value.cora_discount_type === 'PERCENT' ? 'Desconto (%)' : 'Desconto (R$)'}
+                  value={value.cora_discount_value}
+                  onChange={(v) => onChange({ cora_discount_value: v })}
+                />
+              )}
+            </div>
+          </div>
+
+          <label className="flex items-center gap-2.5">
+            <input
+              type="checkbox"
+              checked={value.cora_include_pix !== false}
+              onChange={(event) => onChange({ cora_include_pix: event.target.checked })}
+              className="h-4 w-4 accent-[var(--blue-500)]"
+            />
+            <span className="text-[13.5px] font-semibold text-[var(--ink)]">Incluir PIX (copia e cola) no boleto</span>
+          </label>
+
+          <CoraActionsCard
+            token={token}
+            companyId={company.id}
+            ready={Boolean(config?.cora_client_id && config?.cora_cert_file_name && config?.cora_key_file_name)}
+            webhookRegistered={Boolean(config?.cora_webhook_endpoint_id)}
+          />
+        </div>
+      </SectionCard>
+
       <SectionCard title="Sicredi PIX" subtitle="Chaves, certificados e regras de cobrança">
         <div className="flex flex-col gap-5">
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">

@@ -141,6 +141,15 @@ function buildConfigPayload(companyId: string, config: ConfigRecord | null): Con
     signature_allow_whatsapp: config?.signature_allow_whatsapp ?? true,
     signature_whatsapp_id: config?.signature_whatsapp_id ?? undefined,
 
+    cora_enabled: config?.cora_enabled ?? false,
+    cora_client_id: config?.cora_client_id ?? undefined,
+    cora_environment: config?.cora_environment ?? 'production',
+    cora_fine_rate: config?.cora_fine_rate ?? undefined,
+    cora_interest_rate: config?.cora_interest_rate ?? undefined,
+    cora_discount_type: config?.cora_discount_type ?? '',
+    cora_discount_value: config?.cora_discount_value ?? undefined,
+    cora_include_pix: config?.cora_include_pix ?? true,
+
     sicredi_chave_pix: config?.sicredi_chave_pix ?? undefined,
     sicredi_escopos: config?.sicredi_escopos ?? undefined,
     sicredi_client_id: config?.sicredi_client_id ?? undefined,

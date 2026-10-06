@@ -52,6 +52,10 @@ export interface BillRecord {
   boleto_cooperativa?: string | null
   boleto_posto?: string | null
   boleto_nosso_numero?: string | null
+  // Banco que emitiu o boleto ('sicredi' | 'cora'); na Cora guarda também a cobrança e o PDF
+  boleto_provider?: string | null
+  cora_invoice_id?: string | null
+  boleto_pdf_url?: string | null
 }
 
 export interface BillPayload {
@@ -267,13 +271,26 @@ export function cancelBillsPixLote(token: string, companyId: string, ids: string
   return apiPost<{ message: string }>('/bill/cancel-pix-lote', { ids }, token, { companyId })
 }
 
-export function generateBillBoleto(token: string, companyId: string, id: string) {
+export interface BoletoBank {
+  id: 'sicredi' | 'cora'
+  name: string
+}
+
+export function fetchBoletoBanks(token: string, companyId: string) {
+  return apiGet<{ banks: BoletoBank[] }>('/bill/boleto-banks', { companyId }, token)
+}
+
+export function generateBillBoleto(token: string, companyId: string, id: string, bank?: BoletoBank['id']) {
   return apiPost<{ message: string; data: { nossoNumero: string; linhaDigitavel: string; pixCopiaECola: string | null } }>(
     `/bill/generate-boleto/${id}`,
-    {},
+    bank ? { bank } : {},
     token,
     { companyId }
   )
+}
+
+export function cancelBillBoleto(token: string, companyId: string, id: string) {
+  return apiPost<{ message: string }>(`/bill/cancel-boleto/${id}`, {}, token, { companyId })
 }
 
 export function printBillBoleto(token: string, companyId: string, id: string) {

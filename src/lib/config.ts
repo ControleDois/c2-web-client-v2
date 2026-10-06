@@ -163,6 +163,20 @@ export interface ConfigRecord {
   signature_whatsapp_id?: string | null
   signature_whatsapp?: { id: string; name: string } | null
 
+  // Banco Cora
+  cora_enabled?: boolean
+  cora_client_id?: string | null
+  cora_environment?: 'production' | 'stage' | null
+  cora_cert_file_name?: string | null
+  cora_key_file_name?: string | null
+  cora_fine_rate?: number | null
+  cora_interest_rate?: number | null
+  cora_discount_type?: 'FIXED' | 'PERCENT' | '' | null
+  cora_discount_value?: number | null
+  cora_include_pix?: boolean
+  cora_webhook_token?: string | null
+  cora_webhook_endpoint_id?: string | null
+
   // Sicredi Pix
   sicredi_chave_pix?: string | null
   // Escopos pedidos no token OAuth (ex: "cob.write+cob.read+webhook.read+
@@ -443,6 +457,15 @@ export interface ConfigPayload {
   signature_allow_whatsapp?: boolean
   signature_whatsapp_id?: string
 
+  cora_enabled?: boolean
+  cora_client_id?: string
+  cora_environment?: 'production' | 'stage'
+  cora_fine_rate?: number
+  cora_interest_rate?: number
+  cora_discount_type?: 'FIXED' | 'PERCENT' | ''
+  cora_discount_value?: number
+  cora_include_pix?: boolean
+
   sicredi_chave_pix?: string
   sicredi_escopos?: string
   sicredi_client_id?: string
@@ -520,6 +543,8 @@ export interface ConfigPayload {
   shop?: ShopPayload
   sicredi_cert_file?: File
   sicredi_key_file?: File
+  cora_cert_file?: File
+  cora_key_file?: File
 }
 
 export const SICREDI_BOLETO_TIPO_COBRANCA_OPTIONS: { label: string; value: string }[] = [
@@ -596,6 +621,8 @@ function buildConfigForm(payload: ConfigPayload): FormData {
     shop,
     sicredi_cert_file: sicrediCertFile,
     sicredi_key_file: sicrediKeyFile,
+    cora_cert_file: coraCertFile,
+    cora_key_file: coraKeyFile,
     autentique_signature_file: autentiqueSignatureFile,
     ...scalars
   } = payload
@@ -636,6 +663,8 @@ function buildConfigForm(payload: ConfigPayload): FormData {
 
   if (sicrediCertFile) form.append('sicredi_cert_file', sicrediCertFile)
   if (sicrediKeyFile) form.append('sicredi_key_file', sicrediKeyFile)
+  if (coraCertFile) form.append('cora_cert_file', coraCertFile)
+  if (coraKeyFile) form.append('cora_key_file', coraKeyFile)
   if (autentiqueSignatureFile) form.append('autentique_signature_file', autentiqueSignatureFile)
 
   return form
@@ -679,4 +708,12 @@ export function atualizarWebhookBoletoSicredi(
   body: Record<string, unknown>
 ) {
   return apiPost<SicrediWebhookResult>(`/config/atualizar-webhook-boleto-sicredi/${webhookId}`, { companyId, ...body }, token)
+}
+
+export function testCoraConnection(token: string, companyId: string) {
+  return apiPost<{ message: string }>('/config/cora/test', { companyId }, token)
+}
+
+export function registerCoraWebhook(token: string, companyId: string) {
+  return apiPost<{ message: string; url: string }>('/config/cora/webhook', { companyId }, token)
 }

@@ -10,7 +10,10 @@ import {
   generateBillsPixLote,
   cancelBillsPixLote,
   generateBillBoleto,
+  fetchBoletoBanks,
+  cancelBillBoleto,
   type BillRecord,
+  type BoletoBank,
 } from '../lib/bills'
 import { formatCurrency, formatDate } from '../lib/format'
 import { ApiError } from '../lib/api'
@@ -31,6 +34,7 @@ import {
   LinkIcon,
 } from '../components/icons'
 import { ConfirmDialog } from '../components/ConfirmDialog'
+import { BoletoBankPickerModal } from '../components/BoletoBankPickerModal'
 import { PrintPreviewModal, type PrintColumn } from '../components/PrintPreviewModal'
 import { BillReceiptPreviewModal } from '../components/BillReceiptPreviewModal'
 import { BillBoletoPreviewModal } from '../components/BillBoletoPreviewModal'
@@ -137,6 +141,8 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
   const [receiveError, setReceiveError] = useState<string | null>(null)
 
   const [boletoBill, setBoletoBill] = useState<BillRecord | null>(null)
+  const [bankPicker, setBankPicker] = useState<{ bill: BillRecord; banks: BoletoBank[] } | null>(null)
+  const [cancelBoletoTarget, setCancelBoletoTarget] = useState<BillRecord | null>(null)
   const [pixBusyId, setPixBusyId] = useState<string | null>(null)
   const [pixError, setPixError] = useState<string | null>(null)
   const [pixLoteBusy, setPixLoteBusy] = useState(false)
@@ -440,15 +446,54 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
     }
   }
 
+  // Quando a empresa tem mais de um banco habilitado, pergunta por qual gerar.
   async function handleGenerateBoleto(bill: BillRecord) {
     if (pixBusyId) return
     setPixBusyId(bill.id)
     setPixError(null)
     try {
-      await generateBillBoleto(session.token.token, company.id, bill.id)
+      const { banks } = await fetchBoletoBanks(session.token.token, company.id)
+      if (banks.length > 1) {
+        setBankPicker({ bill, banks })
+        return
+      }
+      await generateBillBoleto(session.token.token, company.id, bill.id, banks[0]?.id)
       silentReload()
     } catch (err) {
       setPixError(err instanceof ApiError ? err.message : 'Não foi possível gerar o boleto.')
+    } finally {
+      setPixBusyId(null)
+    }
+  }
+
+  async function handlePickBoletoBank(bank: BoletoBank) {
+    if (!bankPicker) return
+    const { bill } = bankPicker
+    setPixBusyId(bill.id)
+    setPixError(null)
+    try {
+      await generateBillBoleto(session.token.token, company.id, bill.id, bank.id)
+      setBankPicker(null)
+      silentReload()
+    } catch (err) {
+      setBankPicker(null)
+      setPixError(err instanceof ApiError ? err.message : 'Não foi possível gerar o boleto.')
+    } finally {
+      setPixBusyId(null)
+    }
+  }
+
+  async function handleCancelBoleto() {
+    if (!cancelBoletoTarget) return
+    setPixBusyId(cancelBoletoTarget.id)
+    setPixError(null)
+    try {
+      await cancelBillBoleto(session.token.token, company.id, cancelBoletoTarget.id)
+      setCancelBoletoTarget(null)
+      silentReload()
+    } catch (err) {
+      setCancelBoletoTarget(null)
+      setPixError(err instanceof ApiError ? err.message : 'Não foi possível cancelar o boleto.')
     } finally {
       setPixBusyId(null)
     }
@@ -538,6 +583,15 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
             icon: <FileTextIcon className="h-4 w-4" />,
             onClick: () => setBoletoBill(bill),
           })
+          if (bill.boleto_provider === 'cora') {
+            actions.push({
+              key: 'cancel-boleto',
+              label: 'Cancelar boleto',
+              icon: <XCircleIcon className="h-4 w-4" />,
+              tone: 'danger',
+              onClick: () => setCancelBoletoTarget(bill),
+            })
+          }
         } else if (!bill.pix_copia_e_cola) {
           actions.push({
             key: 'generate-boleto',
@@ -1111,6 +1165,25 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
         session={session}
         bill={receiptBill}
         onClose={() => setReceiptBill(null)}
+      />
+
+      <BoletoBankPickerModal
+        open={Boolean(bankPicker)}
+        banks={bankPicker?.banks ?? []}
+        loading={Boolean(pixBusyId)}
+        onPick={handlePickBoletoBank}
+        onCancel={() => setBankPicker(null)}
+      />
+
+      <ConfirmDialog
+        open={Boolean(cancelBoletoTarget)}
+        title="Cancelar boleto"
+        message="O boleto será cancelado na Cora e o cliente não poderá mais pagá-lo. Depois você pode gerar outro."
+        confirmLabel="Cancelar boleto"
+        cancelLabel="Voltar"
+        loading={Boolean(pixBusyId)}
+        onConfirm={handleCancelBoleto}
+        onCancel={() => setCancelBoletoTarget(null)}
       />
 
       <BillBoletoPreviewModal
