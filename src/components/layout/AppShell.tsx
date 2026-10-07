@@ -79,6 +79,7 @@ export type AppPage =
   | 'time-clock'
   | 'support-contracts'
   | 'support-visits'
+  | 'tasks'
   | 'investments'
   | 'delivery-couriers'
   | 'delivery-neighborhoods'
@@ -162,7 +163,10 @@ function buildNavGroups(
               { page: 'towing-sales' as const, label: 'Vendas', icon: CoinIcon },
               // TI: ordem de serviço por equipamento (formatação, limpeza, reparo).
               ...(isSoftwareHouse(systemType)
-                ? [{ page: 'order-services' as const, label: 'Ordens de Serviço', icon: WrenchIcon }]
+                ? [
+                    { page: 'order-services' as const, label: 'Ordens de Serviço', icon: WrenchIcon },
+                    { page: 'tasks' as const, label: 'Tarefas', icon: ClipboardCheckIcon },
+                  ]
                 : []),
             ]
           : [

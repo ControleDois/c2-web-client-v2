@@ -45,6 +45,7 @@ import { RentalTypesPage } from './pages/RentalTypesPage'
 import { RentalTypeFormPage } from './pages/RentalTypeFormPage'
 import { NfesPage } from './pages/NfesPage'
 import { NfeFormPage } from './pages/NfeFormPage'
+import { TasksPage } from './pages/TasksPage'
 import { NfsesPage } from './pages/NfsesPage'
 import { NfseFormPage } from './pages/NfseFormPage'
 import { InvestmentsPage } from './pages/InvestmentsPage'
@@ -785,6 +786,8 @@ function App() {
             onEdit={(contract) => supportContractsView.edit(contract.id)}
           />
         )
+    } else if (page === 'tasks') {
+      pageContent = <TasksPage session={session} company={activeCompany} />
     } else if (page === 'support-visits') {
       pageContent =
         supportVisitsView.view.mode === 'form' ? (
