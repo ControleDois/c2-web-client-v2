@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { fetchGlassCutList, fetchGlassProfileList, type GlassCutGroup, type GlassProfilePieceGroup } from '../../lib/glass'
 import { ApiError } from '../../lib/api'
 import { PrintPreviewModal } from '../../components/PrintPreviewModal'
+import { GlassOptimizationModal } from './GlassOptimizationModal'
 import { CloseIcon, PrinterIcon } from '../../components/icons'
 import type { AuthCompany, AuthSession } from '../../lib/auth'
 
@@ -24,6 +25,7 @@ export function GlassCutListModal({ open, session, company, orderIds, title = 'L
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [printing, setPrinting] = useState(false)
+  const [optimizing, setOptimizing] = useState(false)
 
   useEffect(() => {
     if (!open) return
@@ -95,6 +97,13 @@ export function GlassCutListModal({ open, session, company, orderIds, title = 'L
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setOptimizing(true)}
+              className="rounded-xl bg-[var(--blue-500)] px-3.5 py-2 text-[12.5px] font-bold text-white hover:bg-[var(--blue-700)]"
+            >
+              Otimizar corte
+            </button>
             <button
               type="button"
               disabled={tab === 'glass' ? !printRows.length : !profilePrintRows.length}
@@ -227,6 +236,15 @@ export function GlassCutListModal({ open, session, company, orderIds, title = 'L
           )}
         </div>
       </div>
+
+      <GlassOptimizationModal
+        open={optimizing}
+        session={session}
+        company={company}
+        orderIds={orderIds}
+        title={title}
+        onClose={() => setOptimizing(false)}
+      />
 
       <PrintPreviewModal
         open={printing}

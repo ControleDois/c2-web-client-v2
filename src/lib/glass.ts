@@ -88,6 +88,8 @@ export interface GlassTypeRecord {
   price_per_m2: number
   cost_per_m2: number
   min_area_m2: number
+  sheet_width_mm?: number | null
+  sheet_height_mm?: number | null
   product_id?: string | null
   product?: { id: string; name: string } | null
   active: boolean
@@ -102,6 +104,8 @@ export interface GlassTypePayload {
   price_per_m2: number
   cost_per_m2: number
   min_area_m2: number
+  sheet_width_mm?: number | null
+  sheet_height_mm?: number | null
   product_id?: string | null
   active: boolean
 }
@@ -520,5 +524,60 @@ export const fetchGlassProfileList = (token: string, companyId: string, orderIds
   apiGet<GlassProfilePieceGroup[]>(
     '/glass-production/profile-list',
     { companyId, orderIds: orderIds?.length ? orderIds.join(',') : undefined },
+    token
+  )
+
+export interface GlassBarPlan {
+  profile_id: string
+  profile: string
+  color: string
+  bar_length_mm: number
+  kerf_mm: number
+  bars: { pieces: { length_mm: number; label: string }[]; used_mm: number; leftover_mm: number }[]
+  too_long: { length_mm: number; label: string }[]
+  total_bars: number
+  total_leftover_mm: number
+  utilization: number
+  estimated_cost: number
+}
+
+export interface GlassSheetPlan {
+  glass_type_id: string | null
+  glass_type: string
+  sheet_width_mm: number
+  sheet_height_mm: number
+  sheet_assumed: boolean
+  kerf_mm: number
+  sheets: {
+    placements: { x: number; y: number; width_mm: number; height_mm: number; rotated: boolean; label: string }[]
+    used_area_m2: number
+    utilization: number
+  }[]
+  too_big: { width_mm: number; height_mm: number; label: string }[]
+  total_sheets: number
+  utilization: number
+  estimated_cost: number
+}
+
+export const fetchGlassBarPlan = (token: string, companyId: string, options: { orderIds?: string[]; kerf: number }) =>
+  apiGet<GlassBarPlan[]>(
+    '/glass-production/bar-plan',
+    { companyId, orderIds: options.orderIds?.length ? options.orderIds.join(',') : undefined, kerf: String(options.kerf) },
+    token
+  )
+
+export const fetchGlassSheetPlan = (
+  token: string,
+  companyId: string,
+  options: { orderIds?: string[]; kerf: number; rotate: boolean }
+) =>
+  apiGet<GlassSheetPlan[]>(
+    '/glass-production/sheet-plan',
+    {
+      companyId,
+      orderIds: options.orderIds?.length ? options.orderIds.join(',') : undefined,
+      kerf: String(options.kerf),
+      rotate: options.rotate ? 'true' : 'false',
+    },
     token
   )

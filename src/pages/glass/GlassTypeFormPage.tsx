@@ -35,6 +35,8 @@ export function GlassTypeFormPage({ session, company, glassTypeId, onBack, onSav
   const [pricePerM2, setPricePerM2] = useState('')
   const [costPerM2, setCostPerM2] = useState('')
   const [minArea, setMinArea] = useState('')
+  const [sheetWidth, setSheetWidth] = useState('')
+  const [sheetHeight, setSheetHeight] = useState('')
   const [active, setActive] = useState(true)
   const [product, setProduct] = useState<{ id: string; name: string } | null>(null)
 
@@ -51,6 +53,8 @@ export function GlassTypeFormPage({ session, company, glassTypeId, onBack, onSav
         setPricePerM2(String(item.price_per_m2 ?? ''))
         setCostPerM2(String(item.cost_per_m2 ?? ''))
         setMinArea(item.min_area_m2 ? String(item.min_area_m2).replace('.', ',') : '')
+        setSheetWidth(item.sheet_width_mm ? String(item.sheet_width_mm) : '')
+        setSheetHeight(item.sheet_height_mm ? String(item.sheet_height_mm) : '')
         setActive(item.active)
         setProduct(item.product ? { id: item.product.id, name: item.product.name } : null)
       })
@@ -82,6 +86,8 @@ export function GlassTypeFormPage({ session, company, glassTypeId, onBack, onSav
       price_per_m2: parseMoney(pricePerM2) ?? 0,
       cost_per_m2: parseMoney(costPerM2) ?? 0,
       min_area_m2: Number(minArea.replace(',', '.')) || 0,
+      sheet_width_mm: sheetWidth ? Number(sheetWidth) : null,
+      sheet_height_mm: sheetHeight ? Number(sheetHeight) : null,
       product_id: product?.id ?? null,
       active,
     }
@@ -177,8 +183,27 @@ export function GlassTypeFormPage({ session, company, glassTypeId, onBack, onSav
                 value={minArea}
                 onChange={(event) => setMinArea(event.target.value.replace(/[^\d,.]/g, ''))}
               />
+              <TextField
+                label="Chapa — largura (mm)"
+                icon={<TagIcon className="h-4 w-4" />}
+                inputMode="numeric"
+                placeholder="2200"
+                value={sheetWidth}
+                onChange={(event) => setSheetWidth(event.target.value.replace(/\D/g, ''))}
+              />
+              <TextField
+                label="Chapa — altura (mm)"
+                icon={<TagIcon className="h-4 w-4" />}
+                inputMode="numeric"
+                placeholder="3210"
+                value={sheetHeight}
+                onChange={(event) => setSheetHeight(event.target.value.replace(/\D/g, ''))}
+              />
               <FiscalProductField session={session} company={company} value={product} onChange={setProduct} />
             </div>
+            <p className="mt-2 text-[11.5px] text-[var(--muted)]">
+              O tamanho da chapa é usado no plano de corte. Em branco, vale 2200 × 3210 mm.
+            </p>
             <p className="mt-2 text-[11.5px] text-[var(--muted)]">
               O produto fiscal fornece NCM e tributação ao emitir a NF-e dos itens que usam este vidro (o do modelo tem prioridade).
             </p>
