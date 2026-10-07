@@ -44,6 +44,8 @@ export interface GlassTypeRecord {
   price_per_m2: number
   cost_per_m2: number
   min_area_m2: number
+  product_id?: string | null
+  product?: { id: string; name: string } | null
   active: boolean
 }
 
@@ -56,6 +58,7 @@ export interface GlassTypePayload {
   price_per_m2: number
   cost_per_m2: number
   min_area_m2: number
+  product_id?: string | null
   active: boolean
 }
 
@@ -71,6 +74,8 @@ export interface GlassModelRecord {
   labor_fixed: number
   cut_width_discount_mm?: number
   cut_height_discount_mm?: number
+  product_id?: string | null
+  product?: { id: string; name: string } | null
   components: GlassComponent[]
   active: boolean
 }
@@ -85,6 +90,7 @@ export interface GlassModelPayload {
   labor_fixed: number
   cut_width_discount_mm: number
   cut_height_discount_mm: number
+  product_id?: string | null
   components: GlassComponent[]
   active: boolean
 }
@@ -149,7 +155,10 @@ export interface GlassOrderRecord {
   bank_account_id?: string | null
   bills_generated_at?: string | null
   bills?: GlassOrderBill[]
-  meta?: { contract?: { status: number; provider: string } | null }
+  meta?: {
+    contract?: { status: number; provider: string } | null
+    nfe?: { id: string; status: number; numero: number | null } | null
+  }
 }
 
 export interface GlassOrderBill {
@@ -423,3 +432,10 @@ export function weekStartKey(key: string): string {
   const weekday = new Date(`${key}T12:00:00Z`).getUTCDay()
   return addDaysToKey(key, -((weekday + 6) % 7))
 }
+
+export const generateGlassOrderNfe = (token: string, orderId: string, payload: { product_id?: string | null; send?: boolean }) =>
+  apiPost<{ nfe: { id: string; numero?: number | null; status: number }; mensagem: string }>(
+    `/nfe/generate-from-glass-order/${orderId}`,
+    payload,
+    token
+  )

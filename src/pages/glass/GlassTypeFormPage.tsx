@@ -11,6 +11,7 @@ import { ApiError } from '../../lib/api'
 import { TextField } from '../../components/form/TextField'
 import { MoneyField } from '../../components/form/MoneyField'
 import { SelectField } from '../../components/form/SelectField'
+import { FiscalProductField } from '../../components/form/FiscalProductField'
 import { TagIcon, CoinIcon, ChevronLeftIcon, BoxIcon } from '../../components/icons'
 import type { AuthSession, AuthCompany } from '../../lib/auth'
 
@@ -35,6 +36,7 @@ export function GlassTypeFormPage({ session, company, glassTypeId, onBack, onSav
   const [costPerM2, setCostPerM2] = useState('')
   const [minArea, setMinArea] = useState('')
   const [active, setActive] = useState(true)
+  const [product, setProduct] = useState<{ id: string; name: string } | null>(null)
 
   useEffect(() => {
     if (!glassTypeId) return
@@ -50,6 +52,7 @@ export function GlassTypeFormPage({ session, company, glassTypeId, onBack, onSav
         setCostPerM2(String(item.cost_per_m2 ?? ''))
         setMinArea(item.min_area_m2 ? String(item.min_area_m2).replace('.', ',') : '')
         setActive(item.active)
+        setProduct(item.product ? { id: item.product.id, name: item.product.name } : null)
       })
       .catch((err) => {
         if (!cancelled) setLoadError(err instanceof ApiError ? err.message : 'Não foi possível carregar o vidro.')
@@ -79,6 +82,7 @@ export function GlassTypeFormPage({ session, company, glassTypeId, onBack, onSav
       price_per_m2: parseMoney(pricePerM2) ?? 0,
       cost_per_m2: parseMoney(costPerM2) ?? 0,
       min_area_m2: Number(minArea.replace(',', '.')) || 0,
+      product_id: product?.id ?? null,
       active,
     }
 
@@ -173,7 +177,11 @@ export function GlassTypeFormPage({ session, company, glassTypeId, onBack, onSav
                 value={minArea}
                 onChange={(event) => setMinArea(event.target.value.replace(/[^\d,.]/g, ''))}
               />
+              <FiscalProductField session={session} company={company} value={product} onChange={setProduct} />
             </div>
+            <p className="mt-2 text-[11.5px] text-[var(--muted)]">
+              O produto fiscal fornece NCM e tributação ao emitir a NF-e dos itens que usam este vidro (o do modelo tem prioridade).
+            </p>
             <label className="mt-4 flex items-center gap-2.5">
               <input
                 type="checkbox"

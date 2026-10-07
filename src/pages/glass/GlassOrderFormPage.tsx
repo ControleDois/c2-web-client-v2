@@ -30,6 +30,8 @@ import { SectionCard } from '../../components/SectionCard'
 import { GlassItemModal } from './GlassItemModal'
 import { GlassStatusBadge } from './GlassOrdersPage'
 import { GlassContractModals, type GlassContractTarget } from './GlassContractModals'
+import { GlassInvoiceModal } from './GlassInvoiceModal'
+import { NFE_STATUS_LABELS } from '../../lib/nfes'
 import { ChevronLeftIcon, PlusIcon, PencilIcon, TrashIcon, TagIcon, FileTextIcon, CalendarIcon, CopyIcon } from '../../components/icons'
 import type { AuthSession, AuthCompany } from '../../lib/auth'
 
@@ -84,6 +86,7 @@ export function GlassOrderFormPage({ session, company, orderId, onBack, onSaved 
   const [generating, setGenerating] = useState(false)
   const [contractTarget, setContractTarget] = useState<GlassContractTarget | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const [invoiceOpen, setInvoiceOpen] = useState(false)
   const [editing, setEditing] = useState<{ open: boolean; row: ItemRow | null }>({ open: false, row: null })
 
   useEffect(() => {
@@ -254,6 +257,21 @@ export function GlassOrderFormPage({ session, company, orderId, onBack, onSaved 
             >
               {order.meta?.contract ? 'Reenviar contrato' : 'Enviar contrato'}
             </button>
+            {approved && (order.meta?.nfe === null || order.meta?.nfe === undefined || [0, 3].includes(order.meta.nfe.status)) && (
+              <button
+                type="button"
+                onClick={() => setInvoiceOpen(true)}
+                className="rounded-xl border border-[var(--border)] px-3.5 py-2 text-[12.5px] font-bold text-[var(--ink-soft)] hover:text-[var(--ink)]"
+              >
+                Emitir NF-e
+              </button>
+            )}
+            {order.meta?.nfe && (
+              <span className="flex items-center rounded-xl bg-[var(--page)] px-3.5 py-2 text-[12.5px] font-semibold text-[var(--ink-soft)]">
+                NF-e: {NFE_STATUS_LABELS[order.meta.nfe.status] ?? order.meta.nfe.status}
+                {order.meta.nfe.numero ? ` nº ${order.meta.nfe.numero}` : ''}
+              </span>
+            )}
             {order.meta?.contract && (
               <>
                 <button
@@ -592,6 +610,17 @@ export function GlassOrderFormPage({ session, company, orderId, onBack, onSaved 
         onClose={() => setEditing({ open: false, row: null })}
       />
       {quickPerson.modal}
+      <GlassInvoiceModal
+        open={invoiceOpen}
+        session={session}
+        company={company}
+        order={order}
+        onClose={() => setInvoiceOpen(false)}
+        onDone={(text) => {
+          setNotice(text)
+          if (orderId) fetchGlassOrder(token, orderId).then(setOrder).catch(() => {})
+        }}
+      />
       <GlassContractModals
         session={session}
         company={company}

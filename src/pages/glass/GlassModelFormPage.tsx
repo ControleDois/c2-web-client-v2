@@ -15,6 +15,7 @@ import { ApiError } from '../../lib/api'
 import { TextField } from '../../components/form/TextField'
 import { MoneyField } from '../../components/form/MoneyField'
 import { SelectField } from '../../components/form/SelectField'
+import { FiscalProductField } from '../../components/form/FiscalProductField'
 import { SectionCard } from '../../components/SectionCard'
 import { TagIcon, CoinIcon, ChevronLeftIcon, BoxIcon, PlusIcon, TrashIcon } from '../../components/icons'
 import type { AuthSession, AuthCompany } from '../../lib/auth'
@@ -60,6 +61,7 @@ export function GlassModelFormPage({ session, company, glassModelId, onBack, onS
   const [cutWidthDiscount, setCutWidthDiscount] = useState('')
   const [cutHeightDiscount, setCutHeightDiscount] = useState('')
   const [active, setActive] = useState(true)
+  const [product, setProduct] = useState<{ id: string; name: string } | null>(null)
   const [rows, setRows] = useState<ComponentRow[]>([])
 
   useEffect(() => {
@@ -83,6 +85,7 @@ export function GlassModelFormPage({ session, company, glassModelId, onBack, onS
         setCutWidthDiscount(item.cut_width_discount_mm ? String(item.cut_width_discount_mm) : '')
         setCutHeightDiscount(item.cut_height_discount_mm ? String(item.cut_height_discount_mm) : '')
         setActive(item.active)
+        setProduct(item.product ? { id: item.product.id, name: item.product.name } : null)
         setRows(
           (item.components ?? []).map((component) =>
             newRow({
@@ -127,6 +130,7 @@ export function GlassModelFormPage({ session, company, glassModelId, onBack, onS
       labor_per_m2: parseMoney(laborPerM2) ?? 0,
       labor_fixed: parseMoney(laborFixed) ?? 0,
       cut_width_discount_mm: Number(cutWidthDiscount) || 0,
+      product_id: product?.id ?? null,
       cut_height_discount_mm: Number(cutHeightDiscount) || 0,
       active,
       components: filledRows.map((row) => ({
@@ -222,6 +226,7 @@ export function GlassModelFormPage({ session, company, glassModelId, onBack, onS
                 value={laborFixed}
                 onChange={(event) => setLaborFixed(event.target.value)}
               />
+              <FiscalProductField session={session} company={company} value={product} onChange={setProduct} />
               <TextField
                 label="Desconto na largura do vidro (mm)"
                 icon={<TagIcon className="h-4 w-4" />}

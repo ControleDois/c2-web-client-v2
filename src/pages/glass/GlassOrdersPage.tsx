@@ -15,6 +15,8 @@ import { SelectField } from '../../components/form/SelectField'
 import { type RowAction } from '../../components/RowActionsMenu'
 import { GlassContractModals, type GlassContractTarget } from './GlassContractModals'
 import { GlassCutListModal } from './GlassCutListModal'
+import { GlassInvoiceModal } from './GlassInvoiceModal'
+import { NFE_STATUS_LABELS } from '../../lib/nfes'
 import { GlassAppointmentModal, type GlassAppointmentDraft } from './GlassAppointmentModal'
 import {
   PencilIcon,
@@ -74,6 +76,7 @@ export function GlassOrdersPage({ session, company, onCreate, onEdit }: GlassOrd
   const [notice, setNotice] = useState<string | null>(null)
   const [contractTarget, setContractTarget] = useState<GlassContractTarget | null>(null)
   const [reloadToken, setReloadToken] = useState(0)
+  const [invoiceOrder, setInvoiceOrder] = useState<GlassOrderRecord | null>(null)
   const [cutListOrder, setCutListOrder] = useState<GlassOrderRecord | null>(null)
   const [appointmentDraft, setAppointmentDraft] = useState<GlassAppointmentDraft | null>(null)
 
@@ -136,6 +139,19 @@ export function GlassOrdersPage({ session, company, onCreate, onEdit }: GlassOrd
                 <span className="font-semibold text-[var(--green-600)]">Assinado</span>
               ) : (
                 <span className="text-[var(--amber-500)]">Aguardando assinatura</span>
+              )
+            },
+          },
+          {
+            header: 'NF-e',
+            render: (item) => {
+              const nfe = item.meta?.nfe
+              if (!nfe) return <span className="text-[var(--muted)]">—</span>
+              return (
+                <span className={nfe.status === 2 ? 'font-semibold text-[var(--green-600)]' : 'text-[var(--ink-soft)]'}>
+                  {NFE_STATUS_LABELS[nfe.status] ?? nfe.status}
+                  {nfe.numero ? ` nº ${nfe.numero}` : ''}
+                </span>
               )
             },
           },
@@ -212,6 +228,17 @@ export function GlassOrdersPage({ session, company, onCreate, onEdit }: GlassOrd
               icon: <ClipboardCheckIcon className="h-4 w-4" />,
               onClick: () => setCutListOrder(item),
             })
+          }
+          if (item.status >= GLASS_ORDER_STATUS.SALE && item.status !== GLASS_ORDER_STATUS.CANCELED) {
+            const nfeStatus = item.meta?.nfe?.status
+            if (nfeStatus === undefined || nfeStatus === 0 || nfeStatus === 3) {
+              list.push({
+                key: 'invoice',
+                label: nfeStatus === undefined ? 'Emitir NF-e' : 'Gerar NF-e novamente',
+                icon: <FileTextIcon className="h-4 w-4" />,
+                onClick: () => setInvoiceOrder(item),
+              })
+            }
           }
           if (next) {
             list.push({
@@ -291,6 +318,18 @@ export function GlassOrdersPage({ session, company, onCreate, onEdit }: GlassOrd
         onChanged={() => {
           setAppointmentDraft(null)
           setNotice('Visita agendada. Veja na Agenda.')
+        }}
+      />
+
+      <GlassInvoiceModal
+        open={Boolean(invoiceOrder)}
+        session={session}
+        company={company}
+        order={invoiceOrder}
+        onClose={() => setInvoiceOrder(null)}
+        onDone={(text) => {
+          setNotice(text)
+          setReloadToken((value) => value + 1)
         }}
       />
 
