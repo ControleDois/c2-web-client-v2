@@ -42,6 +42,12 @@ import { fetchConfig } from './lib/config'
 import { ContractTemplatesPage } from './pages/ContractTemplatesPage'
 import { ContractTemplateFormPage } from './pages/ContractTemplateFormPage'
 import { RentalTypesPage } from './pages/RentalTypesPage'
+import { GlassTypesPage } from './pages/glass/GlassTypesPage'
+import { GlassTypeFormPage } from './pages/glass/GlassTypeFormPage'
+import { GlassModelsPage } from './pages/glass/GlassModelsPage'
+import { GlassModelFormPage } from './pages/glass/GlassModelFormPage'
+import { GlassOrdersPage } from './pages/glass/GlassOrdersPage'
+import { GlassOrderFormPage } from './pages/glass/GlassOrderFormPage'
 import { RentalTypeFormPage } from './pages/RentalTypeFormPage'
 import { NfesPage } from './pages/NfesPage'
 import { NfeFormPage } from './pages/NfeFormPage'
@@ -171,6 +177,9 @@ function App() {
   const supportContractsView = useEntityView()
   const supportVisitsView = useEntityView()
   const investmentsView = useEntityView()
+  const glassTypesView = useEntityView()
+  const glassModelsView = useEntityView()
+  const glassOrdersView = useEntityView()
 
   const entityViews = {
     people: peopleView,
@@ -201,6 +210,9 @@ function App() {
     'support-contracts': supportContractsView,
     'support-visits': supportVisitsView,
     investments: investmentsView,
+    'glass-types': glassTypesView,
+    'glass-models': glassModelsView,
+    'glass-orders': glassOrdersView,
   } as const
 
   function handleLoginSuccess(newSession: AuthSession) {
@@ -615,6 +627,60 @@ function App() {
             company={activeCompany}
             onCreate={rentalTypesView.create}
             onEdit={(rentalType) => rentalTypesView.edit(rentalType.id)}
+          />
+        )
+    } else if (page === 'glass-types') {
+      pageContent =
+        glassTypesView.view.mode === 'form' ? (
+          <GlassTypeFormPage
+            session={session}
+            company={activeCompany}
+            glassTypeId={glassTypesView.view.id}
+            onBack={glassTypesView.reset}
+            onSaved={glassTypesView.reset}
+          />
+        ) : (
+          <GlassTypesPage
+            session={session}
+            company={activeCompany}
+            onCreate={glassTypesView.create}
+            onEdit={(item) => glassTypesView.edit(item.id)}
+          />
+        )
+    } else if (page === 'glass-models') {
+      pageContent =
+        glassModelsView.view.mode === 'form' ? (
+          <GlassModelFormPage
+            session={session}
+            company={activeCompany}
+            glassModelId={glassModelsView.view.id}
+            onBack={glassModelsView.reset}
+            onSaved={glassModelsView.reset}
+          />
+        ) : (
+          <GlassModelsPage
+            session={session}
+            company={activeCompany}
+            onCreate={glassModelsView.create}
+            onEdit={(item) => glassModelsView.edit(item.id)}
+          />
+        )
+    } else if (page === 'glass-orders') {
+      pageContent =
+        glassOrdersView.view.mode === 'form' ? (
+          <GlassOrderFormPage
+            session={session}
+            company={activeCompany}
+            orderId={glassOrdersView.view.id}
+            onBack={glassOrdersView.reset}
+            onSaved={glassOrdersView.reset}
+          />
+        ) : (
+          <GlassOrdersPage
+            session={session}
+            company={activeCompany}
+            onCreate={glassOrdersView.create}
+            onEdit={(item) => glassOrdersView.edit(item.id)}
           />
         )
     } else if (page === 'roles') {

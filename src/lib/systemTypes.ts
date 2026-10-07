@@ -19,6 +19,7 @@ export const SYSTEM_TYPE_LABELS: Record<number, string> = {
   17: 'Padaria',
   18: 'SoftwareHouse / TI',
   19: 'Garagem do Investidor',
+  20: 'Vidraçaria',
 }
 
 export const SYSTEM_TYPE_PROTECAO_VEICULAR = 1
@@ -31,6 +32,7 @@ export const SYSTEM_TYPE_HAMBURGUERIA = 16
 export const SYSTEM_TYPE_PADARIA = 17
 export const SYSTEM_TYPE_SOFTWARE_HOUSE = 18
 export const SYSTEM_TYPE_GARAGEM_INVESTIDOR = 19
+export const SYSTEM_TYPE_VIDRACARIA = 20
 // Loja Online cobre qualquer nicho com delivery/cardápio próprio (inclui os
 // 4 nichos de comida - Pizzaria/Lanchonete ficavam de fora antes por omissão,
 // não por design; corrigido junto da criação de Hamburgeria/Padaria).
@@ -96,6 +98,7 @@ export function isNoVehicleNiche(systemType?: number): boolean {
     isHamburgueria(systemType) ||
     isPadaria(systemType) ||
     isSoftwareHouse(systemType) ||
+    isVidracaria(systemType) ||
     isDistribuidoraBebidas(systemType)
   )
 }
@@ -115,4 +118,10 @@ export function isVistoriasNiche(systemType?: number): boolean {
 // que são específicas do fluxo de guincho/locadora).
 export function isGaragemInvestidor(systemType?: number): boolean {
   return systemType === SYSTEM_TYPE_GARAGEM_INVESTIDOR
+}
+
+// Vidraçaria/esquadrias: orçamento por itens com medidas (largura × altura),
+// preço calculado por m² de vidro + ferragens + mão de obra. Sem veículos.
+export function isVidracaria(systemType?: number): boolean {
+  return systemType === SYSTEM_TYPE_VIDRACARIA
 }

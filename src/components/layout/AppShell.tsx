@@ -35,6 +35,7 @@ import {
   isSoftwareHouse,
   isGaragemInvestidor,
   isDistribuidoraBebidas,
+  isVidracaria,
 } from '../../lib/systemTypes'
 
 export type AppPage =
@@ -83,6 +84,9 @@ export type AppPage =
   | 'investments'
   | 'delivery-couriers'
   | 'delivery-neighborhoods'
+  | 'glass-orders'
+  | 'glass-types'
+  | 'glass-models'
 
 interface AppShellProps {
   session: AuthSession
@@ -145,6 +149,13 @@ function buildNavGroups(
             { page: 'vehicle-sales' as const, label: 'Venda', icon: SaleIcon },
             { page: 'investments' as const, label: 'Investimentos', icon: TrendUpIcon },
           ]
+      : isVidracaria(systemType)
+        ? [
+            { page: 'dashboard' as const, label: 'Dashboard', icon: GridIcon },
+            { page: 'people' as const, label: 'Pessoas', icon: UserIcon },
+            { page: 'products' as const, label: 'Produtos e Serviços', icon: BoxIcon },
+            { page: 'glass-orders' as const, label: 'Orçamentos e Vendas', icon: SaleIcon },
+          ]
       : padaria
         ? [
             { page: 'dashboard' as const, label: 'Dashboard', icon: GridIcon },
@@ -199,6 +210,16 @@ function buildNavGroups(
         { href: DELIVERY_BOARD_URL, label: 'Pedidos de Delivery', icon: TruckIcon },
         { page: 'delivery-couriers' as const, label: 'Entregadores', icon: UserIcon },
         { page: 'delivery-neighborhoods' as const, label: 'Bairros e taxas', icon: RouteIcon },
+      ],
+    })
+  }
+
+  if (isVidracaria(systemType)) {
+    groups.splice(1, 0, {
+      title: 'Vidraçaria',
+      items: [
+        { page: 'glass-types' as const, label: 'Vidros', icon: BoxIcon },
+        { page: 'glass-models' as const, label: 'Modelos', icon: TagIcon },
       ],
     })
   }
