@@ -13,7 +13,18 @@ import { formatCurrency, formatDate } from '../../lib/format'
 import { GlassList } from './GlassList'
 import { SelectField } from '../../components/form/SelectField'
 import { type RowAction } from '../../components/RowActionsMenu'
-import { PencilIcon, TrashIcon, CopyIcon, CheckCircleIcon, CloseIcon } from '../../components/icons'
+import { GlassContractModals, type GlassContractTarget } from './GlassContractModals'
+import {
+  PencilIcon,
+  TrashIcon,
+  CopyIcon,
+  CheckCircleIcon,
+  CloseIcon,
+  FileTextIcon,
+  WhatsappIcon,
+  ClockIcon,
+  ClipboardCheckIcon,
+} from '../../components/icons'
 import type { AuthCompany, AuthSession } from '../../lib/auth'
 
 interface GlassOrdersPageProps {
@@ -57,6 +68,9 @@ export function GlassOrdersPage({ session, company, onCreate, onEdit }: GlassOrd
   const [cancelReason, setCancelReason] = useState('')
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+  const [contractTarget, setContractTarget] = useState<GlassContractTarget | null>(null)
+  const [reloadToken, setReloadToken] = useState(0)
 
   async function run(action: () => Promise<unknown>, reload: () => void) {
     setMessage(null)
@@ -88,7 +102,7 @@ export function GlassOrdersPage({ session, company, onCreate, onEdit }: GlassOrd
         newLabel="Novo orçamento"
         searchPlaceholder="Buscar por cliente, referência ou número"
         emptyLabel="Nenhum orçamento encontrado"
-        filterKey={status}
+        filterKey={`${status}:${reloadToken}`}
         filters={
           <div className="min-w-[180px]">
             <SelectField label="" variant="surface" value={status} onChange={(event) => setStatus(event.target.value)}>
@@ -108,6 +122,18 @@ export function GlassOrdersPage({ session, company, onCreate, onEdit }: GlassOrd
           { header: 'Referência', render: (item) => <span className="text-[var(--ink-soft)]">{item.reference || '—'}</span> },
           { header: 'Data', render: (item) => <span className="text-[var(--ink-soft)]">{formatDate(item.created_at)}</span> },
           { header: 'Status', render: (item) => <GlassStatusBadge status={item.status} /> },
+          {
+            header: 'Contrato',
+            render: (item) => {
+              const contract = item.meta?.contract
+              if (!contract) return <span className="text-[var(--muted)]">Não enviado</span>
+              return contract.status === 2 ? (
+                <span className="font-semibold text-[var(--green-600)]">Assinado</span>
+              ) : (
+                <span className="text-[var(--amber-500)]">Aguardando assinatura</span>
+              )
+            },
+          },
           { header: 'Total', align: 'right', render: (item) => <span className="font-semibold">{formatCurrency(item.total)}</span> },
         ]}
         cardTitle={(item) => `#${item.code} · ${item.people?.name ?? 'Sem cliente'}`}
@@ -129,6 +155,39 @@ export function GlassOrdersPage({ session, company, onCreate, onEdit }: GlassOrd
               onClick: () => run(() => duplicateGlassOrder(token, item.id), reload),
             },
           ]
+          const hasContract = Boolean(item.meta?.contract)
+          const openContract = (mode: GlassContractTarget['mode']) => setContractTarget({ mode, order: item })
+          list.push(
+            {
+              key: 'contract-preview',
+              label: 'Ver contrato',
+              icon: <FileTextIcon className="h-4 w-4" />,
+              dividerBefore: true,
+              onClick: () => openContract('preview'),
+            },
+            {
+              key: 'contract-send',
+              label: hasContract ? 'Reenviar contrato' : 'Enviar contrato',
+              icon: <WhatsappIcon className="h-4 w-4" />,
+              onClick: () => openContract('send'),
+            }
+          )
+          if (hasContract) {
+            list.push(
+              {
+                key: 'contract-timeline',
+                label: 'Detalhes do envio',
+                icon: <ClockIcon className="h-4 w-4" />,
+                onClick: () => openContract('timeline'),
+              },
+              {
+                key: 'contract-evidence',
+                label: 'Facial e assinatura',
+                icon: <ClipboardCheckIcon className="h-4 w-4" />,
+                onClick: () => openContract('evidence'),
+              }
+            )
+          }
           if (next) {
             list.push({
               key: 'next',
@@ -195,6 +254,26 @@ export function GlassOrdersPage({ session, company, onCreate, onEdit }: GlassOrd
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      <GlassContractModals
+        session={session}
+        company={company}
+        target={contractTarget}
+        onClose={() => {
+          setContractTarget(null)
+          setReloadToken((value) => value + 1)
+        }}
+        onSent={setNotice}
+      />
+
+      {notice && (
+        <div
+          className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-xl bg-[var(--ink)] px-4 py-2.5 text-[13px] font-semibold text-white shadow-lg"
+          onClick={() => setNotice(null)}
+        >
+          {notice}
         </div>
       )}
 

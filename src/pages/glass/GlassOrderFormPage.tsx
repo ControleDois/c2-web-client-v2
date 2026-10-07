@@ -4,6 +4,7 @@ import {
   fetchGlassModels,
   fetchGlassOrder,
   fetchGlassTypes,
+  generateGlassOrderBills,
   updateGlassOrder,
   GLASS_ORDER_STATUS,
   type GlassModelRecord,
@@ -12,17 +13,22 @@ import {
   type GlassTypeRecord,
 } from '../../lib/glass'
 import { fetchPeople, type PersonRecord } from '../../lib/people'
+import { fetchCategories, type CategoryRecord } from '../../lib/categories'
+import { fetchBankAccounts, type BankAccountRecord } from '../../lib/bankAccounts'
+import { FORM_PAYMENT_LABELS } from '../../lib/bills'
 import { formatDocument } from '../../lib/formatDocument'
-import { formatCurrency } from '../../lib/format'
+import { formatCurrency, formatDate } from '../../lib/format'
 import { parseMoney } from '../../lib/money'
 import { ApiError } from '../../lib/api'
 import { useQuickPerson } from '../../hooks/useQuickPerson'
 import { TextField } from '../../components/form/TextField'
 import { MoneyField } from '../../components/form/MoneyField'
 import { SearchSelectField } from '../../components/form/SearchSelectField'
+import { SelectField } from '../../components/form/SelectField'
 import { SectionCard } from '../../components/SectionCard'
 import { GlassItemModal } from './GlassItemModal'
 import { GlassStatusBadge } from './GlassOrdersPage'
+import { GlassContractModals, type GlassContractTarget } from './GlassContractModals'
 import { ChevronLeftIcon, PlusIcon, PencilIcon, TrashIcon, TagIcon, FileTextIcon, CalendarIcon, CopyIcon } from '../../components/icons'
 import type { AuthSession, AuthCompany } from '../../lib/auth'
 
@@ -66,6 +72,17 @@ export function GlassOrderFormPage({ session, company, orderId, onBack, onSaved 
   const [markup, setMarkup] = useState('')
   const [discount, setDiscount] = useState('')
   const [items, setItems] = useState<ItemRow[]>([])
+  const [formPayment, setFormPayment] = useState(10)
+  const [installments, setInstallments] = useState('1')
+  const [firstDueDate, setFirstDueDate] = useState('')
+  const [downPayment, setDownPayment] = useState('')
+  const [categoryId, setCategoryId] = useState('')
+  const [bankAccountId, setBankAccountId] = useState('')
+  const [categories, setCategories] = useState<CategoryRecord[]>([])
+  const [bankAccounts, setBankAccounts] = useState<BankAccountRecord[]>([])
+  const [generating, setGenerating] = useState(false)
+  const [contractTarget, setContractTarget] = useState<GlassContractTarget | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
   const [editing, setEditing] = useState<{ open: boolean; row: ItemRow | null }>({ open: false, row: null })
 
   useEffect(() => {
@@ -75,6 +92,12 @@ export function GlassOrderFormPage({ session, company, orderId, onBack, onSaved 
     fetchGlassTypes(token, company.id, { limit: 200, active: true })
       .then((res) => setGlassTypes(res.data || []))
       .catch(() => setGlassTypes([]))
+    fetchCategories(token, company.id, { role: 1, limit: 100 })
+      .then((res) => setCategories(res.data))
+      .catch(() => setCategories([]))
+    fetchBankAccounts(token, company.id, { limit: 100 })
+      .then((res) => setBankAccounts(res.data))
+      .catch(() => setBankAccounts([]))
   }, [token, company.id])
 
   useEffect(() => {
@@ -94,6 +117,12 @@ export function GlassOrderFormPage({ session, company, orderId, onBack, onSaved 
         setMarkup(data.markup_percent ? String(data.markup_percent).replace('.', ',') : '')
         setDiscount(data.discount_value ? String(data.discount_value) : '')
         setItems((data.items ?? []).map(withKey))
+        setFormPayment(data.form_payment ?? 10)
+        setInstallments(String(data.installments ?? 1))
+        setFirstDueDate(dateInput(data.first_due_date))
+        setDownPayment(data.down_payment ? String(data.down_payment) : '')
+        setCategoryId(data.category_id ?? '')
+        setBankAccountId(data.bank_account_id ?? '')
       })
       .catch((err) => {
         if (!cancelled) setLoadError(err instanceof ApiError ? err.message : 'Não foi possível carregar o orçamento.')
@@ -116,6 +145,8 @@ export function GlassOrderFormPage({ session, company, orderId, onBack, onSaved 
   const discountValue = parseMoney(discount) ?? 0
   const total = Math.max(Math.round((itemsTotal * (1 + markupPercent / 100) - discountValue) * 100) / 100, 0)
   const locked = order?.status === GLASS_ORDER_STATUS.CANCELED
+  const approved = Boolean(order) && (order?.status ?? 0) >= GLASS_ORDER_STATUS.SALE && !locked
+  const bills = order?.bills ?? []
 
   function saveItem(item: GlassOrderItemRecord) {
     setItems((current) =>
@@ -130,15 +161,8 @@ export function GlassOrderFormPage({ session, company, orderId, onBack, onSaved 
     setItems((current) => [...current, withKey({ ...row, id: undefined })])
   }
 
-  async function handleSubmit(event: FormEvent) {
-    event.preventDefault()
-    setError(null)
-    if (items.length === 0) {
-      setError('Adicione ao menos um item ao orçamento.')
-      return
-    }
-
-    const payload = {
+  function buildPayload() {
+    return {
       company_id: company.id,
       people_id: client?.id ?? null,
       reference: reference.trim() || null,
@@ -149,18 +173,49 @@ export function GlassOrderFormPage({ session, company, orderId, onBack, onSaved 
       discount_value: discountValue,
       notes: notes.trim() || null,
       internal_notes: internalNotes.trim() || null,
+      form_payment: formPayment,
+      installments: Math.max(Number(installments) || 1, 1),
+      first_due_date: firstDueDate || null,
+      down_payment: parseMoney(downPayment) ?? 0,
+      category_id: categoryId || null,
+      bank_account_id: bankAccountId || null,
       items: items.map(({ key: _key, ...item }) => item),
+    }
+  }
+
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault()
+    setError(null)
+    if (items.length === 0) {
+      setError('Adicione ao menos um item ao orçamento.')
+      return
     }
 
     setSubmitting(true)
     try {
-      if (orderId) await updateGlassOrder(token, orderId, payload)
-      else await createGlassOrder(token, payload)
+      if (orderId) await updateGlassOrder(token, orderId, buildPayload())
+      else await createGlassOrder(token, buildPayload())
       onSaved()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Não foi possível salvar o orçamento.')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  async function handleGenerateBills() {
+    if (!orderId) return
+    setError(null)
+    setGenerating(true)
+    try {
+      await updateGlassOrder(token, orderId, buildPayload())
+      const updated = await generateGlassOrderBills(token, orderId)
+      setOrder(updated)
+      setNotice('Parcelas geradas em Contas a Receber.')
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Não foi possível gerar as parcelas.')
+    } finally {
+      setGenerating(false)
     }
   }
 
@@ -182,6 +237,42 @@ export function GlassOrderFormPage({ session, company, orderId, onBack, onSaved 
           </h1>
           {order && <GlassStatusBadge status={order.status} />}
         </div>
+        {order && !locked && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setContractTarget({ mode: 'preview', order })}
+              className="rounded-xl border border-[var(--border)] px-3.5 py-2 text-[12.5px] font-bold text-[var(--ink-soft)] hover:text-[var(--ink)]"
+            >
+              Ver contrato
+            </button>
+            <button
+              type="button"
+              onClick={() => setContractTarget({ mode: 'send', order })}
+              className="rounded-xl border border-[var(--border)] px-3.5 py-2 text-[12.5px] font-bold text-[var(--ink-soft)] hover:text-[var(--ink)]"
+            >
+              {order.meta?.contract ? 'Reenviar contrato' : 'Enviar contrato'}
+            </button>
+            {order.meta?.contract && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setContractTarget({ mode: 'timeline', order })}
+                  className="rounded-xl border border-[var(--border)] px-3.5 py-2 text-[12.5px] font-bold text-[var(--ink-soft)] hover:text-[var(--ink)]"
+                >
+                  Detalhes do envio
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setContractTarget({ mode: 'evidence', order })}
+                  className="rounded-xl border border-[var(--border)] px-3.5 py-2 text-[12.5px] font-bold text-[var(--ink-soft)] hover:text-[var(--ink)]"
+                >
+                  Facial e assinatura
+                </button>
+              </>
+            )}
+          </div>
+        )}
         {locked && order?.cancel_reason && (
           <p className="mt-2 text-[12.5px] text-[var(--red-500)]">Cancelado: {order.cancel_reason}</p>
         )}
@@ -339,6 +430,102 @@ export function GlassOrderFormPage({ session, company, orderId, onBack, onSaved 
             </div>
           </SectionCard>
 
+          <SectionCard
+            title="Pagamento"
+            subtitle="Condições usadas ao gerar as contas a receber depois que a venda for aprovada"
+          >
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              <SelectField
+                label="Forma de pagamento"
+                value={formPayment}
+                onChange={(event) => setFormPayment(Number(event.target.value))}
+              >
+                {Object.entries(FORM_PAYMENT_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </SelectField>
+              <MoneyField
+                label="Entrada / sinal (R$)"
+                icon={<TagIcon className="h-4 w-4" />}
+                value={downPayment}
+                disabled={locked}
+                onChange={(event) => setDownPayment(event.target.value)}
+              />
+              <TextField
+                label="Parcelas do restante"
+                icon={<TagIcon className="h-4 w-4" />}
+                inputMode="numeric"
+                value={installments}
+                disabled={locked}
+                onChange={(event) => setInstallments(event.target.value.replace(/\D/g, ''))}
+              />
+              <TextField
+                label="1º vencimento"
+                icon={<CalendarIcon className="h-4 w-4" />}
+                type="date"
+                value={firstDueDate}
+                disabled={locked}
+                onChange={(event) => setFirstDueDate(event.target.value)}
+              />
+              <SelectField label="Categoria" value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
+                <option value="">Selecione</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </SelectField>
+              <SelectField label="Conta bancária" value={bankAccountId} onChange={(event) => setBankAccountId(event.target.value)}>
+                <option value="">Selecione</option>
+                {bankAccounts.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.name}
+                  </option>
+                ))}
+              </SelectField>
+            </div>
+
+            {bills.length > 0 && (
+              <div className="mt-4 overflow-x-auto rounded-xl bg-[var(--page)] p-3">
+                <table className="w-full border-collapse text-[13px]">
+                  <tbody>
+                    {bills.map((bill) => (
+                      <tr key={bill.id} className="border-b border-[var(--border)] last:border-none">
+                        <td className="py-1.5 text-[var(--ink)]">{bill.name}</td>
+                        <td className="py-1.5 text-[var(--ink-soft)]">{formatDate(bill.date_due)}</td>
+                        <td className="py-1.5 text-right font-semibold">{formatCurrency(bill.amount)}</td>
+                        <td className="py-1.5 pl-3 text-right text-[12px] text-[var(--muted)]">{bill.status === 0 ? 'Aberta' : 'Paga'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {approved && (
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  disabled={generating}
+                  onClick={handleGenerateBills}
+                  className="rounded-xl bg-[var(--page)] px-4 py-2.5 text-[13px] font-bold text-[var(--blue-700)] hover:bg-[var(--blue-100)] disabled:opacity-60"
+                >
+                  {generating ? 'Gerando…' : bills.length ? 'Salvar e regerar parcelas' : 'Salvar e gerar parcelas'}
+                </button>
+                <span className="text-[12px] text-[var(--muted)]">
+                  A entrada vence hoje; o restante é dividido a partir do 1º vencimento.
+                </span>
+              </div>
+            )}
+            {!approved && orderId && !locked && (
+              <p className="mt-4 text-[12px] text-[var(--muted)]">
+                As parcelas podem ser geradas depois de aprovar a venda (ação “Aprovar venda” na lista ou assinatura do contrato).
+              </p>
+            )}
+          </SectionCard>
+
           <SectionCard title="Observações" defaultCollapsed={!notes && !internalNotes}>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="flex flex-col gap-1.5">
@@ -398,6 +585,21 @@ export function GlassOrderFormPage({ session, company, orderId, onBack, onSaved 
         onClose={() => setEditing({ open: false, row: null })}
       />
       {quickPerson.modal}
+      <GlassContractModals
+        session={session}
+        company={company}
+        target={contractTarget}
+        onClose={() => setContractTarget(null)}
+        onSent={setNotice}
+      />
+      {notice && (
+        <div
+          className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-xl bg-[var(--ink)] px-4 py-2.5 text-[13px] font-semibold text-white shadow-lg"
+          onClick={() => setNotice(null)}
+        >
+          {notice}
+        </div>
+      )}
     </div>
   )
 }

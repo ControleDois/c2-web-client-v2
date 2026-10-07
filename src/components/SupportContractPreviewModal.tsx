@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { printSupportContract, type SupportContractRecord } from '../lib/supportContracts'
+import { printGlassContract } from '../lib/glass'
 import { fetchContractTemplates, type ContractTemplateRecord } from '../lib/contractTemplates'
 import { ApiError } from '../lib/api'
 import { CheckCircleIcon, CloseIcon, PrinterIcon } from './icons'
@@ -10,7 +11,8 @@ interface SupportContractPreviewModalProps {
   open: boolean
   session: AuthSession
   company: AuthCompany
-  contract: SupportContractRecord | null
+  contract: Pick<SupportContractRecord, 'id' | 'people'> | null
+  flow?: 'support' | 'glass'
   onClose: () => void
 }
 
@@ -19,6 +21,7 @@ export function SupportContractPreviewModal({
   session,
   company,
   contract,
+  flow = 'support',
   onClose,
 }: SupportContractPreviewModalProps) {
   const [templates, setTemplates] = useState<ContractTemplateRecord[]>([])
@@ -33,7 +36,7 @@ export function SupportContractPreviewModal({
     setTemplateId('')
     setTemplates([])
 
-    fetchContractTemplates(session.token.token, company.id, { targetType: 'support_contract', limit: 100 })
+    fetchContractTemplates(session.token.token, company.id, { targetType: flow === 'glass' ? 'glass_order' : 'support_contract', limit: 100 })
       .then((res) => {
         const active = (res.data || []).filter((template) => template.is_active)
         setTemplates(active)
@@ -56,7 +59,8 @@ export function SupportContractPreviewModal({
     setUrl(null)
     setSigned(false)
 
-    printSupportContract(session.token.token, contract.id, templateId || undefined)
+    const print = flow === 'glass' ? printGlassContract : printSupportContract
+    print(session.token.token, contract.id, templateId || undefined)
       .then((res) => {
         if (cancelled) return
         setUrl(res.url)
@@ -73,7 +77,7 @@ export function SupportContractPreviewModal({
     return () => {
       cancelled = true
     }
-  }, [open, contract, templateId, templates.length, session.token.token])
+  }, [open, contract, templateId, templates.length, flow, session.token.token])
 
   if (!open || !contract) return null
 
@@ -90,7 +94,7 @@ export function SupportContractPreviewModal({
           </span>
           <div>
             <h2 className="text-[15px] font-bold text-[var(--ink)]">{signed ? 'Contrato assinado' : 'Contrato'}</h2>
-            <p className="text-[12.5px] text-[var(--ink-soft)]">{contract.people?.name ?? 'Contrato de suporte'}</p>
+            <p className="text-[12.5px] text-[var(--ink-soft)]">{contract.people?.name ?? (flow === 'glass' ? 'Contrato da vidraçaria' : 'Contrato de suporte')}</p>
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -128,7 +132,7 @@ export function SupportContractPreviewModal({
 
       {templates.length === 0 && !signed && (
         <div className="border-b border-[var(--border)] bg-[var(--amber-100)] px-6 py-2.5 text-[12.5px] font-medium text-[var(--amber-500)]">
-          Nenhum modelo ativo do tipo "Contrato de Suporte" cadastrado - mostrando um modelo padrão genérico. Cadastre um em
+          Nenhum modelo ativo do tipo "{flow === 'glass' ? 'Vidraçaria (pedido)' : 'Contrato de Suporte'}" cadastrado - mostrando um modelo padrão genérico. Cadastre um em
           Modelos de Contrato para personalizar.
         </div>
       )}

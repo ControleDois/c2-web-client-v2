@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { sendSupportContract, sendSupportContractLink } from '../lib/supportContracts'
 import { sendLoanContract, sendLoanContractLink } from '../lib/sales'
+import { sendGlassContract, sendGlassContractLink } from '../lib/glass'
 import { fetchContractTemplates, type ContractTemplateRecord } from '../lib/contractTemplates'
 import { fetchCompanyWhatsapps, type CompanyWhatsappRecord } from '../lib/companyWhatsapp'
 import { ApiError } from '../lib/api'
@@ -17,7 +18,7 @@ interface SupportContractSendModalProps {
     autentique_short_link?: string | null
     meta?: { sent?: boolean; contract_sent?: boolean }
   } | null
-  flow?: 'support' | 'loan'
+  flow?: 'support' | 'loan' | 'glass'
   onClose: () => void
   onSent: (message: string) => void
 }
@@ -31,7 +32,8 @@ export function SupportContractSendModal({
   onClose,
   onSent,
 }: SupportContractSendModalProps) {
-  const isLoan = flow === 'loan'
+  // Empréstimo e vidraçaria seguem o mesmo fluxo: sempre geram o contrato (assinatura própria, Autentique ou PDF).
+  const isLoan = flow === 'loan' || flow === 'glass'
   const [templates, setTemplates] = useState<ContractTemplateRecord[]>([])
   const [whatsapps, setWhatsapps] = useState<CompanyWhatsappRecord[]>([])
   const [templateId, setTemplateId] = useState('')
@@ -46,7 +48,7 @@ export function SupportContractSendModal({
     setError(null)
 
     fetchContractTemplates(session.token.token, company.id, {
-      targetType: isLoan ? 'loan' : 'support_contract',
+      targetType: flow === 'glass' ? 'glass_order' : isLoan ? 'loan' : 'support_contract',
       limit: 100,
     })
       .then((res) => {
@@ -84,7 +86,7 @@ export function SupportContractSendModal({
     setSending(true)
     setError(null)
     try {
-      const send = isLoan ? sendLoanContract : sendSupportContract
+      const send = flow === 'glass' ? sendGlassContract : isLoan ? sendLoanContract : sendSupportContract
       const result = await send(session.token.token, contract.id, {
         contractTemplateId: templateId,
         whatsappId,
@@ -116,7 +118,7 @@ export function SupportContractSendModal({
     setSending(true)
     setError(null)
     try {
-      const resend = isLoan ? sendLoanContractLink : sendSupportContractLink
+      const resend = flow === 'glass' ? sendGlassContractLink : isLoan ? sendLoanContractLink : sendSupportContractLink
       await resend(session.token.token, contract.id, whatsappId)
       onSent('O link existente foi colocado na fila do WhatsApp.')
       onClose()
@@ -183,7 +185,7 @@ export function SupportContractSendModal({
           {templates.length === 0 && (
             <p className="text-[11.5px] font-medium text-[var(--amber-500)]">
               {isLoan
-                ? 'Sem modelo ativo do tipo Empréstimo, será usado o modelo padrão.'
+                ? 'Sem modelo ativo para este tipo, será usado o modelo padrão.'
                 : 'Cadastre um modelo ativo do tipo Contrato de Suporte.'}
             </p>
           )}

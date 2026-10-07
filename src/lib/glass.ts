@@ -1,4 +1,5 @@
 import { apiGet, apiPost, apiPut, apiDelete } from './api'
+import type { SendTimeline, SignatureEvidence } from './supportContracts'
 
 export interface Paginated<T> {
   data: T[]
@@ -136,6 +137,24 @@ export interface GlassOrderRecord {
   approved_at?: string | null
   created_at?: string
   items?: GlassOrderItemRecord[]
+  form_payment?: number
+  installments?: number
+  first_due_date?: string | null
+  down_payment?: number
+  category_id?: string | null
+  bank_account_id?: string | null
+  bills_generated_at?: string | null
+  bills?: GlassOrderBill[]
+  meta?: { contract?: { status: number; provider: string } | null }
+}
+
+export interface GlassOrderBill {
+  id: string
+  name: string
+  amount: number
+  date_due: string
+  status: number
+  installment_number: number
 }
 
 export interface GlassOrderPayload {
@@ -149,6 +168,12 @@ export interface GlassOrderPayload {
   discount_value: number
   notes?: string | null
   internal_notes?: string | null
+  form_payment: number
+  installments: number
+  first_due_date?: string | null
+  down_payment: number
+  category_id?: string | null
+  bank_account_id?: string | null
   items: GlassOrderItemRecord[]
 }
 
@@ -218,3 +243,25 @@ export const previewGlassPrice = (
   token: string,
   payload: { company_id: string; glass_model_id?: string | null; glass_type_id?: string | null; width_mm: number; height_mm: number; quantity: number }
 ) => apiPost<GlassPricePreview>('/glass-order/price-preview', payload, token)
+
+export const generateGlassOrderBills = (token: string, id: string) =>
+  apiPost<GlassOrderRecord>(`/glass-order/${id}/generate-bills`, {}, token)
+
+export const printGlassContract = (token: string, id: string, contractTemplateId?: string) =>
+  apiPost<{ url: string; html: string | null; signed?: boolean }>(`/glass-contract/print/${id}`, { contractTemplateId }, token)
+
+export const sendGlassContract = (token: string, id: string, payload: { contractTemplateId?: string; whatsappId?: string }) =>
+  apiPost<{ fileUrl: string; contractLink: string; whatsappQueued: boolean; whatsappError: string | null }>(
+    `/glass-contract/send/${id}`,
+    payload,
+    token
+  )
+
+export const sendGlassContractLink = (token: string, id: string, whatsappId: string) =>
+  apiPost<{ message: string; whatsappQueued: boolean }>(`/glass-contract/send-link/${id}`, { whatsappId }, token)
+
+export const fetchGlassSendTimeline = (token: string, id: string) =>
+  apiGet<SendTimeline>(`/glass-contract/${id}/send-timeline`, {}, token)
+
+export const fetchGlassSignatureEvidence = (token: string, id: string) =>
+  apiGet<{ signature: SignatureEvidence | null }>(`/glass-contract/${id}/signature-evidence`, {}, token)

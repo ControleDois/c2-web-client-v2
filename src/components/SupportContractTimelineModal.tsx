@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { fetchSupportContractSendTimeline, type SendTimeline, type SendTimelineEvent } from '../lib/supportContracts'
 import { fetchLoanSendTimeline } from '../lib/sales'
+import { fetchGlassSendTimeline } from '../lib/glass'
 import { fetchTowingSendTimeline } from '../lib/towingSale'
 import { ApiError } from '../lib/api'
 import { CheckCircleIcon, CloseIcon } from './icons'
@@ -10,7 +11,7 @@ interface SupportContractTimelineModalProps {
   open: boolean
   session: AuthSession
   contract: { id: string; people?: { name?: string | null } | null } | null
-  flow?: 'support' | 'loan' | 'towing'
+  flow?: 'support' | 'loan' | 'towing' | 'glass'
   onClose: () => void
 }
 
@@ -63,7 +64,13 @@ export function SupportContractTimelineModal({
     setTimeline(null)
 
     const fetchTimeline =
-      flow === 'loan' ? fetchLoanSendTimeline : flow === 'towing' ? fetchTowingSendTimeline : fetchSupportContractSendTimeline
+      flow === 'loan'
+        ? fetchLoanSendTimeline
+        : flow === 'towing'
+          ? fetchTowingSendTimeline
+          : flow === 'glass'
+            ? fetchGlassSendTimeline
+            : fetchSupportContractSendTimeline
     fetchTimeline(session.token.token, contract.id)
       .then((res) => {
         if (!cancelled) setTimeline(res)
@@ -106,7 +113,13 @@ export function SupportContractTimelineModal({
             <h2 className="text-[15px] font-bold text-[var(--ink)]">Detalhes do envio</h2>
             <p className="mt-1 text-[12.5px] text-[var(--ink-soft)]">
               {contract.people?.name ??
-              (flow === 'loan' ? 'Contrato de empréstimo' : flow === 'towing' ? 'Contrato de guincho' : 'Contrato de suporte')}
+              (flow === 'loan'
+                ? 'Contrato de empréstimo'
+                : flow === 'towing'
+                  ? 'Contrato de guincho'
+                  : flow === 'glass'
+                    ? 'Contrato da vidraçaria'
+                    : 'Contrato de suporte')}
             </p>
           </div>
           <button
