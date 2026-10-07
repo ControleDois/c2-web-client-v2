@@ -69,6 +69,8 @@ export interface GlassModelRecord {
   defaultGlassType?: GlassTypeRecord | null
   labor_per_m2: number
   labor_fixed: number
+  cut_width_discount_mm?: number
+  cut_height_discount_mm?: number
   components: GlassComponent[]
   active: boolean
 }
@@ -81,6 +83,8 @@ export interface GlassModelPayload {
   default_glass_type_id?: string | null
   labor_per_m2: number
   labor_fixed: number
+  cut_width_discount_mm: number
+  cut_height_discount_mm: number
   components: GlassComponent[]
   active: boolean
 }
@@ -265,3 +269,68 @@ export const fetchGlassSendTimeline = (token: string, id: string) =>
 
 export const fetchGlassSignatureEvidence = (token: string, id: string) =>
   apiGet<{ signature: SignatureEvidence | null }>(`/glass-contract/${id}/signature-evidence`, {}, token)
+
+export const GLASS_STAGE_LABELS: Record<number, string> = {
+  0: 'Aguardando',
+  1: 'Em corte',
+  2: 'Têmpera / fornecedor',
+  3: 'Pronto',
+  4: 'Instalado',
+}
+
+export interface GlassProductionItem extends GlassOrderItemRecord {
+  id: string
+  glass_order_id: string
+  production_stage: number
+  order: {
+    id: string
+    code: number
+    status: number
+    reference?: string | null
+    expected_delivery?: string | null
+    people?: { name: string } | null
+  }
+  glassType?: { name: string } | null
+  piece: { width_mm: number; height_mm: number; quantity: number }
+}
+
+export interface GlassCutPiece {
+  order_id: string
+  order_code: number
+  client: string
+  item_id: string
+  description: string
+  location: string
+  width_mm: number
+  height_mm: number
+  quantity: number
+}
+
+export interface GlassCutGroup {
+  glass_type_id: string | null
+  glass_type: string
+  pieces: GlassCutPiece[]
+  total_pieces: number
+  total_area_m2: number
+}
+
+export const fetchGlassProduction = (
+  token: string,
+  companyId: string,
+  options: { stage?: string; search?: string; orderStatus?: string } = {}
+) =>
+  apiGet<GlassProductionItem[]>(
+    '/glass-production',
+    { companyId, stage: options.stage || undefined, search: options.search || undefined, orderStatus: options.orderStatus || undefined },
+    token
+  )
+
+export const changeGlassItemStage = (token: string, ids: string[], stage: number) =>
+  apiPut<{ updated: number }>('/glass-production/stage', { ids, stage }, token)
+
+export const fetchGlassCutList = (token: string, companyId: string, orderIds?: string[]) =>
+  apiGet<GlassCutGroup[]>(
+    '/glass-production/cut-list',
+    { companyId, orderIds: orderIds?.length ? orderIds.join(',') : undefined },
+    token
+  )

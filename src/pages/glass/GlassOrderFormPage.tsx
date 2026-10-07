@@ -7,6 +7,7 @@ import {
   generateGlassOrderBills,
   updateGlassOrder,
   GLASS_ORDER_STATUS,
+  GLASS_STAGE_LABELS,
   type GlassModelRecord,
   type GlassOrderItemRecord,
   type GlassOrderRecord,
@@ -373,7 +374,13 @@ export function GlassOrderFormPage({ session, company, orderId, onBack, onSaved 
                         <td className="py-2.5 pr-3">
                           <p className="font-medium text-[var(--ink)]">{row.description}</p>
                           <p className="text-[11.5px] text-[var(--muted)]">
-                            {[row.location, row.price_overridden ? 'valor alterado manualmente' : null].filter(Boolean).join(' · ')}
+                            {[
+                              row.location,
+                              row.price_overridden ? 'valor alterado manualmente' : null,
+                              approved ? GLASS_STAGE_LABELS[row.production_stage ?? 0] : null,
+                            ]
+                              .filter(Boolean)
+                              .join(' · ')}
                           </p>
                         </td>
                         <td className="py-2.5 whitespace-nowrap text-[var(--ink-soft)]">

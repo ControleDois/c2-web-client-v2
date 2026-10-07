@@ -48,6 +48,7 @@ import { GlassModelsPage } from './pages/glass/GlassModelsPage'
 import { GlassModelFormPage } from './pages/glass/GlassModelFormPage'
 import { GlassOrdersPage } from './pages/glass/GlassOrdersPage'
 import { GlassOrderFormPage } from './pages/glass/GlassOrderFormPage'
+import { GlassProductionPage } from './pages/glass/GlassProductionPage'
 import { RentalTypeFormPage } from './pages/RentalTypeFormPage'
 import { NfesPage } from './pages/NfesPage'
 import { NfeFormPage } from './pages/NfeFormPage'
@@ -683,6 +684,8 @@ function App() {
             onEdit={(item) => glassOrdersView.edit(item.id)}
           />
         )
+    } else if (page === 'glass-production') {
+      pageContent = <GlassProductionPage session={session} company={activeCompany} />
     } else if (page === 'roles') {
       pageContent =
         rolesView.view.mode === 'form' ? (

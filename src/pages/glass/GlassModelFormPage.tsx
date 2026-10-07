@@ -57,6 +57,8 @@ export function GlassModelFormPage({ session, company, glassModelId, onBack, onS
   const [defaultGlassTypeId, setDefaultGlassTypeId] = useState('')
   const [laborPerM2, setLaborPerM2] = useState('')
   const [laborFixed, setLaborFixed] = useState('')
+  const [cutWidthDiscount, setCutWidthDiscount] = useState('')
+  const [cutHeightDiscount, setCutHeightDiscount] = useState('')
   const [active, setActive] = useState(true)
   const [rows, setRows] = useState<ComponentRow[]>([])
 
@@ -78,6 +80,8 @@ export function GlassModelFormPage({ session, company, glassModelId, onBack, onS
         setDefaultGlassTypeId(item.default_glass_type_id ?? '')
         setLaborPerM2(String(item.labor_per_m2 ?? ''))
         setLaborFixed(String(item.labor_fixed ?? ''))
+        setCutWidthDiscount(item.cut_width_discount_mm ? String(item.cut_width_discount_mm) : '')
+        setCutHeightDiscount(item.cut_height_discount_mm ? String(item.cut_height_discount_mm) : '')
         setActive(item.active)
         setRows(
           (item.components ?? []).map((component) =>
@@ -122,6 +126,8 @@ export function GlassModelFormPage({ session, company, glassModelId, onBack, onS
       default_glass_type_id: defaultGlassTypeId || null,
       labor_per_m2: parseMoney(laborPerM2) ?? 0,
       labor_fixed: parseMoney(laborFixed) ?? 0,
+      cut_width_discount_mm: Number(cutWidthDiscount) || 0,
+      cut_height_discount_mm: Number(cutHeightDiscount) || 0,
       active,
       components: filledRows.map((row) => ({
         name: row.name.trim(),
@@ -216,7 +222,27 @@ export function GlassModelFormPage({ session, company, glassModelId, onBack, onS
                 value={laborFixed}
                 onChange={(event) => setLaborFixed(event.target.value)}
               />
+              <TextField
+                label="Desconto na largura do vidro (mm)"
+                icon={<TagIcon className="h-4 w-4" />}
+                inputMode="numeric"
+                placeholder="Ex: 20"
+                value={cutWidthDiscount}
+                onChange={(event) => setCutWidthDiscount(event.target.value.replace(/\D/g, ''))}
+              />
+              <TextField
+                label="Desconto na altura do vidro (mm)"
+                icon={<TagIcon className="h-4 w-4" />}
+                inputMode="numeric"
+                placeholder="Ex: 10"
+                value={cutHeightDiscount}
+                onChange={(event) => setCutHeightDiscount(event.target.value.replace(/\D/g, ''))}
+              />
             </div>
+            <p className="mt-2 text-[11.5px] text-[var(--muted)]">
+              Na lista de corte, a peça de vidro é a medida do vão menos esses descontos; a largura ainda é dividida pelo
+              número de folhas.
+            </p>
             <label className="mt-4 flex items-center gap-2.5">
               <input
                 type="checkbox"

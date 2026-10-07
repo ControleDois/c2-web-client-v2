@@ -14,6 +14,7 @@ import { GlassList } from './GlassList'
 import { SelectField } from '../../components/form/SelectField'
 import { type RowAction } from '../../components/RowActionsMenu'
 import { GlassContractModals, type GlassContractTarget } from './GlassContractModals'
+import { GlassCutListModal } from './GlassCutListModal'
 import {
   PencilIcon,
   TrashIcon,
@@ -71,6 +72,7 @@ export function GlassOrdersPage({ session, company, onCreate, onEdit }: GlassOrd
   const [notice, setNotice] = useState<string | null>(null)
   const [contractTarget, setContractTarget] = useState<GlassContractTarget | null>(null)
   const [reloadToken, setReloadToken] = useState(0)
+  const [cutListOrder, setCutListOrder] = useState<GlassOrderRecord | null>(null)
 
   async function run(action: () => Promise<unknown>, reload: () => void) {
     setMessage(null)
@@ -188,6 +190,14 @@ export function GlassOrdersPage({ session, company, onCreate, onEdit }: GlassOrd
               }
             )
           }
+          if (item.status >= GLASS_ORDER_STATUS.SALE && item.status !== GLASS_ORDER_STATUS.CANCELED) {
+            list.push({
+              key: 'cut-list',
+              label: 'Lista de corte',
+              icon: <ClipboardCheckIcon className="h-4 w-4" />,
+              onClick: () => setCutListOrder(item),
+            })
+          }
           if (next) {
             list.push({
               key: 'next',
@@ -256,6 +266,15 @@ export function GlassOrdersPage({ session, company, onCreate, onEdit }: GlassOrd
           </div>
         </div>
       )}
+
+      <GlassCutListModal
+        open={Boolean(cutListOrder)}
+        session={session}
+        company={company}
+        orderIds={cutListOrder ? [cutListOrder.id] : undefined}
+        title={cutListOrder ? `Lista de corte — pedido #${cutListOrder.code}` : undefined}
+        onClose={() => setCutListOrder(null)}
+      />
 
       <GlassContractModals
         session={session}
