@@ -1,13 +1,21 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { formatCurrency } from '../../lib/format'
 import {
   createGlassModel,
   fetchGlassModel,
+  fetchGlassAccessories,
+  fetchGlassProfiles,
   fetchGlassTypes,
+  simulateGlassModel,
   updateGlassModel,
   GLASS_CATEGORIES,
   GLASS_COMPONENT_MODES,
+  type GlassAccessoryRecord,
   type GlassComponent,
+  type GlassComponentKind,
   type GlassModelRecord,
+  type GlassProfileRecord,
+  type GlassSimulationRow,
   type GlassTypeRecord,
 } from '../../lib/glass'
 import { parseMoney } from '../../lib/money'
@@ -30,19 +38,65 @@ interface GlassModelFormPageProps {
 
 interface ComponentRow {
   key: string
+  kind: GlassComponentKind
   name: string
-  mode: GlassComponent['mode']
+  mode: NonNullable<GlassComponent['mode']>
   quantity: string
   unitValue: string
+  profileId: string
+  accessoryId: string
+  lengthFormula: string
+  quantityFormula: string
+}
+
+const KIND_LABELS: Record<GlassComponentKind, string> = {
+  free: 'Ferragem (valor fixo)',
+  profile: 'Perfil (fórmula)',
+  accessory: 'Acessório (fórmula)',
+}
+
+function toComponent(row: ComponentRow): GlassComponent | null {
+  if (row.kind === 'profile') {
+    if (!row.profileId) return null
+    return {
+      kind: 'profile',
+      name: row.name.trim() || 'Perfil',
+      profile_id: row.profileId,
+      length_formula: row.lengthFormula.trim(),
+      quantity_formula: row.quantityFormula.trim() || '1',
+    }
+  }
+  if (row.kind === 'accessory') {
+    if (!row.accessoryId) return null
+    return {
+      kind: 'accessory',
+      name: row.name.trim() || 'Acessório',
+      accessory_id: row.accessoryId,
+      quantity_formula: row.quantityFormula.trim() || '1',
+    }
+  }
+  if (!row.name.trim()) return null
+  return {
+    kind: 'free',
+    name: row.name.trim(),
+    mode: row.mode,
+    quantity: Number(row.quantity.replace(',', '.')) || 0,
+    unit_value: parseMoney(row.unitValue) ?? 0,
+  }
 }
 
 let rowCounter = 0
 const newRow = (partial: Partial<ComponentRow> = {}): ComponentRow => ({
   key: `row-${++rowCounter}`,
+  kind: 'free',
   name: '',
   mode: 'fixed',
   quantity: '1',
   unitValue: '',
+  profileId: '',
+  accessoryId: '',
+  lengthFormula: '',
+  quantityFormula: '',
   ...partial,
 })
 
@@ -63,11 +117,23 @@ export function GlassModelFormPage({ session, company, glassModelId, onBack, onS
   const [active, setActive] = useState(true)
   const [product, setProduct] = useState<{ id: string; name: string } | null>(null)
   const [rows, setRows] = useState<ComponentRow[]>([])
+  const [profiles, setProfiles] = useState<GlassProfileRecord[]>([])
+  const [accessories, setAccessories] = useState<GlassAccessoryRecord[]>([])
+  const [sampleWidth, setSampleWidth] = useState('1500')
+  const [sampleHeight, setSampleHeight] = useState('1000')
+  const [simulation, setSimulation] = useState<{ rows: GlassSimulationRow[]; total: number } | null>(null)
+  const [simulationError, setSimulationError] = useState<string | null>(null)
 
   useEffect(() => {
     fetchGlassTypes(session.token.token, company.id, { limit: 200, active: true })
       .then((res) => setGlassTypes(res.data || []))
       .catch(() => setGlassTypes([]))
+    fetchGlassProfiles(session.token.token, company.id, { limit: 200, active: true })
+      .then((res) => setProfiles(res.data || []))
+      .catch(() => setProfiles([]))
+    fetchGlassAccessories(session.token.token, company.id, { limit: 200, active: true })
+      .then((res) => setAccessories(res.data || []))
+      .catch(() => setAccessories([]))
   }, [session.token.token, company.id])
 
   useEffect(() => {
@@ -89,10 +155,15 @@ export function GlassModelFormPage({ session, company, glassModelId, onBack, onS
         setRows(
           (item.components ?? []).map((component) =>
             newRow({
+              kind: component.kind ?? 'free',
               name: component.name,
-              mode: component.mode,
-              quantity: String(component.quantity).replace('.', ','),
-              unitValue: String(component.unit_value),
+              mode: component.mode ?? 'fixed',
+              quantity: String(component.quantity ?? 1).replace('.', ','),
+              unitValue: String(component.unit_value ?? ''),
+              profileId: component.profile_id ?? '',
+              accessoryId: component.accessory_id ?? '',
+              lengthFormula: component.length_formula ?? '',
+              quantityFormula: component.quantity_formula ?? '',
             })
           )
         )
@@ -112,6 +183,45 @@ export function GlassModelFormPage({ session, company, glassModelId, onBack, onS
     setRows((current) => current.map((row) => (row.key === key ? { ...row, ...patch } : row)))
   }
 
+  const simulationComponents = useMemo(
+    () => rows.map(toComponent).filter((component): component is GlassComponent => component !== null),
+    [rows]
+  )
+
+  useEffect(() => {
+    const width = Number(sampleWidth)
+    const height = Number(sampleHeight)
+    if (!simulationComponents.length || width <= 0 || height <= 0) {
+      setSimulation(null)
+      setSimulationError(null)
+      return
+    }
+    let cancelled = false
+    const timeout = setTimeout(() => {
+      simulateGlassModel(session.token.token, {
+        company_id: company.id,
+        width_mm: width,
+        height_mm: height,
+        folhas: Math.max(Number(folhas) || 1, 1),
+        components: simulationComponents,
+      })
+        .then((res) => {
+          if (cancelled) return
+          setSimulation(res)
+          setSimulationError(null)
+        })
+        .catch((err) => {
+          if (cancelled) return
+          setSimulation(null)
+          setSimulationError(err instanceof ApiError ? err.message : 'Não foi possível simular.')
+        })
+    }, 400)
+    return () => {
+      cancelled = true
+      clearTimeout(timeout)
+    }
+  }, [session.token.token, company.id, simulationComponents, sampleWidth, sampleHeight, folhas])
+
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
     setError(null)
@@ -119,7 +229,7 @@ export function GlassModelFormPage({ session, company, glassModelId, onBack, onS
       setError('Preencha o nome para continuar.')
       return
     }
-    const filledRows = rows.filter((row) => row.name.trim())
+    const components = rows.map(toComponent).filter((component): component is GlassComponent => component !== null)
 
     const payload = {
       company_id: company.id,
@@ -133,12 +243,7 @@ export function GlassModelFormPage({ session, company, glassModelId, onBack, onS
       product_id: product?.id ?? null,
       cut_height_discount_mm: Number(cutHeightDiscount) || 0,
       active,
-      components: filledRows.map((row) => ({
-        name: row.name.trim(),
-        mode: row.mode,
-        quantity: Number(row.quantity.replace(',', '.')) || 0,
-        unit_value: parseMoney(row.unitValue) ?? 0,
-      })),
+      components,
     }
 
     setSubmitting(true)
@@ -260,66 +365,202 @@ export function GlassModelFormPage({ session, company, glassModelId, onBack, onS
           </SectionCard>
 
           <SectionCard
-            title="Ferragens e acessórios"
-            subtitle="Cada linha soma ao preço da peça: valor fixo, por m² ou por metro de perímetro"
+            title="Perfis, acessórios e ferragens"
+            subtitle="Cada linha soma ao preço da peça. Perfis e acessórios usam o catálogo e fórmulas; ferragens usam valor digitado"
           >
             <div className="flex flex-col gap-3">
+              <p className="rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[12px] text-[var(--ink-soft)]">
+                Nas fórmulas use <b>L</b> (largura do vão, mm), <b>H</b> (altura, mm), <b>F</b> (folhas), <b>A</b> (área, m²) e{' '}
+                <b>P</b> (perímetro, m), com + − × ÷, parênteses e ceil, floor, round, max, min. Ex.: <b>(L / F) - 20</b>
+              </p>
               {rows.length === 0 && (
-                <p className="text-[13px] text-[var(--muted)]">Nenhuma ferragem. Adicione roldanas, fechaduras, trilhos…</p>
+                <p className="text-[13px] text-[var(--muted)]">Nenhuma linha. Adicione perfis, acessórios ou ferragens.</p>
               )}
               {rows.map((row) => (
-                <div key={row.key} className="grid items-end gap-3 rounded-xl bg-[var(--page)] p-3 sm:grid-cols-[2fr_1.4fr_0.7fr_1fr_auto]">
-                  <TextField
-                    label="Item"
-                    icon={<BoxIcon className="h-4 w-4" />}
-                    placeholder="Ex: Roldana"
-                    value={row.name}
-                    onChange={(event) => updateRow(row.key, { name: event.target.value })}
-                  />
+                <div key={row.key} className="grid items-end gap-3 rounded-xl bg-[var(--page)] p-3 sm:grid-cols-[1.3fr_2fr_1.2fr_1fr_auto]">
                   <SelectField
-                    label="Cobrança"
+                    label="Tipo"
                     variant="surface"
-                    value={row.mode}
-                    onChange={(event) => updateRow(row.key, { mode: event.target.value as GlassComponent['mode'] })}
+                    value={row.kind}
+                    onChange={(event) => updateRow(row.key, { kind: event.target.value as GlassComponentKind })}
                   >
-                    {GLASS_COMPONENT_MODES.map((mode) => (
-                      <option key={mode.value} value={mode.value}>
-                        {mode.label}
+                    {(Object.keys(KIND_LABELS) as GlassComponentKind[]).map((kind) => (
+                      <option key={kind} value={kind}>
+                        {KIND_LABELS[kind]}
                       </option>
                     ))}
                   </SelectField>
-                  <TextField
-                    label="Qtd"
-                    icon={<TagIcon className="h-4 w-4" />}
-                    inputMode="decimal"
-                    value={row.quantity}
-                    onChange={(event) => updateRow(row.key, { quantity: event.target.value.replace(/[^\d,.]/g, '') })}
-                  />
-                  <MoneyField
-                    label="Valor unitário"
-                    icon={<CoinIcon className="h-4 w-4" />}
-                    value={row.unitValue}
-                    onChange={(event) => updateRow(row.key, { unitValue: event.target.value })}
-                  />
+
+                  {row.kind === 'profile' && (
+                    <>
+                      <SelectField
+                        label="Perfil"
+                        variant="surface"
+                        value={row.profileId}
+                        onChange={(event) => updateRow(row.key, { profileId: event.target.value })}
+                      >
+                        <option value="">Selecione</option>
+                        {profiles.map((profile) => (
+                          <option key={profile.id} value={profile.id}>
+                            {[profile.name, profile.color].filter(Boolean).join(' · ')}
+                          </option>
+                        ))}
+                      </SelectField>
+                      <TextField
+                        label="Comprimento da peça (mm)"
+                        icon={<TagIcon className="h-4 w-4" />}
+                        placeholder="Ex: L - 45"
+                        value={row.lengthFormula}
+                        onChange={(event) => updateRow(row.key, { lengthFormula: event.target.value })}
+                      />
+                      <TextField
+                        label="Quantidade de peças"
+                        icon={<TagIcon className="h-4 w-4" />}
+                        placeholder="Ex: 2"
+                        value={row.quantityFormula}
+                        onChange={(event) => updateRow(row.key, { quantityFormula: event.target.value })}
+                      />
+                    </>
+                  )}
+
+                  {row.kind === 'accessory' && (
+                    <>
+                      <SelectField
+                        label="Acessório"
+                        variant="surface"
+                        value={row.accessoryId}
+                        onChange={(event) => updateRow(row.key, { accessoryId: event.target.value })}
+                      >
+                        <option value="">Selecione</option>
+                        {accessories.map((accessory) => (
+                          <option key={accessory.id} value={accessory.id}>
+                            {accessory.name} ({accessory.unit})
+                          </option>
+                        ))}
+                      </SelectField>
+                      <TextField
+                        label="Quantidade"
+                        icon={<TagIcon className="h-4 w-4" />}
+                        placeholder="Ex: F * 2"
+                        value={row.quantityFormula}
+                        onChange={(event) => updateRow(row.key, { quantityFormula: event.target.value })}
+                      />
+                      <span />
+                    </>
+                  )}
+
+                  {row.kind === 'free' && (
+                    <>
+                      <TextField
+                        label="Item"
+                        icon={<BoxIcon className="h-4 w-4" />}
+                        placeholder="Ex: Fechadura"
+                        value={row.name}
+                        onChange={(event) => updateRow(row.key, { name: event.target.value })}
+                      />
+                      <SelectField
+                        label="Cobrança"
+                        variant="surface"
+                        value={row.mode}
+                        onChange={(event) => updateRow(row.key, { mode: event.target.value as ComponentRow['mode'] })}
+                      >
+                        {GLASS_COMPONENT_MODES.map((mode) => (
+                          <option key={mode.value} value={mode.value}>
+                            {mode.label}
+                          </option>
+                        ))}
+                      </SelectField>
+                      <div className="grid grid-cols-2 gap-2">
+                        <TextField
+                          label="Qtd"
+                          icon={<TagIcon className="h-4 w-4" />}
+                          inputMode="decimal"
+                          value={row.quantity}
+                          onChange={(event) => updateRow(row.key, { quantity: event.target.value.replace(/[^\d,.]/g, '') })}
+                        />
+                        <MoneyField
+                          label="Valor"
+                          icon={<CoinIcon className="h-4 w-4" />}
+                          value={row.unitValue}
+                          onChange={(event) => updateRow(row.key, { unitValue: event.target.value })}
+                        />
+                      </div>
+                    </>
+                  )}
+
                   <button
                     type="button"
                     onClick={() => setRows((current) => current.filter((item) => item.key !== row.key))}
                     className="mb-1 flex h-9 w-9 items-center justify-center rounded-lg text-[var(--muted)] hover:bg-[var(--red-100)] hover:text-[var(--red-500)]"
-                    aria-label="Remover ferragem"
+                    aria-label="Remover linha"
                   >
                     <TrashIcon className="h-4 w-4" />
                   </button>
                 </div>
               ))}
-              <button
-                type="button"
-                onClick={() => setRows((current) => [...current, newRow()])}
-                className="flex w-fit items-center gap-1.5 rounded-xl border border-[var(--border)] px-3.5 py-2 text-[12.5px] font-bold text-[var(--ink-soft)] hover:text-[var(--ink)]"
-              >
-                <PlusIcon className="h-3.5 w-3.5" />
-                Adicionar ferragem
-              </button>
+              <div className="flex flex-wrap gap-2">
+                {(['profile', 'accessory', 'free'] as GlassComponentKind[]).map((kind) => (
+                  <button
+                    key={kind}
+                    type="button"
+                    onClick={() => setRows((current) => [...current, newRow({ kind })])}
+                    className="flex w-fit items-center gap-1.5 rounded-xl border border-[var(--border)] px-3.5 py-2 text-[12.5px] font-bold text-[var(--ink-soft)] hover:text-[var(--ink)]"
+                  >
+                    <PlusIcon className="h-3.5 w-3.5" />
+                    {kind === 'profile' ? 'Perfil' : kind === 'accessory' ? 'Acessório' : 'Ferragem'}
+                  </button>
+                ))}
+              </div>
             </div>
+          </SectionCard>
+
+          <SectionCard
+            title="Simulação"
+            subtitle="Confira as fórmulas com uma medida de exemplo (valores de venda do catálogo, sem vidro nem mão de obra)"
+            defaultCollapsed={rows.length === 0}
+          >
+            <div className="grid gap-4 sm:grid-cols-2 xl:max-w-[520px]">
+              <TextField
+                label="Largura (mm)"
+                icon={<TagIcon className="h-4 w-4" />}
+                inputMode="numeric"
+                value={sampleWidth}
+                onChange={(event) => setSampleWidth(event.target.value.replace(/\D/g, ''))}
+              />
+              <TextField
+                label="Altura (mm)"
+                icon={<TagIcon className="h-4 w-4" />}
+                inputMode="numeric"
+                value={sampleHeight}
+                onChange={(event) => setSampleHeight(event.target.value.replace(/\D/g, ''))}
+              />
+            </div>
+            {simulationError && (
+              <p className="mt-3 rounded-xl bg-[var(--red-100)] px-4 py-2.5 text-[13px] font-medium text-[var(--red-500)]">
+                {simulationError}
+              </p>
+            )}
+            {simulation && (
+              <div className="mt-3 rounded-xl bg-[var(--page)] p-3">
+                <table className="w-full border-collapse text-[13px]">
+                  <tbody>
+                    {simulation.rows.map((row, index) => (
+                      <tr key={index} className="border-b border-[var(--border)] last:border-none">
+                        <td className="py-1.5 text-[var(--ink)]">
+                          {row.name}
+                          {row.error && <span className="ml-2 text-[12px] text-[var(--red-500)]">{row.error}</span>}
+                        </td>
+                        <td className="py-1.5 text-right font-semibold">{formatCurrency(row.value)}</td>
+                      </tr>
+                    ))}
+                    <tr>
+                      <td className="pt-2 font-bold text-[var(--ink)]">Total das linhas</td>
+                      <td className="pt-2 text-right font-bold text-[var(--ink)]">{formatCurrency(simulation.total)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            )}
           </SectionCard>
 
           {error && (

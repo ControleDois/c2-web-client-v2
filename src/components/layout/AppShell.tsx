@@ -87,6 +87,8 @@ export type AppPage =
   | 'glass-orders'
   | 'glass-types'
   | 'glass-models'
+  | 'glass-profiles'
+  | 'glass-accessories'
   | 'glass-production'
   | 'glass-schedule'
 
@@ -224,6 +226,8 @@ function buildNavGroups(
       items: [
         { page: 'glass-types' as const, label: 'Vidros', icon: BoxIcon },
         { page: 'glass-models' as const, label: 'Modelos', icon: TagIcon },
+        { page: 'glass-profiles' as const, label: 'Perfis', icon: BoxIcon },
+        { page: 'glass-accessories' as const, label: 'Acessórios', icon: BoxIcon },
       ],
     })
   }

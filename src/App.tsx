@@ -46,6 +46,10 @@ import { GlassTypesPage } from './pages/glass/GlassTypesPage'
 import { GlassTypeFormPage } from './pages/glass/GlassTypeFormPage'
 import { GlassModelsPage } from './pages/glass/GlassModelsPage'
 import { GlassModelFormPage } from './pages/glass/GlassModelFormPage'
+import { GlassProfilesPage } from './pages/glass/GlassProfilesPage'
+import { GlassProfileFormPage } from './pages/glass/GlassProfileFormPage'
+import { GlassAccessoriesPage } from './pages/glass/GlassAccessoriesPage'
+import { GlassAccessoryFormPage } from './pages/glass/GlassAccessoryFormPage'
 import { GlassOrdersPage } from './pages/glass/GlassOrdersPage'
 import { GlassOrderFormPage } from './pages/glass/GlassOrderFormPage'
 import { GlassProductionPage } from './pages/glass/GlassProductionPage'
@@ -181,6 +185,8 @@ function App() {
   const investmentsView = useEntityView()
   const glassTypesView = useEntityView()
   const glassModelsView = useEntityView()
+  const glassProfilesView = useEntityView()
+  const glassAccessoriesView = useEntityView()
   const glassOrdersView = useEntityView()
 
   const entityViews = {
@@ -214,6 +220,8 @@ function App() {
     investments: investmentsView,
     'glass-types': glassTypesView,
     'glass-models': glassModelsView,
+    'glass-profiles': glassProfilesView,
+    'glass-accessories': glassAccessoriesView,
     'glass-orders': glassOrdersView,
   } as const
 
@@ -665,6 +673,42 @@ function App() {
             company={activeCompany}
             onCreate={glassModelsView.create}
             onEdit={(item) => glassModelsView.edit(item.id)}
+          />
+        )
+    } else if (page === 'glass-profiles') {
+      pageContent =
+        glassProfilesView.view.mode === 'form' ? (
+          <GlassProfileFormPage
+            session={session}
+            company={activeCompany}
+            profileId={glassProfilesView.view.id}
+            onBack={glassProfilesView.reset}
+            onSaved={glassProfilesView.reset}
+          />
+        ) : (
+          <GlassProfilesPage
+            session={session}
+            company={activeCompany}
+            onCreate={glassProfilesView.create}
+            onEdit={(item) => glassProfilesView.edit(item.id)}
+          />
+        )
+    } else if (page === 'glass-accessories') {
+      pageContent =
+        glassAccessoriesView.view.mode === 'form' ? (
+          <GlassAccessoryFormPage
+            session={session}
+            company={activeCompany}
+            accessoryId={glassAccessoriesView.view.id}
+            onBack={glassAccessoriesView.reset}
+            onSaved={glassAccessoriesView.reset}
+          />
+        ) : (
+          <GlassAccessoriesPage
+            session={session}
+            company={activeCompany}
+            onCreate={glassAccessoriesView.create}
+            onEdit={(item) => glassAccessoriesView.edit(item.id)}
           />
         )
     } else if (page === 'glass-orders') {

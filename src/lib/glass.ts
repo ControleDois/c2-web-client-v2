@@ -27,11 +27,55 @@ export const GLASS_COMPONENT_MODES: { value: GlassComponent['mode']; label: stri
   { value: 'per_perimeter', label: 'Por metro de perímetro' },
 ]
 
+export type GlassComponentKind = 'free' | 'profile' | 'accessory'
+
+// Linha de ferragem (valor digitado), perfil ou acessório (do catálogo) do
+// modelo. Perfil e acessório usam fórmulas com as variáveis L (largura mm),
+// H (altura mm), F (folhas), A (área m²) e P (perímetro m).
 export interface GlassComponent {
+  kind?: GlassComponentKind
   name: string
-  mode: 'fixed' | 'per_m2' | 'per_perimeter'
-  quantity: number
-  unit_value: number
+  mode?: 'fixed' | 'per_m2' | 'per_perimeter'
+  quantity?: number
+  unit_value?: number
+  profile_id?: string | null
+  accessory_id?: string | null
+  length_formula?: string | null
+  quantity_formula?: string | null
+}
+
+export interface GlassProfileRecord {
+  id: string
+  code?: number
+  name: string
+  reference?: string | null
+  line?: string | null
+  color?: string | null
+  bar_length_mm: number
+  price_per_m: number
+  cost_per_m: number
+  active: boolean
+}
+
+export type GlassProfilePayload = Omit<GlassProfileRecord, 'id' | 'code'> & { company_id: string }
+
+export interface GlassAccessoryRecord {
+  id: string
+  code?: number
+  name: string
+  reference?: string | null
+  unit: string
+  price: number
+  cost: number
+  active: boolean
+}
+
+export type GlassAccessoryPayload = Omit<GlassAccessoryRecord, 'id' | 'code'> & { company_id: string }
+
+export interface GlassSimulationRow {
+  name: string
+  value: number
+  error: string | null
 }
 
 export interface GlassTypeRecord {
@@ -437,5 +481,44 @@ export const generateGlassOrderNfe = (token: string, orderId: string, payload: {
   apiPost<{ nfe: { id: string; numero?: number | null; status: number }; mensagem: string }>(
     `/nfe/generate-from-glass-order/${orderId}`,
     payload,
+    token
+  )
+
+type ListOptions = { search?: string; page?: number; limit?: number; active?: boolean }
+
+export const fetchGlassProfiles = (token: string, companyId: string, options: ListOptions = {}) =>
+  apiGet<Paginated<GlassProfileRecord>>('/glass-profile', listParams(companyId, options), token)
+export const fetchGlassProfile = (token: string, id: string) => apiGet<GlassProfileRecord>(`/glass-profile/${id}`, {}, token)
+export const createGlassProfile = (token: string, payload: GlassProfilePayload) => apiPost<GlassProfileRecord>('/glass-profile', payload, token)
+export const updateGlassProfile = (token: string, id: string, payload: GlassProfilePayload) => apiPut<GlassProfileRecord>(`/glass-profile/${id}`, payload, token)
+export const deleteGlassProfile = (token: string, id: string) => apiDelete<void>(`/glass-profile/${id}`, token)
+
+export const fetchGlassAccessories = (token: string, companyId: string, options: ListOptions = {}) =>
+  apiGet<Paginated<GlassAccessoryRecord>>('/glass-accessory', listParams(companyId, options), token)
+export const fetchGlassAccessory = (token: string, id: string) => apiGet<GlassAccessoryRecord>(`/glass-accessory/${id}`, {}, token)
+export const createGlassAccessory = (token: string, payload: GlassAccessoryPayload) => apiPost<GlassAccessoryRecord>('/glass-accessory', payload, token)
+export const updateGlassAccessory = (token: string, id: string, payload: GlassAccessoryPayload) => apiPut<GlassAccessoryRecord>(`/glass-accessory/${id}`, payload, token)
+export const deleteGlassAccessory = (token: string, id: string) => apiDelete<void>(`/glass-accessory/${id}`, token)
+
+export const simulateGlassModel = (
+  token: string,
+  payload: { company_id: string; width_mm: number; height_mm: number; folhas: number; components: GlassComponent[] }
+) => apiPost<{ rows: GlassSimulationRow[]; total: number }>('/glass-model/simulate', payload, token)
+
+export interface GlassProfilePieceGroup {
+  profile_id: string
+  profile: string
+  line: string
+  color: string
+  bar_length_mm: number
+  pieces: { order_code: number; client: string; item_id: string; description: string; length_mm: number; quantity: number }[]
+  total_pieces: number
+  total_length_m: number
+}
+
+export const fetchGlassProfileList = (token: string, companyId: string, orderIds?: string[]) =>
+  apiGet<GlassProfilePieceGroup[]>(
+    '/glass-production/profile-list',
+    { companyId, orderIds: orderIds?.length ? orderIds.join(',') : undefined },
     token
   )
