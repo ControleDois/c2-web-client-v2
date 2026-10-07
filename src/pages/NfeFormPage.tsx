@@ -32,6 +32,8 @@ import { useQuickPerson } from '../hooks/useQuickPerson'
 import { SectionCard } from '../components/SectionCard'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { NfeCustomerSummary } from '../components/NfeCustomerSummary'
+import { NfeAdvancedSections } from '../components/NfeAdvancedSections'
+import { advancedFromRecord, advancedToPayload, emptyAdvanced, validateAdvanced, type AdvancedState } from '../lib/nfeAdvanced'
 import { QuickNatureOperationModal, type QuickNatureOperationRequest } from '../components/QuickNatureOperationModal'
 import { QuickProductModal, type QuickProductRequest } from '../components/QuickProductModal'
 import { TrashIcon, ChevronLeftIcon, PlusIcon, ChevronDownIcon, AlertTriangleIcon } from '../components/icons'
@@ -167,6 +169,8 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
   const [products, setProducts] = useState<ProductEntry[]>([])
   const [payments, setPayments] = useState<PaymentEntry[]>([])
   const [observacoes, setObservacoes] = useState('')
+  const [advanced, setAdvanced] = useState<AdvancedState>(emptyAdvanced)
+  const [savedNfe, setSavedNfe] = useState<NfeRecord | null>(null)
 
   useEffect(() => {
     if (!nfeId) return
@@ -191,6 +195,8 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
         setValorDesconto(nfe.valor_desconto ? String(nfe.valor_desconto) : '')
         setValorOutrasDespesas(nfe.valor_outras_despesas ? String(nfe.valor_outras_despesas) : '')
         setObservacoes(nfe.informacoes_adicionais_contribuinte ?? '')
+        setAdvanced(advancedFromRecord(nfe))
+        setSavedNfe(nfe)
         setProducts(
           (nfe.itens ?? []).map((item, index) => ({
             tempId: `item-${index}`,
@@ -311,7 +317,7 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
       return products.length === 0 ? ['Adicione pelo menos um produto.'] : []
     }
     if (payments.length === 0) return ['Adicione pelo menos uma forma de pagamento.']
-    const messages: string[] = []
+    const messages: string[] = [...validateAdvanced(advanced)]
     payments.forEach((payment, index) => {
       if (parseAmount(payment.valorPagamento) <= 0) {
         messages.push(`Pagamento ${index + 1}: informe um valor maior que zero.`)
@@ -371,6 +377,7 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
       valor_desconto: parseAmount(valorDesconto),
       valor_outras_despesas: parseAmount(valorOutrasDespesas),
       informacoes_complementares: observacoes.trim() || undefined,
+      ...advancedToPayload(advanced),
       products: products.map((item) => ({
         product_id: item.productId,
         amount: parseAmount(item.amount) || 1,
@@ -985,6 +992,11 @@ export function NfeFormPage({ session, company, nfeId, onBack, onSaved }: NfeFor
             />
           </SectionCard>
 
+              <NfeAdvancedSections
+                value={advanced}
+                onChange={(patch) => setAdvanced((current) => ({ ...current, ...patch }))}
+                saved={savedNfe}
+              />
             </>
           )}
 

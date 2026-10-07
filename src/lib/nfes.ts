@@ -159,6 +159,17 @@ export interface NfeRecord {
   natureOperation?: { id: string; description: string }
   itens?: NfeItemRecord[]
   pagamentos?: NfePaymentRecord[]
+  notas_referenciadas?: { chave_nfe: string }[]
+  // Aba Avançado (ver lib/nfeAdvanced.ts) e totais calculados pelo servidor.
+  modalidade_frete?: number | null
+  data_entrada_saida?: string | null
+  icms_valor_total?: number | string | null
+  icms_valor_total_st?: number | string | null
+  icms_valor_total_desonerado?: number | string | null
+  valor_pis?: number | string | null
+  valor_cofins?: number | string | null
+  valor_ipi?: number | string | null
+  valor_total_tributos?: number | string | null
 }
 
 export interface NfeProductInput {
@@ -206,6 +217,8 @@ export interface NfeDraftPayload {
   valor_desconto?: number
   valor_outras_despesas?: number
   informacoes_complementares?: string
+  // Campos da aba Avançado e documentos referenciados (ver lib/nfeAdvanced.ts).
+  [key: string]: unknown
   products: NfeProductInput[]
   payments: NfePaymentInput[]
 }
