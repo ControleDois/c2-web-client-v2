@@ -635,3 +635,24 @@ export interface GlassCalculationMemory {
 
 export const fetchGlassCalculationMemory = (token: string, orderId: string) =>
   apiGet<GlassCalculationMemory>(`/glass-order/${orderId}/calculation-memory`, {}, token)
+
+export interface GlassDashboard {
+  period: string
+  kpis: {
+    open_quotes_count: number
+    open_quotes_total: number
+    sales_count: number
+    sales_total: number
+    average_ticket: number
+    conversion_percent: number
+    receivable: number
+    overdue: number
+  }
+  by_status: Record<string, { count: number; total: number }>
+  stages: Record<string, number>
+  upcoming: GlassAppointmentRecord[]
+  recent: GlassOrderRecord[]
+}
+
+export const fetchGlassDashboard = (token: string, companyId: string, period: string) =>
+  apiGet<GlassDashboard>('/glass-dashboard', { companyId, period }, token)

@@ -53,6 +53,7 @@ import { GlassAccessoryFormPage } from './pages/glass/GlassAccessoryFormPage'
 import { GlassOrdersPage } from './pages/glass/GlassOrdersPage'
 import { GlassOrderFormPage } from './pages/glass/GlassOrderFormPage'
 import { GlassProductionPage } from './pages/glass/GlassProductionPage'
+import { GlassDashboardPage } from './pages/glass/GlassDashboardPage'
 import { GlassSchedulePage } from './pages/glass/GlassSchedulePage'
 import { RentalTypeFormPage } from './pages/RentalTypeFormPage'
 import { NfesPage } from './pages/NfesPage'
@@ -106,7 +107,7 @@ import {
   type AuthSession,
   type AuthCompany,
 } from './lib/auth'
-import { isLocacaoVeiculos, isEmprestimo, isGaragemInvestidor } from './lib/systemTypes'
+import { isLocacaoVeiculos, isEmprestimo, isGaragemInvestidor, isVidracaria } from './lib/systemTypes'
 
 type Screen = 'login' | 'forgot-password' | 'signup'
 
@@ -976,6 +977,8 @@ function App() {
       )
     } else if (isGaragemInvestidor(activeCompany.system_type)) {
       pageContent = <GaragemDashboardPage session={session} company={activeCompany} />
+    } else if (isVidracaria(activeCompany.system_type)) {
+      pageContent = <GlassDashboardPage session={session} company={activeCompany} />
     } else {
       pageContent = <DashboardPage session={session} company={activeCompany} />
     }
