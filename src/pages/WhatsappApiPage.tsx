@@ -11,6 +11,7 @@ import {
   type CompanyWhatsappRecord,
 } from '../lib/companyWhatsapp'
 import { ApiError } from '../lib/api'
+import { WhatsappSendHistoryPage } from './WhatsappSendHistoryPage'
 import { formatPhone } from '../lib/formatPhone'
 import { TextField } from '../components/form/TextField'
 import { ConfirmDialog } from '../components/ConfirmDialog'
@@ -24,6 +25,7 @@ import {
   CheckCircleIcon,
   XCircleIcon,
   CloseIcon,
+  ClipboardCheckIcon,
 } from '../components/icons'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
@@ -61,6 +63,7 @@ export function WhatsappApiPage({ session, company }: WhatsappApiPageProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
+  const [historyTarget, setHistoryTarget] = useState<CompanyWhatsappRecord | null>(null)
 
   const [formOpen, setFormOpen] = useState(false)
   const [form, setForm] = useState<WhatsappFormState>(EMPTY_FORM)
@@ -286,6 +289,10 @@ export function WhatsappApiPage({ session, company }: WhatsappApiPageProps) {
     }
   }
 
+  if (historyTarget) {
+    return <WhatsappSendHistoryPage session={session} whatsapp={historyTarget} onBack={() => setHistoryTarget(null)} />
+  }
+
   return (
     <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -325,6 +332,7 @@ export function WhatsappApiPage({ session, company }: WhatsappApiPageProps) {
                 const isConnected = item.status === WHATSAPP_STATUS_CONNECTED
                 const actions: RowAction[] = [
                   { key: 'edit', label: 'Editar', icon: <PencilIcon className="h-4 w-4" />, onClick: () => openEditForm(item) },
+                  { key: 'history', label: 'Histórico de envios', icon: <ClipboardCheckIcon className="h-4 w-4" />, onClick: () => setHistoryTarget(item) },
                 ]
                 if (!item.official_whatsapp) {
                   actions.push({
@@ -414,6 +422,7 @@ export function WhatsappApiPage({ session, company }: WhatsappApiPageProps) {
                   const isConnected = item.status === WHATSAPP_STATUS_CONNECTED
                   const actions: RowAction[] = [
                     { key: 'edit', label: 'Editar', icon: <PencilIcon className="h-4 w-4" />, onClick: () => openEditForm(item) },
+                    { key: 'history', label: 'Histórico de envios', icon: <ClipboardCheckIcon className="h-4 w-4" />, onClick: () => setHistoryTarget(item) },
                   ]
                   if (!item.official_whatsapp) {
                     actions.push({
