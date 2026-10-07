@@ -581,3 +581,57 @@ export const fetchGlassSheetPlan = (
     },
     token
   )
+
+export interface GlassMemoryLine {
+  kind: 'glass' | 'profile' | 'accessory' | 'free' | 'labor'
+  name: string
+  detail: string
+  value: number
+  cost: number
+}
+
+export interface GlassMemoryItem {
+  id: string
+  description: string
+  location?: string | null
+  model?: string | null
+  glass_type?: string | null
+  width_mm: number
+  height_mm: number
+  quantity: number
+  area_m2: number
+  billed_area_m2: number
+  price_overridden: boolean
+  saved_unit_price: number
+  calculated_unit_price: number
+  differs: boolean
+  lines: GlassMemoryLine[]
+  unit_cost: number
+  unit_price: number
+  total_cost: number
+  total_price: number
+  margin_value: number
+  margin_percent: number
+}
+
+export interface GlassCalculationMemory {
+  order: {
+    id: string
+    code: number
+    status: number
+    reference?: string | null
+    client?: string | null
+    markup_percent: number
+    discount_value: number
+  }
+  items: GlassMemoryItem[]
+  materials: {
+    glass: { name: string; area_m2: number; pieces: number }[]
+    profiles: { name: string; meters: number; pieces: number }[]
+    accessories: { name: string; unit: string; quantity: number }[]
+  }
+  totals: { items_price: number; items_cost: number; final_total: number; margin_value: number; margin_percent: number }
+}
+
+export const fetchGlassCalculationMemory = (token: string, orderId: string) =>
+  apiGet<GlassCalculationMemory>(`/glass-order/${orderId}/calculation-memory`, {}, token)

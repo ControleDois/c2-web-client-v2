@@ -31,6 +31,7 @@ import { GlassItemModal } from './GlassItemModal'
 import { GlassStatusBadge } from './GlassOrdersPage'
 import { GlassContractModals, type GlassContractTarget } from './GlassContractModals'
 import { GlassInvoiceModal } from './GlassInvoiceModal'
+import { GlassMemoryModal } from './GlassMemoryModal'
 import { NFE_STATUS_LABELS } from '../../lib/nfes'
 import { ChevronLeftIcon, PlusIcon, PencilIcon, TrashIcon, TagIcon, FileTextIcon, CalendarIcon, CopyIcon } from '../../components/icons'
 import type { AuthSession, AuthCompany } from '../../lib/auth'
@@ -87,6 +88,7 @@ export function GlassOrderFormPage({ session, company, orderId, onBack, onSaved 
   const [contractTarget, setContractTarget] = useState<GlassContractTarget | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [invoiceOpen, setInvoiceOpen] = useState(false)
+  const [memoryOpen, setMemoryOpen] = useState(false)
   const [editing, setEditing] = useState<{ open: boolean; row: ItemRow | null }>({ open: false, row: null })
 
   useEffect(() => {
@@ -256,6 +258,13 @@ export function GlassOrderFormPage({ session, company, orderId, onBack, onSaved 
               className="rounded-xl border border-[var(--border)] px-3.5 py-2 text-[12.5px] font-bold text-[var(--ink-soft)] hover:text-[var(--ink)]"
             >
               {order.meta?.contract ? 'Reenviar contrato' : 'Enviar contrato'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setMemoryOpen(true)}
+              className="rounded-xl border border-[var(--border)] px-3.5 py-2 text-[12.5px] font-bold text-[var(--ink-soft)] hover:text-[var(--ink)]"
+            >
+              Memória de cálculo
             </button>
             {approved && (order.meta?.nfe === null || order.meta?.nfe === undefined || [0, 3].includes(order.meta.nfe.status)) && (
               <button
@@ -610,6 +619,13 @@ export function GlassOrderFormPage({ session, company, orderId, onBack, onSaved 
         onClose={() => setEditing({ open: false, row: null })}
       />
       {quickPerson.modal}
+      <GlassMemoryModal
+        open={memoryOpen}
+        session={session}
+        company={company}
+        order={order}
+        onClose={() => setMemoryOpen(false)}
+      />
       <GlassInvoiceModal
         open={invoiceOpen}
         session={session}

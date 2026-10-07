@@ -16,6 +16,7 @@ import { type RowAction } from '../../components/RowActionsMenu'
 import { GlassContractModals, type GlassContractTarget } from './GlassContractModals'
 import { GlassCutListModal } from './GlassCutListModal'
 import { GlassInvoiceModal } from './GlassInvoiceModal'
+import { GlassMemoryModal } from './GlassMemoryModal'
 import { NFE_STATUS_LABELS } from '../../lib/nfes'
 import { GlassAppointmentModal, type GlassAppointmentDraft } from './GlassAppointmentModal'
 import {
@@ -76,6 +77,7 @@ export function GlassOrdersPage({ session, company, onCreate, onEdit }: GlassOrd
   const [notice, setNotice] = useState<string | null>(null)
   const [contractTarget, setContractTarget] = useState<GlassContractTarget | null>(null)
   const [reloadToken, setReloadToken] = useState(0)
+  const [memoryOrder, setMemoryOrder] = useState<GlassOrderRecord | null>(null)
   const [invoiceOrder, setInvoiceOrder] = useState<GlassOrderRecord | null>(null)
   const [cutListOrder, setCutListOrder] = useState<GlassOrderRecord | null>(null)
   const [appointmentDraft, setAppointmentDraft] = useState<GlassAppointmentDraft | null>(null)
@@ -209,6 +211,12 @@ export function GlassOrdersPage({ session, company, onCreate, onEdit }: GlassOrd
               }
             )
           }
+          list.push({
+            key: 'memory',
+            label: 'Memória de cálculo',
+            icon: <ClipboardCheckIcon className="h-4 w-4" />,
+            onClick: () => setMemoryOrder(item),
+          })
           if (item.status !== GLASS_ORDER_STATUS.CANCELED) {
             list.push({
               key: 'schedule',
@@ -319,6 +327,14 @@ export function GlassOrdersPage({ session, company, onCreate, onEdit }: GlassOrd
           setAppointmentDraft(null)
           setNotice('Visita agendada. Veja na Agenda.')
         }}
+      />
+
+      <GlassMemoryModal
+        open={Boolean(memoryOrder)}
+        session={session}
+        company={company}
+        order={memoryOrder}
+        onClose={() => setMemoryOrder(null)}
       />
 
       <GlassInvoiceModal
