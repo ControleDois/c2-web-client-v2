@@ -88,6 +88,7 @@ export type AppPage =
   | 'glass-types'
   | 'glass-models'
   | 'glass-production'
+  | 'glass-schedule'
 
 interface AppShellProps {
   session: AuthSession
@@ -157,6 +158,7 @@ function buildNavGroups(
             { page: 'products' as const, label: 'Produtos e Serviços', icon: BoxIcon },
             { page: 'glass-orders' as const, label: 'Orçamentos e Vendas', icon: SaleIcon },
             { page: 'glass-production' as const, label: 'Produção', icon: WrenchIcon },
+            { page: 'glass-schedule' as const, label: 'Agenda', icon: ClockIcon },
           ]
       : padaria
         ? [

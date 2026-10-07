@@ -334,3 +334,92 @@ export const fetchGlassCutList = (token: string, companyId: string, orderIds?: s
     { companyId, orderIds: orderIds?.length ? orderIds.join(',') : undefined },
     token
   )
+
+export type GlassAppointmentType = 'medicao' | 'instalacao' | 'entrega' | 'assistencia'
+
+export const GLASS_APPOINTMENT_TYPES: { value: GlassAppointmentType; label: string }[] = [
+  { value: 'medicao', label: 'Medição' },
+  { value: 'instalacao', label: 'Instalação' },
+  { value: 'entrega', label: 'Entrega' },
+  { value: 'assistencia', label: 'Assistência' },
+]
+
+export const GLASS_APPOINTMENT_STATUS_LABELS: Record<number, string> = {
+  0: 'Agendado',
+  1: 'Concluído',
+  2: 'Cancelado',
+}
+
+export interface GlassAppointmentRecord {
+  id: string
+  code?: number
+  glass_order_id?: string | null
+  people_id?: string | null
+  type: GlassAppointmentType
+  scheduled_at: string
+  duration_minutes: number
+  team?: string | null
+  address?: string | null
+  notes?: string | null
+  status: number
+  people?: { id: string; name: string; phone?: string | null } | null
+  order?: { id: string; code: number; reference?: string | null; people?: { name: string } | null } | null
+}
+
+export interface GlassAppointmentPayload {
+  company_id: string
+  glass_order_id?: string | null
+  people_id?: string | null
+  type: GlassAppointmentType
+  // Data e hora locais da empresa (AAAA-MM-DDTHH:mm)
+  scheduled_at: string
+  duration_minutes: number
+  team?: string | null
+  address?: string | null
+  notes?: string | null
+}
+
+export const fetchGlassAppointments = (
+  token: string,
+  companyId: string,
+  options: { from?: string; to?: string; type?: string } = {}
+) =>
+  apiGet<GlassAppointmentRecord[]>(
+    '/glass-appointment',
+    { companyId, from: options.from, to: options.to, type: options.type || undefined },
+    token
+  )
+export const createGlassAppointment = (token: string, payload: GlassAppointmentPayload) =>
+  apiPost<GlassAppointmentRecord>('/glass-appointment', payload, token)
+export const updateGlassAppointment = (token: string, id: string, payload: GlassAppointmentPayload) =>
+  apiPut<GlassAppointmentRecord>(`/glass-appointment/${id}`, payload, token)
+export const changeGlassAppointmentStatus = (token: string, id: string, status: number) =>
+  apiPut<GlassAppointmentRecord>(`/glass-appointment/${id}/status`, { status }, token)
+export const deleteGlassAppointment = (token: string, id: string) => apiDelete<void>(`/glass-appointment/${id}`, token)
+
+const AGENDA_ZONE = 'America/Cuiaba'
+
+// Dia (AAAA-MM-DD) e hora (HH:mm) de um instante no fuso da empresa.
+export function agendaDateKey(iso: string): string {
+  return new Date(iso).toLocaleDateString('sv-SE', { timeZone: AGENDA_ZONE })
+}
+
+export function agendaTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString('pt-BR', { timeZone: AGENDA_ZONE, hour: '2-digit', minute: '2-digit' })
+}
+
+export function agendaToday(): string {
+  return agendaDateKey(new Date().toISOString())
+}
+
+export function addDaysToKey(key: string, days: number): string {
+  const date = new Date(`${key}T12:00:00Z`)
+  date.setUTCDate(date.getUTCDate() + days)
+  return date.toISOString().slice(0, 10)
+}
+
+// Segunda-feira da semana que contém o dia informado.
+export function weekStartKey(key: string): string {
+  const weekday = new Date(`${key}T12:00:00Z`).getUTCDay()
+  return addDaysToKey(key, -((weekday + 6) % 7))
+}

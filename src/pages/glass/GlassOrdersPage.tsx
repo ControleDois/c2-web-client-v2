@@ -15,6 +15,7 @@ import { SelectField } from '../../components/form/SelectField'
 import { type RowAction } from '../../components/RowActionsMenu'
 import { GlassContractModals, type GlassContractTarget } from './GlassContractModals'
 import { GlassCutListModal } from './GlassCutListModal'
+import { GlassAppointmentModal, type GlassAppointmentDraft } from './GlassAppointmentModal'
 import {
   PencilIcon,
   TrashIcon,
@@ -25,6 +26,7 @@ import {
   WhatsappIcon,
   ClockIcon,
   ClipboardCheckIcon,
+  CalendarIcon,
 } from '../../components/icons'
 import type { AuthCompany, AuthSession } from '../../lib/auth'
 
@@ -73,6 +75,7 @@ export function GlassOrdersPage({ session, company, onCreate, onEdit }: GlassOrd
   const [contractTarget, setContractTarget] = useState<GlassContractTarget | null>(null)
   const [reloadToken, setReloadToken] = useState(0)
   const [cutListOrder, setCutListOrder] = useState<GlassOrderRecord | null>(null)
+  const [appointmentDraft, setAppointmentDraft] = useState<GlassAppointmentDraft | null>(null)
 
   async function run(action: () => Promise<unknown>, reload: () => void) {
     setMessage(null)
@@ -190,6 +193,18 @@ export function GlassOrdersPage({ session, company, onCreate, onEdit }: GlassOrd
               }
             )
           }
+          if (item.status !== GLASS_ORDER_STATUS.CANCELED) {
+            list.push({
+              key: 'schedule',
+              label: 'Agendar visita',
+              icon: <CalendarIcon className="h-4 w-4" />,
+              onClick: () =>
+                setAppointmentDraft({
+                  order: item,
+                  type: item.status >= GLASS_ORDER_STATUS.SALE ? 'instalacao' : 'medicao',
+                }),
+            })
+          }
           if (item.status >= GLASS_ORDER_STATUS.SALE && item.status !== GLASS_ORDER_STATUS.CANCELED) {
             list.push({
               key: 'cut-list',
@@ -266,6 +281,18 @@ export function GlassOrdersPage({ session, company, onCreate, onEdit }: GlassOrd
           </div>
         </div>
       )}
+
+      <GlassAppointmentModal
+        open={Boolean(appointmentDraft)}
+        session={session}
+        company={company}
+        draft={appointmentDraft}
+        onClose={() => setAppointmentDraft(null)}
+        onChanged={() => {
+          setAppointmentDraft(null)
+          setNotice('Visita agendada. Veja na Agenda.')
+        }}
+      />
 
       <GlassCutListModal
         open={Boolean(cutListOrder)}
