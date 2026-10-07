@@ -24,7 +24,6 @@ const PRIMARY_BUTTON =
 const SECONDARY_BUTTON =
   'rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3.5 text-center text-[14px] font-bold text-[var(--ink)] hover:bg-[var(--page)]'
 
-const FLOW_STEPS = ['Verificação', 'Facial', 'Assinatura']
 
 function PageShell({ children }: { children: React.ReactNode }) {
   return (
@@ -46,10 +45,11 @@ function PageShell({ children }: { children: React.ReactNode }) {
   )
 }
 
-function Stepper({ current }: { current: number }) {
+function Stepper({ steps, current }: { steps: string[]; current: number }) {
+  if (steps.length < 2) return null
   return (
     <ol className="flex items-center justify-center gap-2">
-      {FLOW_STEPS.map((label, index) => {
+      {steps.map((label, index) => {
         const done = index < current
         const active = index === current
         return (
@@ -68,7 +68,7 @@ function Stepper({ current }: { current: number }) {
             <span className={`text-[12px] font-semibold ${active ? 'text-[var(--ink)]' : 'text-[var(--muted)]'}`}>
               {label}
             </span>
-            {index < FLOW_STEPS.length - 1 && <span className="h-px w-3 bg-[var(--border)]" />}
+            {index < steps.length - 1 && <span className="h-px w-3 bg-[var(--border)]" />}
           </li>
         )
       })}
@@ -214,10 +214,10 @@ export function SignaturePage({ token }: SignaturePageProps) {
         setInfo(data)
         if (data.alreadySigned) {
           setStep('already-signed')
-        } else if (data.verified) {
-          setStep('face')
-        } else {
+        } else if (data.requireCode && !data.verified) {
           setStep('choose-channel')
+        } else {
+          setStep(data.requireSelfie ? 'face' : 'sign')
         }
       })
       .catch((err) => {
@@ -242,7 +242,7 @@ export function SignaturePage({ token }: SignaturePageProps) {
     setError(null)
     try {
       await verifySignatureCode(token, code)
-      setStep('face')
+      setStep(info?.requireSelfie === false ? 'sign' : 'face')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Código incorreto.')
     }
@@ -269,14 +269,15 @@ export function SignaturePage({ token }: SignaturePageProps) {
   }
 
   async function handleSubmit() {
-    if (!selfieBlob || !signatureBlob || !location) {
-      setError('Faça a facial e desenhe sua rubrica antes de confirmar.')
+    const needsSelfie = info?.requireSelfie !== false
+    if (!signatureBlob || (needsSelfie && (!selfieBlob || !location))) {
+      setError(needsSelfie ? 'Faça a facial e desenhe sua rubrica antes de confirmar.' : 'Desenhe sua rubrica antes de confirmar.')
       return
     }
     setError(null)
     setSubmitting(true)
     try {
-      const res = await submitSignature(token, selfieBlob, signatureBlob, location)
+      const res = await submitSignature(token, needsSelfie ? selfieBlob : null, signatureBlob, needsSelfie ? location : null)
       setFileUrl(res.fileUrl)
       setStep('done')
     } catch (err) {
@@ -335,7 +336,13 @@ export function SignaturePage({ token }: SignaturePageProps) {
     )
   }
 
-  const flowIndex = step === 'face' ? 1 : step === 'sign' ? 2 : 0
+  // Só mostra os passos que a empresa exige: código, facial e a rubrica.
+  const flowSteps = [
+    ...(info?.requireCode !== false ? ['Verificação'] : []),
+    ...(info?.requireSelfie !== false ? ['Facial'] : []),
+    'Assinatura',
+  ]
+  const flowIndex = step === 'sign' ? flowSteps.length - 1 : step === 'face' ? flowSteps.indexOf('Facial') : 0
 
   return (
     <PageShell>
@@ -348,7 +355,7 @@ export function SignaturePage({ token }: SignaturePageProps) {
           <p className="mt-1 text-[13px] text-[var(--muted)]">Olá, {info?.signerName}</p>
         </div>
 
-        <Stepper current={flowIndex} />
+        <Stepper steps={flowSteps} current={flowIndex} />
 
         {info?.documentUrl && (
           <a
@@ -478,7 +485,7 @@ export function SignaturePage({ token }: SignaturePageProps) {
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={submitting || !selfieBlob || !signatureBlob}
+              disabled={submitting || (info?.requireSelfie !== false && !selfieBlob) || !signatureBlob}
               className={PRIMARY_BUTTON}
             >
               {submitting ? 'Assinando…' : 'Confirmar assinatura'}

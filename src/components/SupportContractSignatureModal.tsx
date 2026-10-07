@@ -127,7 +127,7 @@ export function SupportContractSignatureModal({
                     />
                   </a>
                 ) : (
-                  <p className="text-[12.5px] text-[var(--muted)]">Sem foto registrada.</p>
+                  <p className="text-[12.5px] text-[var(--muted)]">Facial não exigida nesta assinatura.</p>
                 )}
               </div>
               <div>
@@ -150,7 +150,7 @@ export function SupportContractSignatureModal({
               <Detail label="Verificação">
                 {signature.verifiedChannel
                   ? `${channelLabel} — ${signature.verifiedChannel === 'email' ? signature.signerEmail : signature.signerPhone}`
-                  : '—'}
+                  : 'Código não exigido — assinou pelo link'}
               </Detail>
               <Detail label="Endereço IP">{signature.ipAddress || '—'}</Detail>
               <div className="sm:col-span-2">

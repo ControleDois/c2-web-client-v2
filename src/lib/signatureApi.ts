@@ -7,6 +7,8 @@ export interface SignatureInfo {
   documentUrl?: string
   alreadySigned: boolean
   verified: boolean
+  requireCode: boolean
+  requireSelfie: boolean
   allowEmail: boolean
   allowWhatsapp: boolean
   maskedEmail: string
@@ -51,15 +53,17 @@ export function verifySignatureCode(token: string, code: string) {
 
 export function submitSignature(
   token: string,
-  selfie: Blob,
+  selfie: Blob | null,
   signature: Blob,
-  location: { latitude: number; longitude: number; accuracy: number }
+  location: { latitude: number; longitude: number; accuracy: number } | null
 ) {
   const form = new FormData()
-  form.append('latitude', String(location.latitude))
-  form.append('longitude', String(location.longitude))
-  form.append('accuracy', String(location.accuracy))
-  form.append('selfie', selfie, 'selfie.jpg')
+  if (location) {
+    form.append('latitude', String(location.latitude))
+    form.append('longitude', String(location.longitude))
+    form.append('accuracy', String(location.accuracy))
+  }
+  if (selfie) form.append('selfie', selfie, 'selfie.jpg')
   form.append('signature', signature, 'rubrica.png')
 
   return fetch(`${API_BASE_URL}/connect/signature/${token}/submit`, {

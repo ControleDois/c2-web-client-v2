@@ -160,6 +160,8 @@ export interface ConfigRecord {
   signature_native_enabled?: boolean
   signature_allow_email?: boolean
   signature_allow_whatsapp?: boolean
+  signature_require_code?: boolean
+  signature_require_selfie?: boolean
   signature_whatsapp_id?: string | null
   signature_whatsapp?: { id: string; name: string } | null
 
@@ -455,6 +457,8 @@ export interface ConfigPayload {
   signature_native_enabled?: boolean
   signature_allow_email?: boolean
   signature_allow_whatsapp?: boolean
+  signature_require_code?: boolean
+  signature_require_selfie?: boolean
   signature_whatsapp_id?: string
 
   cora_enabled?: boolean

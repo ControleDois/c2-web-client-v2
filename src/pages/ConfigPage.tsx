@@ -139,7 +139,8 @@ function buildConfigPayload(companyId: string, config: ConfigRecord | null): Con
     signature_native_enabled: config?.signature_native_enabled ?? false,
     signature_allow_email: config?.signature_allow_email ?? true,
     signature_allow_whatsapp: config?.signature_allow_whatsapp ?? true,
-    signature_whatsapp_id: config?.signature_whatsapp_id ?? undefined,
+    signature_require_code: config?.signature_require_code ?? true,
+    signature_require_selfie: config?.signature_require_selfie ?? true,
 
     cora_enabled: config?.cora_enabled ?? false,
     cora_client_id: config?.cora_client_id ?? undefined,
@@ -412,13 +413,7 @@ export function ConfigPage({ session, company, onNavigate, onSaved }: ConfigPage
               )}
               {activeTab === 'vistorias' && <VistoriasSection value={formState} onChange={handleChange} />}
               {activeTab === 'assinatura-digital' && (
-                <AssinaturaDigitalSection
-                  value={formState}
-                  onChange={handleChange}
-                  config={config}
-                  session={session}
-                  company={company}
-                />
+                <AssinaturaDigitalSection value={formState} onChange={handleChange} />
               )}
               {activeTab === 'emprestimo' && <EmprestimoSection value={formState} onChange={handleChange} />}
               {activeTab === 'protecao-veicular' && (

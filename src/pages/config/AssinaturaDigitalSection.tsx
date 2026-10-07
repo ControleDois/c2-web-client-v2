@@ -1,11 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { ConfigPayload, ConfigRecord } from '../../lib/config'
+import type { ConfigPayload } from '../../lib/config'
 import { API_BASE_URL } from '../../lib/api'
-import { fetchCompanyWhatsapps, type CompanyWhatsappRecord } from '../../lib/companyWhatsapp'
-import { formatPhone } from '../../lib/formatPhone'
 import { SectionCard } from '../../components/SectionCard'
 import { TextField } from '../../components/form/TextField'
-import { SearchSelectField } from '../../components/form/SearchSelectField'
 import {
   LinkIcon,
   LockIcon,
@@ -16,24 +13,15 @@ import {
   MailIcon,
   WhatsappIcon,
 } from '../../components/icons'
-import type { AuthSession, AuthCompany } from '../../lib/auth'
 
 interface AssinaturaDigitalSectionProps {
   value: ConfigPayload
   onChange: (patch: Partial<ConfigPayload>) => void
-  config: ConfigRecord | null
-  session: AuthSession
-  company: AuthCompany
 }
 
-export function AssinaturaDigitalSection({ value, onChange, config, session, company }: AssinaturaDigitalSectionProps) {
+export function AssinaturaDigitalSection({ value, onChange }: AssinaturaDigitalSectionProps) {
   const [copied, setCopied] = useState(false)
   const webhookUrl = `${API_BASE_URL}/connect/autentique/webhook`
-  const [signatureWhatsappLabel, setSignatureWhatsappLabel] = useState<string | null>(null)
-
-  useEffect(() => {
-    setSignatureWhatsappLabel(config?.signature_whatsapp?.name ?? null)
-  }, [config])
 
   const signaturePreviewUrl = useMemo(
     () => (value.autentique_signature_file ? URL.createObjectURL(value.autentique_signature_file) : null),
@@ -115,7 +103,7 @@ export function AssinaturaDigitalSection({ value, onChange, config, session, com
 
       <SectionCard
         title="Assinatura própria"
-        subtitle="Cliente confirma por código (e-mail/WhatsApp), tira selfie e desenha a rubrica — sem precisar do Autentique"
+        subtitle="O cliente recebe um link, confirma o que você exigir e desenha a rubrica — sem precisar do Autentique"
       >
         <div className="flex flex-col gap-4">
           <label className="flex items-center gap-2.5">
@@ -133,62 +121,79 @@ export function AssinaturaDigitalSection({ value, onChange, config, session, com
           {value.signature_native_enabled && (
             <div className="flex flex-col gap-4 rounded-xl bg-[var(--page)] p-4">
               <div>
-                <p className="mb-2 text-[12px] font-semibold text-[var(--ink-soft)]">
-                  Canais de verificação permitidos
-                </p>
-                <div className="flex flex-col gap-2 sm:flex-row sm:gap-5">
-                  <label className="flex items-center gap-2">
+                <p className="mb-2 text-[12px] font-semibold text-[var(--ink-soft)]">O que o cliente precisa fazer</p>
+                <div className="flex flex-col gap-3">
+                  <label className="flex items-start gap-2.5">
                     <input
                       type="checkbox"
-                      checked={Boolean(value.signature_allow_email)}
-                      onChange={(event) =>
-                        onChange({
-                          signature_allow_email: event.target.checked,
-                        })
-                      }
-                      className="h-4 w-4 accent-[var(--blue-500)]"
+                      checked={value.signature_require_code !== false}
+                      onChange={(event) => onChange({ signature_require_code: event.target.checked })}
+                      className="mt-0.5 h-4 w-4 accent-[var(--blue-500)]"
                     />
-                    <MailIcon className="h-4 w-4 text-[var(--ink-soft)]" />
-                    <span className="text-[13px] text-[var(--ink)]">E-mail</span>
+                    <span>
+                      <span className="block text-[13.5px] font-semibold text-[var(--ink)]">
+                        Confirmar por código de 6 dígitos
+                      </span>
+                      <span className="block text-[12px] text-[var(--ink-soft)]">
+                        O cliente recebe um código por e-mail ou WhatsApp antes de assinar.
+                      </span>
+                    </span>
                   </label>
-                  <label className="flex items-center gap-2">
+
+                  {value.signature_require_code !== false && (
+                    <div className="ml-6 flex flex-col gap-2 sm:flex-row sm:gap-5">
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(value.signature_allow_email)}
+                          onChange={(event) => onChange({ signature_allow_email: event.target.checked })}
+                          className="h-4 w-4 accent-[var(--blue-500)]"
+                        />
+                        <MailIcon className="h-4 w-4 text-[var(--ink-soft)]" />
+                        <span className="text-[13px] text-[var(--ink)]">Permitir receber por e-mail</span>
+                      </label>
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(value.signature_allow_whatsapp)}
+                          onChange={(event) => onChange({ signature_allow_whatsapp: event.target.checked })}
+                          className="h-4 w-4 accent-[var(--blue-500)]"
+                        />
+                        <WhatsappIcon className="h-4 w-4 text-[var(--ink-soft)]" />
+                        <span className="text-[13px] text-[var(--ink)]">Permitir receber por WhatsApp</span>
+                      </label>
+                    </div>
+                  )}
+                  {value.signature_require_code !== false && value.signature_allow_whatsapp && (
+                    <p className="ml-6 text-[11.5px] text-[var(--ink-soft)]">
+                      O código sai pelo mesmo WhatsApp que você escolhe na hora de enviar o contrato.
+                    </p>
+                  )}
+
+                  <label className="flex items-start gap-2.5">
                     <input
                       type="checkbox"
-                      checked={Boolean(value.signature_allow_whatsapp)}
-                      onChange={(event) =>
-                        onChange({
-                          signature_allow_whatsapp: event.target.checked,
-                        })
-                      }
-                      className="h-4 w-4 accent-[var(--blue-500)]"
+                      checked={value.signature_require_selfie !== false}
+                      onChange={(event) => onChange({ signature_require_selfie: event.target.checked })}
+                      className="mt-0.5 h-4 w-4 accent-[var(--blue-500)]"
                     />
-                    <WhatsappIcon className="h-4 w-4 text-[var(--ink-soft)]" />
-                    <span className="text-[13px] text-[var(--ink)]">WhatsApp</span>
+                    <span>
+                      <span className="block text-[13.5px] font-semibold text-[var(--ink)]">
+                        Fazer facial (selfie) e registrar localização
+                      </span>
+                      <span className="block text-[12px] text-[var(--ink-soft)]">
+                        O cliente tira uma foto ao vivo e libera a localização antes de assinar.
+                      </span>
+                    </span>
                   </label>
                 </div>
               </div>
 
-              {value.signature_allow_whatsapp && (
-                <SearchSelectField
-                  label="WhatsApp usado para enviar o código"
-                  placeholder="Buscar número"
-                  selectedLabel={signatureWhatsappLabel}
-                  onSearch={(query) =>
-                    fetchCompanyWhatsapps(session.token.token, company.id, {
-                      search: query,
-                    }).then((res) => res.data)
-                  }
-                  getOptionLabel={(item: CompanyWhatsappRecord) => item.name}
-                  getOptionSubLabel={(item: CompanyWhatsappRecord) => formatPhone(item.phone)}
-                  onSelect={(item: CompanyWhatsappRecord) => {
-                    setSignatureWhatsappLabel(item.name)
-                    onChange({ signature_whatsapp_id: item.id })
-                  }}
-                  onClear={() => {
-                    setSignatureWhatsappLabel(null)
-                    onChange({ signature_whatsapp_id: undefined })
-                  }}
-                />
+              {value.signature_require_code === false && value.signature_require_selfie === false && (
+                <p className="rounded-lg bg-[var(--amber-100)] px-3 py-2 text-[12px] font-medium text-[var(--amber-500)]">
+                  Sem código e sem facial, quem tiver o link consegue assinar. O sistema registra rubrica, data e
+                  hora, IP e aparelho, mas não confirma a identidade de quem assinou.
+                </p>
               )}
               {!currentSignatureUrl && (
                 <p className="rounded-lg bg-[var(--amber-100)] px-3 py-2 text-[12px] font-medium text-[var(--amber-500)]">
