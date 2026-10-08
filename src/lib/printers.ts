@@ -28,6 +28,8 @@ export interface PrinterRecord {
   open_drawer: boolean
   copies: number
   active: boolean
+  // Servidor de impressão (computador) responsável; vazio = qualquer um da empresa.
+  print_agent_id?: string | null
 }
 
 export type PrinterPayload = Omit<PrinterRecord, 'id' | 'code'> & { company_id: string }

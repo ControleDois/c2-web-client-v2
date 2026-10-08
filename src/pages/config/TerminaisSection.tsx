@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { ConfigPayload, ConfigRecord, CompanyTerminalPayload } from '../../lib/config'
+import { fetchPrinters, type PrinterRecord } from '../../lib/printers'
 import { fetchNfeNatureOperations, type NfeNatureOperationRecord } from '../../lib/nfeNatureOperations'
 import { SectionCard } from '../../components/SectionCard'
 import { TextField } from '../../components/form/TextField'
@@ -82,6 +83,13 @@ export function TerminaisSection({ value, onChange, config, session, company }: 
   const terminals = value.terminals ?? []
   const [expanded, setExpanded] = useState<number | null>(null)
   const [natureLabels, setNatureLabels] = useState<Record<number, string | null>>({})
+  const [printers, setPrinters] = useState<PrinterRecord[]>([])
+
+  useEffect(() => {
+    fetchPrinters(session.token.token, company.id, { active: true, limit: 100 })
+      .then((res) => setPrinters(res.data ?? []))
+      .catch(() => setPrinters([]))
+  }, [session.token.token, company.id])
 
   useEffect(() => {
     const labels: Record<number, string | null> = {}
@@ -192,6 +200,40 @@ export function TerminaisSection({ value, onChange, config, session, company }: 
                     <p className="mt-1.5 text-[11px] text-[var(--muted)]">
                       Deixe o link em branco pra esse terminal usar o servidor padrão da empresa. Preencha só se
                       houver um c2-delphi-server rodando na máquina/rede desse caixa.
+                    </p>
+                  </div>
+
+                  <div>
+                    <GroupHeading>Impressão direta (PDV)</GroupHeading>
+                    <div className="mt-2 grid gap-4 sm:grid-cols-2">
+                      <SelectField
+                        label="Impressora do comprovante e das fichas"
+                        value={terminal.receipt_printer_id ?? ''}
+                        onChange={(event) => update(index, { receipt_printer_id: event.target.value || null })}
+                      >
+                        <option value="">Nenhuma (mostra o preview)</option>
+                        {printers.map((printer) => (
+                          <option key={printer.id} value={printer.id}>
+                            {printer.name}
+                          </option>
+                        ))}
+                      </SelectField>
+                      <SelectField
+                        label="Impressora da NFC-e"
+                        value={terminal.nfce_printer_id ?? ''}
+                        onChange={(event) => update(index, { nfce_printer_id: event.target.value || null })}
+                      >
+                        <option value="">Nenhuma (mostra o preview)</option>
+                        {printers.map((printer) => (
+                          <option key={printer.id} value={printer.id}>
+                            {printer.name}
+                          </option>
+                        ))}
+                      </SelectField>
+                    </div>
+                    <p className="mt-1.5 text-[11px] text-[var(--muted)]">
+                      Quando o PDV está neste terminal, imprime só nestas impressoras. Sem impressora, o PDV mostra o
+                      preview na tela. Cadastre as impressoras (e o computador de cada uma) em Impressoras.
                     </p>
                   </div>
 

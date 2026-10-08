@@ -302,6 +302,10 @@ export interface CompanyTerminalRecord {
   nfce_impressora_largura_bonina?: number
 
   printer_path?: string | null
+  // Impressão direta: impressoras cadastradas em Impressoras usadas por este terminal.
+  // Sem impressora, o PDV mostra o preview em vez de imprimir.
+  receipt_printer_id?: string | null
+  nfce_printer_id?: string | null
   certificate_path?: string | null
   certificate_password?: string | null
 

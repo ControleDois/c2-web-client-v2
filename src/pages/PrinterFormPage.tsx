@@ -5,6 +5,7 @@ import {
   fetchPrinter,
   PRINTER_COLUMN_OPTIONS,
   PRINTER_ENCODINGS,
+  type PrintAgentRecord,
   testPrinter,
   updatePrinter,
 } from '../lib/printers'
@@ -38,12 +39,20 @@ export function PrinterFormPage({ session, company, printerId, onBack, onSaved }
   const [copies, setCopies] = useState('1')
   const [active, setActive] = useState(true)
   const [detected, setDetected] = useState<string[]>([])
+  const [agents, setAgents] = useState<PrintAgentRecord[]>([])
+  const [agentId, setAgentId] = useState('')
 
   // Impressoras que o Windows do computador do cliente enxerga: sugestão pro caminho.
   useEffect(() => {
     fetchPrintAgents(token, company.id)
-      .then((agents) => setDetected([...new Set(agents.flatMap((agent) => agent.detected_printers))].sort()))
-      .catch(() => setDetected([]))
+      .then((list) => {
+        setAgents(list)
+        setDetected([...new Set(list.flatMap((agent) => agent.detected_printers))].sort())
+      })
+      .catch(() => {
+        setAgents([])
+        setDetected([])
+      })
   }, [token, company.id])
 
   useEffect(() => {
@@ -60,6 +69,7 @@ export function PrinterFormPage({ session, company, printerId, onBack, onSaved }
         setOpenDrawer(item.open_drawer)
         setCopies(String(item.copies))
         setActive(item.active)
+        setAgentId(item.print_agent_id ?? '')
       })
       .catch((err) => {
         if (!cancelled) setLoadError(err instanceof ApiError ? err.message : 'Não foi possível carregar a impressora.')
@@ -85,6 +95,7 @@ export function PrinterFormPage({ session, company, printerId, onBack, onSaved }
       open_drawer: openDrawer,
       copies: Math.min(Math.max(Number(copies) || 1, 1), 10),
       active,
+      print_agent_id: agentId || null,
     }
   }
 
@@ -176,6 +187,19 @@ export function PrinterFormPage({ session, company, printerId, onBack, onSaved }
                   </option>
                 ))}
               </SelectField>
+              <SelectField
+                label="Computador que imprime"
+                value={agentId}
+                onChange={(event) => setAgentId(event.target.value)}
+              >
+                <option value="">Qualquer um da empresa</option>
+                {agents.map((agent) => (
+                  <option key={agent.id} value={agent.id}>
+                    {agent.hostname}
+                    {agent.online ? ' (conectado)' : ' (desconectado)'}
+                  </option>
+                ))}
+              </SelectField>
               <TextField
                 label="Cópias"
                 icon={<TagIcon className="h-4 w-4" />}
@@ -184,6 +208,12 @@ export function PrinterFormPage({ session, company, printerId, onBack, onSaved }
                 onChange={(event) => setCopies(event.target.value.replace(/\D/g, ''))}
               />
             </div>
+
+            <p className="mt-2 text-[12px] text-[var(--muted)]">
+              Escolha o computador onde esta impressora está ligada: só o servidor de impressão dele pega os trabalhos
+              dela. Assim, um teste feito em outro computador nunca sai nesta impressora. Em "Qualquer um da empresa",
+              o primeiro servidor de impressão livre pega o trabalho.
+            </p>
 
             {suggestions.length > 0 && (
               <div className="mt-3">
