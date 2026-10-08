@@ -54,6 +54,8 @@ import { GlassOrdersPage } from './pages/glass/GlassOrdersPage'
 import { GlassOrderFormPage } from './pages/glass/GlassOrderFormPage'
 import { GlassProductionPage } from './pages/glass/GlassProductionPage'
 import { GlassDashboardPage } from './pages/glass/GlassDashboardPage'
+import { PrintersPage } from './pages/PrintersPage'
+import { PrinterFormPage } from './pages/PrinterFormPage'
 import { GlassSchedulePage } from './pages/glass/GlassSchedulePage'
 import { RentalTypeFormPage } from './pages/RentalTypeFormPage'
 import { NfesPage } from './pages/NfesPage'
@@ -184,6 +186,7 @@ function App() {
   const supportContractsView = useEntityView()
   const supportVisitsView = useEntityView()
   const investmentsView = useEntityView()
+  const printersView = useEntityView()
   const glassTypesView = useEntityView()
   const glassModelsView = useEntityView()
   const glassProfilesView = useEntityView()
@@ -219,6 +222,7 @@ function App() {
     'support-contracts': supportContractsView,
     'support-visits': supportVisitsView,
     investments: investmentsView,
+    printers: printersView,
     'glass-types': glassTypesView,
     'glass-models': glassModelsView,
     'glass-profiles': glassProfilesView,
@@ -728,6 +732,24 @@ function App() {
             company={activeCompany}
             onCreate={glassOrdersView.create}
             onEdit={(item) => glassOrdersView.edit(item.id)}
+          />
+        )
+    } else if (page === 'printers') {
+      pageContent =
+        printersView.view.mode === 'form' ? (
+          <PrinterFormPage
+            session={session}
+            company={activeCompany}
+            printerId={printersView.view.id}
+            onBack={printersView.reset}
+            onSaved={printersView.reset}
+          />
+        ) : (
+          <PrintersPage
+            session={session}
+            company={activeCompany}
+            onCreate={printersView.create}
+            onEdit={(item) => printersView.edit(item.id)}
           />
         )
     } else if (page === 'glass-schedule') {
