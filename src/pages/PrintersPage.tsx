@@ -8,7 +8,7 @@ import {
   fetchPrinters,
   PRINT_JOB_STATUS_LABELS,
   regeneratePrintAgentToken,
-  retryPrintJob,
+  reprintPrintJob,
   testPrinter,
   type PrintAgentPackageInfo,
   type PrintAgentRecord,
@@ -20,6 +20,7 @@ import { formatDate, formatDateTime } from '../lib/format'
 import { GlassList } from './glass/GlassList'
 import { GuideSteps, type GuideStep } from '../components/GuideSteps'
 import { ConfirmDialog } from '../components/ConfirmDialog'
+import { SelectField } from '../components/form/SelectField'
 import { PencilIcon, PlusIcon, PrinterIcon, TrashIcon } from '../components/icons'
 import type { AuthCompany, AuthSession } from '../lib/auth'
 
@@ -109,6 +110,10 @@ export function PrintersPage({ session, company, onCreate, onEdit }: PrintersPag
   const [tokenDialog, setTokenDialog] = useState(false)
   const [tokenBusy, setTokenBusy] = useState(false)
   const [tab, setTab] = useState<'list' | 'queue' | 'install'>('list')
+  const [reprintTarget, setReprintTarget] = useState<PrintJobRecord | null>(null)
+  const [reprintPrinterId, setReprintPrinterId] = useState('')
+  const [activePrinters, setActivePrinters] = useState<PrinterRecord[]>([])
+  const [reprinting, setReprinting] = useState(false)
 
   const loadStatus = useCallback(() => {
     fetchPrintAgents(token, company.id).then(setAgents).catch(() => {})
@@ -160,6 +165,30 @@ export function PrintersPage({ session, company, onCreate, onEdit }: PrintersPag
     const timer = setInterval(loadStatus, 5000)
     return () => clearInterval(timer)
   }, [loadStatus])
+
+  function openReprint(job: PrintJobRecord) {
+    setReprintTarget(job)
+    setReprintPrinterId(job.printer_id)
+    fetchPrinters(token, company.id, { active: true, limit: 100 })
+      .then((res) => setActivePrinters(res.data || []))
+      .catch(() => setActivePrinters([]))
+  }
+
+  async function confirmReprint() {
+    if (!reprintTarget) return
+    setReprinting(true)
+    try {
+      await reprintPrintJob(token, reprintTarget.id, reprintPrinterId || undefined)
+      setReprintTarget(null)
+      setNotice('Enviado para a fila de impressão novamente.')
+      loadStatus()
+    } catch (err) {
+      setReprintTarget(null)
+      setNotice(err instanceof ApiError ? err.message : 'Não foi possível reimprimir.')
+    } finally {
+      setReprinting(false)
+    }
+  }
 
   async function runJobAction(action: () => Promise<unknown>) {
     setNotice(null)
@@ -523,7 +552,7 @@ export function PrintersPage({ session, company, onCreate, onEdit }: PrintersPag
       {tab === 'queue' && (
         <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
           <h2 className="text-[14px] font-bold text-[var(--ink)]">Últimas impressões</h2>
-          <p className="mb-3 text-[12px] text-[var(--muted)]">Atualiza sozinho. Trabalho com erro pode ser reenviado.</p>
+          <p className="mb-3 text-[12px] text-[var(--muted)]">Atualiza sozinho. Qualquer impressão pode ser reimpressa, inclusive em outra impressora (papel acabou, impressora com defeito).</p>
           {jobs.length === 0 ? (
             <p className="py-8 text-center text-[13px] text-[var(--muted)]">Nenhuma impressão ainda.</p>
           ) : (
@@ -543,13 +572,13 @@ export function PrintersPage({ session, company, onCreate, onEdit }: PrintersPag
                     <span className={`rounded-full px-2.5 py-0.5 text-[11.5px] font-bold ${JOB_TONES[job.status] ?? JOB_TONES[0]}`}>
                       {PRINT_JOB_STATUS_LABELS[job.status] ?? job.status}
                     </span>
-                    {(job.status === 3 || job.status === 4) && (
+                    {job.status !== 0 && (
                       <button
                         type="button"
-                        onClick={() => runJobAction(() => retryPrintJob(token, job.id))}
+                        onClick={() => openReprint(job)}
                         className="rounded-lg px-2.5 py-1 text-[12px] font-bold text-[var(--blue-700)] hover:bg-[var(--blue-100)]"
                       >
-                        Reenviar
+                        Reimprimir
                       </button>
                     )}
                     {job.status === 0 && (
@@ -649,6 +678,46 @@ export function PrintersPage({ session, company, onCreate, onEdit }: PrintersPag
             </button>
           </details>
         </>
+      )}
+
+      {reprintTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setReprintTarget(null)}>
+          <div
+            className="w-full max-w-[420px] rounded-2xl bg-[var(--surface)] p-6 shadow-[var(--card-shadow)]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 className="text-[16px] font-bold text-[var(--ink)]">Reimprimir</h2>
+            <p className="mt-1 text-[13px] text-[var(--ink-soft)]">
+              “{reprintTarget.title || 'Documento'}” será enviado de novo para a fila. A impressão original continua no histórico.
+            </p>
+            <div className="mt-4">
+              <SelectField label="Imprimir em" variant="surface" value={reprintPrinterId} onChange={(event) => setReprintPrinterId(event.target.value)}>
+                {!activePrinters.some((printer) => printer.id === reprintTarget.printer_id) && (
+                  <option value={reprintTarget.printer_id}>{reprintTarget.printer?.name ?? 'Impressora original'}</option>
+                )}
+                {activePrinters.map((printer) => (
+                  <option key={printer.id} value={printer.id}>
+                    {printer.name}
+                    {printer.id === reprintTarget.printer_id ? ' (original)' : ''}
+                  </option>
+                ))}
+              </SelectField>
+            </div>
+            <div className="mt-5 flex justify-end gap-3">
+              <button type="button" onClick={() => setReprintTarget(null)} className="rounded-xl px-4 py-2 text-[13.5px] font-semibold text-[var(--ink-soft)] hover:text-[var(--ink)]">
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={reprinting}
+                onClick={confirmReprint}
+                className="rounded-xl bg-[var(--blue-500)] px-5 py-2 text-[13.5px] font-bold text-white hover:bg-[var(--blue-700)] disabled:opacity-60"
+              >
+                {reprinting ? 'Enviando…' : 'Reimprimir'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <ConfirmDialog

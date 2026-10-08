@@ -116,6 +116,9 @@ export const fetchPrintAgents = (token: string, companyId: string) =>
 export const fetchPrintJobs = (token: string, companyId: string, limit = 10) =>
   apiGet<Paginated<PrintJobRecord>>('/print-job', { companyId, limit: String(limit) }, token)
 export const retryPrintJob = (token: string, id: string) => apiPost<PrintJobRecord>(`/print-job/${id}/retry`, {}, token)
+// Reimprime: cria uma impressão nova igual à original (opcionalmente em outra impressora).
+export const reprintPrintJob = (token: string, id: string, printerId?: string) =>
+  apiPost<PrintJobRecord>(`/print-job/${id}/reprint`, { printer_id: printerId }, token)
 export const cancelPrintJob = (token: string, id: string) => apiPost<PrintJobRecord>(`/print-job/${id}/cancel`, {}, token)
 
 export const createPrintJob = (
