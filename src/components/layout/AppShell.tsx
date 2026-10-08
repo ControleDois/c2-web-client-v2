@@ -85,6 +85,7 @@ export type AppPage =
   | 'delivery-couriers'
   | 'delivery-neighborhoods'
   | 'printers'
+  | 'sale-tokens'
   | 'app-releases'
   | 'glass-orders'
   | 'glass-types'
@@ -180,6 +181,10 @@ function buildNavGroups(
                 : []),
               { page: 'products' as const, label: 'Produtos e Serviços', icon: BoxIcon },
               { page: 'towing-sales' as const, label: 'Vendas', icon: CoinIcon },
+              // Distribuidora: controle das fichas vendidas (emitidas, trocadas, em aberto).
+              ...(isDistribuidoraBebidas(systemType)
+                ? [{ page: 'sale-tokens' as const, label: 'Fichas', icon: TagIcon }]
+                : []),
               // TI: ordem de serviço por equipamento (formatação, limpeza, reparo).
               ...(isSoftwareHouse(systemType)
                 ? [

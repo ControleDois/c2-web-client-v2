@@ -17,6 +17,8 @@ export interface ProductRecord {
   description?: string | null
   barcode?: string | null
   unit?: string | null
+  // Imprime uma ficha por unidade vendida (distribuidora de bebidas)
+  print_token?: boolean
   categories?: ProductCategoryRef[]
   // Dados fiscais (NFe)
   ncm_id?: string | null
@@ -36,6 +38,7 @@ export interface ProductPayload {
   description?: string
   barcode?: string
   unit?: string
+  print_token?: boolean
   categories?: { id?: string; name?: string }[]
   // Dados fiscais (NFe)
   ncm_id?: string

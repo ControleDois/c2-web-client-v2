@@ -14,7 +14,7 @@ export interface GlassColumn<T> {
 interface GlassListProps<T extends { id: string }> {
   eyebrow: string
   title: string
-  newLabel: string
+  newLabel?: string
   searchPlaceholder: string
   emptyLabel: string
   columns: GlassColumn<T>[]
@@ -28,7 +28,8 @@ interface GlassListProps<T extends { id: string }> {
   beforeContent?: ReactNode
   // Dentro de outra tela (abas): sem título, botão de novo nem margens próprias.
   embedded?: boolean
-  onCreate: () => void
+  // Sem onCreate, a lista é só de consulta (sem botão de novo).
+  onCreate?: () => void
   actions: (item: T, helpers: { reload: () => void; askDelete: (item: T) => void }) => RowAction[]
   deleteItem: (item: T) => Promise<unknown>
   deleteTitle: string
@@ -120,14 +121,16 @@ export function GlassList<T extends { id: string }>({
           <p className="text-[12px] font-semibold tracking-wide text-[var(--blue-700)] uppercase">{eyebrow}</p>
           <h1 className="mt-0.5 text-[22px] font-bold tracking-tight text-[var(--ink)]">{title}</h1>
         </div>
-        <button
-          type="button"
-          onClick={onCreate}
-          className="flex items-center gap-2 rounded-xl bg-[var(--blue-500)] px-4 py-2.5 text-[13.5px] font-bold text-white transition hover:bg-[var(--blue-700)]"
-        >
-          <PlusIcon className="h-4 w-4" />
-          {newLabel}
-        </button>
+        {onCreate && (
+          <button
+            type="button"
+            onClick={onCreate}
+            className="flex items-center gap-2 rounded-xl bg-[var(--blue-500)] px-4 py-2.5 text-[13.5px] font-bold text-white transition hover:bg-[var(--blue-700)]"
+          >
+            <PlusIcon className="h-4 w-4" />
+            {newLabel}
+          </button>
+        )}
       </div>
       )}
 

@@ -43,6 +43,7 @@ export function ProductFormPage({ session, company, productId, onBack, onSaved }
   const [unit, setUnit] = useState('')
   const [barcode, setBarcode] = useState('')
   const [description, setDescription] = useState('')
+  const [printToken, setPrintToken] = useState(false)
 
   const [selectedCategories, setSelectedCategories] = useState<ProductCategoryRef[]>([])
   const [availableCategories, setAvailableCategories] = useState<CategoryProductRecord[]>([])
@@ -94,6 +95,7 @@ export function ProductFormPage({ session, company, productId, onBack, onSaved }
         setUnit(product.unit ?? '')
         setBarcode(product.barcode ?? '')
         setDescription(product.description ?? '')
+        setPrintToken(Boolean(product.print_token))
         setSelectedCategories(product.categories ?? [])
         setNcm(product.ncm ? { id: product.ncm.id, label: `${product.ncm.code} - ${product.ncm.description}` } : null)
         setNfeTaxation(product.taxation ? { id: product.taxation.id, label: product.taxation.name } : null)
@@ -131,6 +133,7 @@ export function ProductFormPage({ session, company, productId, onBack, onSaved }
       unit: isProduct && unit.trim() ? unit.trim() : undefined,
       barcode: isProduct && barcode.trim() ? barcode.trim() : undefined,
       description: isProduct && description.trim() ? description.trim() : undefined,
+      print_token: isProduct ? printToken : false,
       categories: isProduct ? selectedCategories.map((category) => ({ id: category.id })) : undefined,
       ncm_id: isProduct ? ncm?.id : undefined,
       nfe_taxation_id: isProduct ? nfeTaxation?.id : undefined,
@@ -249,6 +252,24 @@ export function ProductFormPage({ session, company, productId, onBack, onSaved }
                 </>
               )}
             </div>
+
+            {isProduct && (
+              <label className="mt-4 flex items-start gap-2.5 rounded-xl bg-[var(--page)] p-3.5">
+                <input
+                  type="checkbox"
+                  checked={printToken}
+                  onChange={(event) => setPrintToken(event.target.checked)}
+                  className="mt-0.5 h-4 w-4 accent-[var(--blue-500)]"
+                />
+                <span>
+                  <span className="block text-[13.5px] font-semibold text-[var(--ink)]">Imprimir ficha na venda</span>
+                  <span className="block text-[12px] text-[var(--ink-soft)]">
+                    Cada unidade vendida no PDV imprime uma ficha com código de barras. O cliente troca a ficha pelo produto e o
+                    caixa bipa para dar baixa. Sai na impressora do comprovante.
+                  </span>
+                </span>
+              </label>
+            )}
 
             {isProduct && (
               <div className="mt-4">
