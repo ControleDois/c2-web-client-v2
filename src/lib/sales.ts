@@ -124,7 +124,8 @@ export interface SaleRecord {
   autentique_id?: string | null
   autentique_public_id?: string | null
   autentique_short_link?: string | null
-  meta?: { contract_sent?: boolean; contract_signed?: boolean }
+  // has_next_period: aluguel que já foi renovado (existe período seguinte do mesmo veículo e cliente)
+  meta?: { contract_sent?: boolean; contract_signed?: boolean; has_next_period?: boolean }
 }
 
 export interface SaleBillRef {

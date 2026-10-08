@@ -444,7 +444,8 @@ export function VehicleRentalsPage({ session, company, onCreate, onEdit }: Vehic
           ]
         : []
     const renewAction: RowAction[] =
-      (status === 1 || status === 2) && !sale.vehicleRentalContract?.purchaseOption
+      // Aluguel que já tem período seguinte não renova de novo: renova-se o período em andamento.
+      (status === 1 || status === 2) && !sale.vehicleRentalContract?.purchaseOption && !sale.meta?.has_next_period
         ? [
             {
               key: 'renew',
