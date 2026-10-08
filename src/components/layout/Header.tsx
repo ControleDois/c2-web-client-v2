@@ -42,6 +42,7 @@ interface HeaderProps {
       | 'company-groups'
       | 'audit-logs'
       | 'licenses'
+      | 'app-releases'
   ) => void
   onGoToMatrixCompany: () => void
   onOpenMobileNav: () => void
@@ -368,6 +369,17 @@ export function Header({
                 >
                   <KeyIcon className="h-4 w-4 flex-none text-[var(--muted)]" />
                   Licenças
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUserMenuOpen(false)
+                    onNavigate('app-releases')
+                  }}
+                  className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-[13px] font-semibold text-[var(--ink)] hover:bg-[var(--page)]"
+                >
+                  <PrinterIcon className="h-4 w-4 flex-none text-[var(--muted)]" />
+                  Aplicativos
                 </button>
               </>
             )}

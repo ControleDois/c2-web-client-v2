@@ -55,6 +55,7 @@ import { GlassOrderFormPage } from './pages/glass/GlassOrderFormPage'
 import { GlassProductionPage } from './pages/glass/GlassProductionPage'
 import { GlassDashboardPage } from './pages/glass/GlassDashboardPage'
 import { PrintersPage } from './pages/PrintersPage'
+import { AppReleasesPage } from './pages/AppReleasesPage'
 import { PrinterFormPage } from './pages/PrinterFormPage'
 import { GlassSchedulePage } from './pages/glass/GlassSchedulePage'
 import { RentalTypeFormPage } from './pages/RentalTypeFormPage'
@@ -734,6 +735,8 @@ function App() {
             onEdit={(item) => glassOrdersView.edit(item.id)}
           />
         )
+    } else if (page === 'app-releases') {
+      pageContent = <AppReleasesPage session={session} />
     } else if (page === 'printers') {
       pageContent =
         printersView.view.mode === 'form' ? (

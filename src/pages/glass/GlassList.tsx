@@ -24,6 +24,8 @@ interface GlassListProps<T extends { id: string }> {
   // Muda quando filtros externos mudam, para recarregar a lista da primeira página.
   filterKey?: string
   filters?: ReactNode
+  // Conteúdo logo abaixo do título (ex: guia de uso), antes da busca e da tabela.
+  beforeContent?: ReactNode
   onCreate: () => void
   actions: (item: T, helpers: { reload: () => void; askDelete: (item: T) => void }) => RowAction[]
   deleteItem: (item: T) => Promise<unknown>
@@ -43,6 +45,7 @@ export function GlassList<T extends { id: string }>({
   fetchPage,
   filterKey = '',
   filters,
+  beforeContent,
   onCreate,
   actions,
   deleteItem,
@@ -122,6 +125,8 @@ export function GlassList<T extends { id: string }>({
           {newLabel}
         </button>
       </div>
+
+      {beforeContent}
 
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex min-w-[240px] flex-1 items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2.5">

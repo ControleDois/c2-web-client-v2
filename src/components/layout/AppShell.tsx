@@ -85,6 +85,7 @@ export type AppPage =
   | 'delivery-couriers'
   | 'delivery-neighborhoods'
   | 'printers'
+  | 'app-releases'
   | 'glass-orders'
   | 'glass-types'
   | 'glass-models'

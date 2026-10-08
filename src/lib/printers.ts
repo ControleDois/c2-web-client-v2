@@ -122,3 +122,19 @@ export const createPrintJob = (
   token: string,
   payload: { company_id: string; printer_id: string; title?: string; payload?: PrintDocument; type?: 'document' | 'pdf'; source_url?: string; copies?: number }
 ) => apiPost<PrintJobRecord>('/print-job', payload, token)
+
+export interface PrintAgentPackageInfo {
+  available: boolean
+  version: string | null
+  released_at: string | null
+  notes: string | null
+  file_size: number | null
+  has_token: boolean
+  token_created_at: string | null
+}
+
+export const fetchPrintAgentPackage = (token: string, companyId: string) =>
+  apiGet<PrintAgentPackageInfo>('/print-agent/package', { companyId }, token)
+
+export const regeneratePrintAgentToken = (token: string, companyId: string) =>
+  apiPost<{ ok: boolean }>('/print-agent/token', { company_id: companyId }, token)
