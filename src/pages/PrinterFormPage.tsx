@@ -114,7 +114,7 @@ export function PrinterFormPage({ session, company, printerId, onBack, onSaved }
     try {
       await updatePrinter(token, printerId, buildPayload())
       await testPrinter(token, printerId)
-      setNotice('Página de teste enviada. Acompanhe em Impressoras → Últimas impressões.')
+      setNotice('Página de teste enviada. Veja o resultado na aba Fila de impressão.')
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Não foi possível enviar o teste.')
     }

@@ -20,7 +20,7 @@ import { formatDate, formatDateTime } from '../lib/format'
 import { GlassList } from './glass/GlassList'
 import { GuideSteps, type GuideStep } from '../components/GuideSteps'
 import { ConfirmDialog } from '../components/ConfirmDialog'
-import { PencilIcon, PrinterIcon, TrashIcon } from '../components/icons'
+import { PencilIcon, PlusIcon, PrinterIcon, TrashIcon } from '../components/icons'
 import type { AuthCompany, AuthSession } from '../lib/auth'
 
 interface PrintersPageProps {
@@ -108,10 +108,11 @@ export function PrintersPage({ session, company, onCreate, onEdit }: PrintersPag
   const [downloadError, setDownloadError] = useState<string | null>(null)
   const [tokenDialog, setTokenDialog] = useState(false)
   const [tokenBusy, setTokenBusy] = useState(false)
+  const [tab, setTab] = useState<'list' | 'queue' | 'install'>('list')
 
   const loadStatus = useCallback(() => {
     fetchPrintAgents(token, company.id).then(setAgents).catch(() => {})
-    fetchPrintJobs(token, company.id, 10)
+    fetchPrintJobs(token, company.id, 20)
       .then((res) => setJobs(res.data || []))
       .catch(() => {})
     fetchPrinters(token, company.id, { limit: 1 })
@@ -181,6 +182,14 @@ export function PrintersPage({ session, company, onCreate, onEdit }: PrintersPag
   const statusOf = (index: number) => (baseStatuses[index] ? 'done' : index === currentIndex ? 'current' : 'pending') as GuideStep['status']
 
   const offlineAgent = agents.find((agent) => !agent.online)
+  const failedJobs = jobs.filter((job) => job.status === 3).length
+  const detectedCount = agents.reduce((sum, agent) => sum + agent.detected_printers.length, 0)
+
+  const pill = online.length
+    ? { tone: 'bg-[var(--green-100)] text-[var(--green-600)]', dot: 'bg-[var(--green-600)]', label: 'Conectado' }
+    : everConnected
+      ? { tone: 'bg-[var(--red-100)] text-[var(--red-500)]', dot: 'bg-[var(--red-500)]', label: 'Desconectado' }
+      : { tone: 'bg-[var(--page)] text-[var(--ink-soft)]', dot: 'bg-[var(--muted)]', label: 'Servidor de impressão não instalado' }
 
   const steps: GuideStep[] = [
     {
@@ -270,8 +279,9 @@ export function PrintersPage({ session, company, onCreate, onEdit }: PrintersPag
       status: statusOf(2),
       details: (
         <p>
-          Quando conectar, o computador aparece no quadro “Servidor de impressão” mais abaixo, junto com a lista das
-          impressoras que o Windows dele enxerga. Se demorar mais que 1 minuto, veja “Não deu certo?” no fim da página.
+          Quando conectar, o aviso lá no topo da tela fica verde (“Conectado”) e o computador aparece em “Computadores
+          conectados”, logo abaixo, com a lista das impressoras que o Windows dele enxerga. Se demorar mais que 1 minuto,
+          veja “Problemas comuns”, mais abaixo nesta mesma aba.
         </p>
       ),
     },
@@ -310,12 +320,12 @@ export function PrintersPage({ session, company, onCreate, onEdit }: PrintersPag
       title: 'Imprima uma página de teste',
       description: testPrinted
         ? 'Teste impresso com sucesso.'
-        : 'Na lista de impressoras, abra o menu ⋮ da linha e escolha “Imprimir teste” (ou use “Salvar e imprimir teste” ao editar).',
+        : 'Na aba Impressoras, abra o menu ⋮ da linha e escolha “Imprimir teste” (ou use “Salvar e imprimir teste” ao editar).',
       status: statusOf(4),
       details: (
         <p>
           Sai uma página com a largura do papel, acentos, negrito e um QR-code. Se saiu tudo certo, está pronto. O resultado
-          aparece em “Últimas impressões”, mais abaixo. Se não saiu, veja “Não deu certo?”.
+          aparece na aba “Fila de impressão”. Se não saiu, veja “Problemas comuns”, mais abaixo nesta aba.
         </p>
       ),
     },
@@ -333,111 +343,189 @@ export function PrintersPage({ session, company, onCreate, onEdit }: PrintersPag
     },
   ]
 
+  const tabs: { key: 'list' | 'queue' | 'install'; label: string; badge?: number }[] = [
+    { key: 'list', label: 'Impressoras' },
+    { key: 'queue', label: 'Fila de impressão', badge: failedJobs },
+    { key: 'install', label: 'Como instalar' },
+  ]
+
   return (
-    <>
-      <GlassList<PrinterRecord>
-        eyebrow="Impressão direta"
-        title="Impressoras"
-        newLabel="Nova impressora"
-        searchPlaceholder="Buscar por nome ou caminho"
-        emptyLabel="Nenhuma impressora cadastrada"
-        filterKey={String(reloadToken)}
-        beforeContent={
-          <GuideSteps
-            title="Como configurar a impressão direta"
-            subtitle="Siga os passos na ordem. Cada um se marca sozinho quando fica pronto."
-            steps={steps}
-          />
-        }
-        fetchPage={(search, page) => fetchPrinters(token, company.id, { search, page, limit: 10 })}
-        columns={[
-          { header: 'Nome', render: (item) => <span className="font-medium text-[var(--ink)]">{item.name}</span> },
-          { header: 'Caminho', render: (item) => <span className="font-mono text-[12px] text-[var(--ink-soft)]">{item.path}</span> },
-          { header: 'Papel', render: (item) => <span className="text-[var(--ink-soft)]">{item.paper_columns} col.</span> },
-          {
-            header: 'Situação',
-            render: (item) => (
-              <span className={item.active ? 'text-[var(--green-600)]' : 'text-[var(--muted)]'}>{item.active ? 'Ativa' : 'Inativa'}</span>
-            ),
-          },
-        ]}
-        cardTitle={(item) => item.name}
-        cardSubtitle={(item) => item.path}
-        onCreate={onCreate}
-        actions={(item, { askDelete }) => [
-          { key: 'edit', label: 'Editar', icon: <PencilIcon className="h-4 w-4" />, onClick: () => onEdit(item) },
-          {
-            key: 'test',
-            label: 'Imprimir teste',
-            icon: <PrinterIcon className="h-4 w-4" />,
-            onClick: () =>
-              runJobAction(async () => {
-                await testPrinter(token, item.id)
-                setNotice(`Teste enviado para "${item.name}". Acompanhe a fila abaixo.`)
-              }),
-          },
-          { key: 'delete', label: 'Excluir', icon: <TrashIcon className="h-4 w-4" />, tone: 'danger', dividerBefore: true, onClick: () => askDelete(item) },
-        ]}
-        deleteItem={async (item) => {
-          await deletePrinter(token, item.id)
-          setReloadToken((value) => value + 1)
-        }}
-        deleteTitle="Excluir impressora"
-        deleteLabel={(item) => item.name}
-      />
-
-      <div className="flex flex-col gap-6 px-4 pb-8 sm:px-6 lg:px-8">
-        {notice && (
-          <div className="rounded-xl bg-[var(--blue-100)] px-4 py-3 text-[13px] font-medium text-[var(--blue-700)]" onClick={() => setNotice(null)}>
-            {notice}
-          </div>
-        )}
-
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-[14px] font-bold text-[var(--ink)]">Servidor de impressão</h2>
-            <span
-              className={`rounded-full px-2.5 py-0.5 text-[11.5px] font-bold ${
-                online.length ? 'bg-[var(--green-100)] text-[var(--green-600)]' : 'bg-[var(--red-100)] text-[var(--red-500)]'
-              }`}
+    <div className="flex flex-col gap-5 p-4 sm:p-6 lg:p-8">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <p className="text-[12px] font-semibold tracking-wide text-[var(--blue-700)] uppercase">Impressão direta</p>
+          <div className="mt-0.5 flex flex-wrap items-center gap-3">
+            <h1 className="text-[22px] font-bold tracking-tight text-[var(--ink)]">Impressoras</h1>
+            <button
+              type="button"
+              onClick={() => setTab(everConnected ? 'list' : 'install')}
+              className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-[12px] font-bold ${pill.tone}`}
+              title={everConnected ? 'Status do servidor de impressão' : 'Ver como instalar'}
             >
-              {online.length ? 'Conectado' : 'Desconectado'}
-            </span>
+              <span className={`h-2 w-2 rounded-full ${pill.dot}`} />
+              {pill.label}
+            </button>
           </div>
-          {agents.length === 0 ? (
-            <p className="mt-2 text-[12.5px] text-[var(--ink-soft)]">
-              Nenhum computador conectado ainda. Instale o <b>C2 Print Server</b> no computador onde ficam as impressoras e informe o
-              token da empresa no <code>config.ini</code>: ele aparece aqui sozinho, com a lista das impressoras do Windows.
-            </p>
-          ) : (
-            <div className="mt-3 flex flex-col divide-y divide-[var(--border)]">
-              {agents.map((agent) => (
-                <div key={agent.id} className="flex flex-wrap items-start justify-between gap-3 py-2.5">
-                  <div className="min-w-0">
-                    <p className="text-[13px] font-semibold text-[var(--ink)]">
-                      <span className={`mr-2 inline-block h-2 w-2 rounded-full ${agent.online ? 'bg-[var(--green-600)]' : 'bg-[var(--red-500)]'}`} />
-                      {agent.hostname}
-                      {agent.agent_version ? <span className="ml-2 text-[11.5px] font-normal text-[var(--muted)]">v{agent.agent_version}</span> : null}
-                    </p>
-                    <p className="text-[12px] text-[var(--muted)]">
-                      Último sinal {secondsAgo(agent.last_seen_at)}
-                      {agent.detected_printers.length ? ` · ${agent.detected_printers.length} impressora(s) no Windows` : ''}
-                    </p>
-                  </div>
-                  {agent.detected_printers.length > 0 && (
-                    <p className="max-w-[420px] text-right text-[11.5px] text-[var(--ink-soft)]">{agent.detected_printers.join(' · ')}</p>
-                  )}
+        </div>
+        <button
+          type="button"
+          onClick={onCreate}
+          className="flex items-center gap-2 rounded-xl bg-[var(--blue-500)] px-4 py-2.5 text-[13.5px] font-bold text-white transition hover:bg-[var(--blue-700)]"
+        >
+          <PlusIcon className="h-4 w-4" />
+          Nova impressora
+        </button>
+      </div>
+
+      <div className="flex gap-1 overflow-x-auto border-b border-[var(--border)]">
+        {tabs.map((item) => (
+          <button
+            key={item.key}
+            type="button"
+            onClick={() => setTab(item.key)}
+            className={`flex flex-none items-center gap-2 border-b-2 px-4 py-2.5 text-[13.5px] font-bold transition ${
+              tab === item.key
+                ? 'border-[var(--blue-500)] text-[var(--blue-700)]'
+                : 'border-transparent text-[var(--ink-soft)] hover:text-[var(--ink)]'
+            }`}
+          >
+            {item.label}
+            {item.badge ? (
+              <span className="rounded-full bg-[var(--red-500)] px-1.5 text-[11px] font-bold text-white">{item.badge}</span>
+            ) : null}
+          </button>
+        ))}
+      </div>
+
+      {notice && (
+        <div className="cursor-pointer rounded-xl bg-[var(--blue-100)] px-4 py-3 text-[13px] font-medium text-[var(--blue-700)]" onClick={() => setNotice(null)}>
+          {notice}
+        </div>
+      )}
+
+      {tab === 'list' && (
+        <>
+          {!everConnected && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--blue-300)] bg-[var(--blue-100)] p-4">
+              <div className="flex items-start gap-3">
+                <span className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-[var(--surface)] text-[var(--blue-700)]">
+                  <PrinterIcon className="h-4.5 w-4.5" />
+                </span>
+                <div>
+                  <p className="text-[13.5px] font-bold text-[var(--ink)]">Para imprimir direto, instale o servidor de impressão</p>
+                  <p className="mt-0.5 text-[12.5px] text-[var(--ink-soft)]">
+                    É um programa pequeno que fica no computador das impressoras. Leva poucos minutos e já vem configurado para a
+                    sua empresa.
+                  </p>
                 </div>
-              ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => setTab('install')}
+                className="flex-none rounded-xl bg-[var(--blue-500)] px-4 py-2 text-[13px] font-bold text-white hover:bg-[var(--blue-700)]"
+              >
+                Ver como instalar
+              </button>
             </div>
           )}
-        </div>
 
+          {everConnected && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className={`h-2.5 w-2.5 flex-none rounded-full ${online.length ? 'bg-[var(--green-600)]' : 'bg-[var(--red-500)]'}`} />
+                <div className="min-w-0">
+                  <p className="truncate text-[13px] font-bold text-[var(--ink)]">
+                    {online.length
+                      ? `Conectado — ${online.map((agent) => agent.hostname).join(', ')}`
+                      : `Desconectado — ${offlineAgent?.hostname}`}
+                  </p>
+                  <p className="text-[12px] text-[var(--muted)]">
+                    {online.length
+                      ? `${detectedCount} impressora(s) no Windows · último sinal ${secondsAgo(online[0].last_seen_at)}`
+                      : `Último sinal ${secondsAgo(offlineAgent?.last_seen_at)}. O programa está aberto e com internet?`}
+                  </p>
+                </div>
+              </div>
+              {!online.length && (
+                <button
+                  type="button"
+                  onClick={() => setTab('install')}
+                  className="flex-none text-[12.5px] font-bold text-[var(--blue-700)] hover:underline"
+                >
+                  O que fazer
+                </button>
+              )}
+            </div>
+          )}
+
+          {online.length > 0 && printersTotal === 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--green-100)] bg-[var(--green-100)]/60 p-4">
+              <p className="text-[13px] font-semibold text-[var(--ink)]">
+                Tudo conectado! Agora cadastre a sua primeira impressora. As do Windows aparecem para você escolher.
+              </p>
+              <button
+                type="button"
+                onClick={onCreate}
+                className="flex-none rounded-xl bg-[var(--blue-500)] px-4 py-2 text-[13px] font-bold text-white hover:bg-[var(--blue-700)]"
+              >
+                Cadastrar impressora
+              </button>
+            </div>
+          )}
+
+          <GlassList<PrinterRecord>
+            embedded
+            eyebrow="Impressão direta"
+            title="Impressoras"
+            newLabel="Nova impressora"
+            searchPlaceholder="Buscar por nome ou caminho"
+            emptyLabel="Nenhuma impressora cadastrada"
+            filterKey={String(reloadToken)}
+            fetchPage={(search, page) => fetchPrinters(token, company.id, { search, page, limit: 10 })}
+            columns={[
+              { header: 'Nome', render: (item) => <span className="font-medium text-[var(--ink)]">{item.name}</span> },
+              { header: 'Caminho', render: (item) => <span className="font-mono text-[12px] text-[var(--ink-soft)]">{item.path}</span> },
+              { header: 'Papel', render: (item) => <span className="text-[var(--ink-soft)]">{item.paper_columns} col.</span> },
+              {
+                header: 'Situação',
+                render: (item) => (
+                  <span className={item.active ? 'text-[var(--green-600)]' : 'text-[var(--muted)]'}>{item.active ? 'Ativa' : 'Inativa'}</span>
+                ),
+              },
+            ]}
+            cardTitle={(item) => item.name}
+            cardSubtitle={(item) => item.path}
+            onCreate={onCreate}
+            actions={(item, { askDelete }) => [
+              { key: 'edit', label: 'Editar', icon: <PencilIcon className="h-4 w-4" />, onClick: () => onEdit(item) },
+              {
+                key: 'test',
+                label: 'Imprimir teste',
+                icon: <PrinterIcon className="h-4 w-4" />,
+                onClick: () =>
+                  runJobAction(async () => {
+                    await testPrinter(token, item.id)
+                    setNotice(`Teste enviado para "${item.name}". Veja o resultado na aba Fila de impressão.`)
+                  }),
+              },
+              { key: 'delete', label: 'Excluir', icon: <TrashIcon className="h-4 w-4" />, tone: 'danger', dividerBefore: true, onClick: () => askDelete(item) },
+            ]}
+            deleteItem={async (item) => {
+              await deletePrinter(token, item.id)
+              setReloadToken((value) => value + 1)
+            }}
+            deleteTitle="Excluir impressora"
+            deleteLabel={(item) => item.name}
+          />
+        </>
+      )}
+
+      {tab === 'queue' && (
         <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
           <h2 className="text-[14px] font-bold text-[var(--ink)]">Últimas impressões</h2>
           <p className="mb-3 text-[12px] text-[var(--muted)]">Atualiza sozinho. Trabalho com erro pode ser reenviado.</p>
           {jobs.length === 0 ? (
-            <p className="py-4 text-center text-[13px] text-[var(--muted)]">Nenhuma impressão ainda.</p>
+            <p className="py-8 text-center text-[13px] text-[var(--muted)]">Nenhuma impressão ainda.</p>
           ) : (
             <div className="flex flex-col divide-y divide-[var(--border)]">
               {jobs.map((job) => (
@@ -478,47 +566,90 @@ export function PrintersPage({ session, company, onCreate, onEdit }: PrintersPag
               ))}
             </div>
           )}
+          {failedJobs > 0 && (
+            <p className="mt-3 text-[12px] text-[var(--muted)]">
+              Com erro? Veja “Problemas comuns” na aba <button type="button" className="font-bold text-[var(--blue-700)] hover:underline" onClick={() => setTab('install')}>Como instalar</button>.
+            </p>
+          )}
         </div>
+      )}
 
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
-          <h2 className="text-[14px] font-bold text-[var(--ink)]">Não deu certo?</h2>
-          <p className="mb-3 text-[12px] text-[var(--muted)]">Os problemas mais comuns e como resolver.</p>
-          <div className="flex flex-col divide-y divide-[var(--border)]">
-            {FAQ.map((item) => (
-              <details key={item.question} className="group py-2.5">
-                <summary className="cursor-pointer list-none text-[13px] font-semibold text-[var(--ink)] marker:hidden">
-                  <span className="mr-2 text-[var(--blue-700)] group-open:hidden">+</span>
-                  <span className="mr-2 hidden text-[var(--blue-700)] group-open:inline">−</span>
-                  {item.question}
-                </summary>
-                <p className="mt-2 pl-5 text-[12.5px] leading-relaxed text-[var(--ink-soft)]">{item.answer}</p>
-              </details>
-            ))}
+      {tab === 'install' && (
+        <>
+          <GuideSteps
+            title="Como configurar a impressão direta"
+            subtitle="Siga os passos na ordem. Cada um se marca sozinho quando fica pronto."
+            steps={steps}
+          />
+
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
+            <h2 className="text-[14px] font-bold text-[var(--ink)]">Computadores conectados</h2>
+            {agents.length === 0 ? (
+              <p className="mt-2 text-[12.5px] text-[var(--ink-soft)]">
+                Nenhum computador conectado ainda. Quando você abrir o programa, ele aparece aqui sozinho, com a lista das
+                impressoras do Windows dele.
+              </p>
+            ) : (
+              <div className="mt-3 flex flex-col divide-y divide-[var(--border)]">
+                {agents.map((agent) => (
+                  <div key={agent.id} className="flex flex-wrap items-start justify-between gap-3 py-2.5">
+                    <div className="min-w-0">
+                      <p className="text-[13px] font-semibold text-[var(--ink)]">
+                        <span className={`mr-2 inline-block h-2 w-2 rounded-full ${agent.online ? 'bg-[var(--green-600)]' : 'bg-[var(--red-500)]'}`} />
+                        {agent.hostname}
+                        {agent.agent_version ? <span className="ml-2 text-[11.5px] font-normal text-[var(--muted)]">v{agent.agent_version}</span> : null}
+                      </p>
+                      <p className="text-[12px] text-[var(--muted)]">Último sinal {secondsAgo(agent.last_seen_at)}</p>
+                    </div>
+                    {agent.detected_printers.length > 0 && (
+                      <p className="max-w-[420px] text-right text-[11.5px] text-[var(--ink-soft)]">{agent.detected_printers.join(' · ')}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-          <p className="mt-3 text-[12px] text-[var(--muted)]">
-            No computador, o programa também guarda um arquivo <code>print-server.log</code> na pasta dele com o que aconteceu —
-            útil para o suporte.
-          </p>
-        </div>
 
-        <details className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
-          <summary className="cursor-pointer text-[13px] font-bold text-[var(--ink)]">Avançado: acesso do programa (token)</summary>
-          <p className="mt-2 text-[12.5px] text-[var(--ink-soft)]">
-            O pacote baixado já leva o acesso da sua empresa dentro do arquivo <code>config.ini</code>. Se esse arquivo for parar
-            em mãos erradas, gere um novo token: os computadores com o token antigo param de imprimir até você baixar o pacote
-            de novo.
-            {packageInfo?.token_created_at ? ` Token atual criado em ${formatDate(packageInfo.token_created_at)}.` : ''}
-          </p>
-          <button
-            type="button"
-            disabled={!packageInfo?.has_token}
-            onClick={() => setTokenDialog(true)}
-            className="mt-3 rounded-xl border border-[var(--border)] px-4 py-2 text-[12.5px] font-bold text-[var(--red-500)] hover:bg-[var(--red-100)] disabled:opacity-50"
-          >
-            Gerar novo token
-          </button>
-        </details>
-      </div>
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
+            <h2 className="text-[14px] font-bold text-[var(--ink)]">Problemas comuns</h2>
+            <p className="mb-3 text-[12px] text-[var(--muted)]">Os mais frequentes e como resolver.</p>
+            <div className="flex flex-col divide-y divide-[var(--border)]">
+              {FAQ.map((item) => (
+                <details key={item.question} className="group py-2.5">
+                  <summary className="cursor-pointer list-none text-[13px] font-semibold text-[var(--ink)] marker:hidden">
+                    <span className="mr-2 text-[var(--blue-700)] group-open:hidden">+</span>
+                    <span className="mr-2 hidden text-[var(--blue-700)] group-open:inline">−</span>
+                    {item.question}
+                  </summary>
+                  <p className="mt-2 pl-5 text-[12.5px] leading-relaxed text-[var(--ink-soft)]">{item.answer}</p>
+                </details>
+              ))}
+            </div>
+            <p className="mt-3 text-[12px] text-[var(--muted)]">
+              No computador, o programa também guarda um arquivo <code>print-server.log</code> na pasta dele com o que aconteceu —
+              útil para o suporte.
+            </p>
+          </div>
+
+          <details className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
+            <summary className="cursor-pointer text-[13px] font-bold text-[var(--ink)]">Avançado: acesso do programa (token)</summary>
+            <p className="mt-2 text-[12.5px] text-[var(--ink-soft)]">
+              O pacote baixado já leva o acesso da sua empresa dentro do arquivo <code>config.ini</code>. Se esse arquivo for
+              parar em mãos erradas, gere um novo token: os computadores com o token antigo param de imprimir até você baixar o
+              pacote de novo.
+              {packageInfo?.token_created_at ? ` Token atual criado em ${formatDate(packageInfo.token_created_at)}.` : ''}
+            </p>
+            <button
+              type="button"
+              disabled={!packageInfo?.has_token}
+              onClick={() => setTokenDialog(true)}
+              className="mt-3 rounded-xl border border-[var(--border)] px-4 py-2 text-[12.5px] font-bold text-[var(--red-500)] hover:bg-[var(--red-100)] disabled:opacity-50"
+            >
+              Gerar novo token
+            </button>
+          </details>
+        </>
+      )}
 
       <ConfirmDialog
         open={tokenDialog}
@@ -529,6 +660,6 @@ export function PrintersPage({ session, company, onCreate, onEdit }: PrintersPag
         onConfirm={handleRegenerateToken}
         onCancel={() => setTokenDialog(false)}
       />
-    </>
+    </div>
   )
 }

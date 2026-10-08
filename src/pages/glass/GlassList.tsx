@@ -26,6 +26,8 @@ interface GlassListProps<T extends { id: string }> {
   filters?: ReactNode
   // Conteúdo logo abaixo do título (ex: guia de uso), antes da busca e da tabela.
   beforeContent?: ReactNode
+  // Dentro de outra tela (abas): sem título, botão de novo nem margens próprias.
+  embedded?: boolean
   onCreate: () => void
   actions: (item: T, helpers: { reload: () => void; askDelete: (item: T) => void }) => RowAction[]
   deleteItem: (item: T) => Promise<unknown>
@@ -46,6 +48,7 @@ export function GlassList<T extends { id: string }>({
   filterKey = '',
   filters,
   beforeContent,
+  embedded = false,
   onCreate,
   actions,
   deleteItem,
@@ -110,7 +113,8 @@ export function GlassList<T extends { id: string }>({
   const helpers = { reload: () => setReloadKey((key) => key + 1), askDelete: (item: T) => setDeleteTarget(item) }
 
   return (
-    <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8">
+    <div className={embedded ? 'flex flex-col gap-4' : 'flex flex-col gap-6 p-4 sm:p-6 lg:p-8'}>
+      {!embedded && (
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="text-[12px] font-semibold tracking-wide text-[var(--blue-700)] uppercase">{eyebrow}</p>
@@ -125,6 +129,7 @@ export function GlassList<T extends { id: string }>({
           {newLabel}
         </button>
       </div>
+      )}
 
       {beforeContent}
 
