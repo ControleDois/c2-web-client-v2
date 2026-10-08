@@ -23,6 +23,7 @@ import {
   MenuIcon,
   TargetIcon,
   KeyIcon,
+  PrinterIcon,
 } from '../icons'
 
 interface HeaderProps {
@@ -35,6 +36,7 @@ interface HeaderProps {
       | 'whatsapp-api'
       | 'contract-templates'
       | 'rental-types'
+      | 'printers'
       | 'roles'
       | 'permissions'
       | 'company-groups'
@@ -290,6 +292,17 @@ export function Header({
             >
               <TargetIcon className="h-4 w-4 flex-none text-[var(--muted)]" />
               Tipos de Aluguel
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setUserMenuOpen(false)
+                onNavigate('printers')
+              }}
+              className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-[13px] font-semibold text-[var(--ink)] hover:bg-[var(--page)]"
+            >
+              <PrinterIcon className="h-4 w-4 flex-none text-[var(--muted)]" />
+              Impressoras
             </button>
             <div className="my-1.5 border-t border-[var(--border)]" />
             <p className="px-4 pb-1.5 text-[10.5px] font-bold tracking-[0.09em] text-[var(--muted)] uppercase">

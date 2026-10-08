@@ -15,7 +15,6 @@ import {
   ChevronRightIcon,
   UserIcon,
   ClipboardCheckIcon,
-  PrinterIcon,
   TrendUpIcon,
   CloseIcon,
   BoxIcon,
@@ -208,12 +207,6 @@ function buildNavGroups(
       ],
     },
   ]
-
-  // Impressão direta: cadastro das impressoras (e do servidor de impressão do cliente).
-  groups.push({
-    title: 'Impressão',
-    items: [{ page: 'printers' as const, label: 'Impressoras', icon: PrinterIcon }],
-  })
 
   // Distribuidora de bebidas: pedidos de delivery (iFood, Zé Delivery e
   // cardápio próprio) acompanhados no quadro do projeto c2-web-delivery.
