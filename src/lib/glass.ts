@@ -42,7 +42,35 @@ export interface GlassComponent {
   accessory_id?: string | null
   length_formula?: string | null
   quantity_formula?: string | null
+  // Perfil/acessório escolhido por uma variável do modelo; condição = fórmula (zero = a linha não entra)
+  profile_variable?: string | null
+  accessory_variable?: string | null
+  condition?: string | null
 }
+
+export interface GlassVariableOption {
+  id: string
+  label: string
+  // número usado nas fórmulas quando a opção é escolhida (ex.: 1 = sim, 0 = não)
+  value: number
+  profile_id?: string | null
+  accessory_id?: string | null
+}
+
+// Pergunta feita em cada item do modelo: lista de opções ou número digitado.
+// A chave (ex.: T, FOLGA_L) vira variável nas fórmulas.
+export interface GlassVariable {
+  key: string
+  label: string
+  type: 'select' | 'number'
+  unit?: string | null
+  help?: string | null
+  options?: GlassVariableOption[]
+  // lista: id da opção; número: o valor
+  default?: string | number | null
+}
+
+export type GlassVariableValues = Record<string, string | number>
 
 export interface GlassProfileRecord {
   id: string
@@ -126,6 +154,7 @@ export interface GlassModelRecord {
   product?: { id: string; name: string } | null
   image_url?: string | null
   components: GlassComponent[]
+  variables?: GlassVariable[]
   active: boolean
 }
 
@@ -141,6 +170,7 @@ export interface GlassModelPayload {
   cut_height_discount_mm: number
   product_id?: string | null
   components: GlassComponent[]
+  variables: GlassVariable[]
   active: boolean
 }
 
@@ -177,6 +207,7 @@ export interface GlassOrderItemRecord {
   accessory_color?: string | null
   delivery_date?: string | null
   item_type?: string | null
+  variable_values?: GlassVariableValues | null
   production_stage?: number
 }
 
@@ -307,7 +338,15 @@ export const changeGlassOrderStatus = (token: string, id: string, status: number
   apiPut<GlassOrderRecord>(`/glass-order/${id}/status`, { status, cancel_reason: cancelReason }, token)
 export const previewGlassPrice = (
   token: string,
-  payload: { company_id: string; glass_model_id?: string | null; glass_type_id?: string | null; width_mm: number; height_mm: number; quantity: number }
+  payload: {
+    company_id: string
+    glass_model_id?: string | null
+    glass_type_id?: string | null
+    width_mm: number
+    height_mm: number
+    quantity: number
+    variable_values?: GlassVariableValues | null
+  }
 ) => apiPost<GlassPricePreview>('/glass-order/price-preview', payload, token)
 
 export const generateGlassOrderBills = (token: string, id: string) =>
@@ -339,6 +378,7 @@ export interface GlassQuoteOptions {
   show_measures: boolean
   show_colors: boolean
   show_delivery: boolean
+  show_variables: boolean
   show_item_values: boolean
   show_total: boolean
   show_discount: boolean
@@ -363,6 +403,7 @@ export const GLASS_QUOTE_OPTION_LABELS: { key: keyof GlassQuoteOptions; label: s
   { key: 'show_measures', label: 'Medidas' },
   { key: 'show_colors', label: 'Cores (perfil e acessório)' },
   { key: 'show_delivery', label: 'Data de entrega' },
+  { key: 'show_variables', label: 'Variáveis do modelo (opções escolhidas)' },
   { key: 'show_item_values', label: 'Valor de cada item' },
   { key: 'show_total', label: 'Valor total' },
   { key: 'show_discount', label: 'Desconto' },
@@ -392,6 +433,8 @@ export const uploadGlassModelImage = (token: string, id: string, file: File) => 
   form.append('image', file)
   return apiPostForm<GlassModelRecord>(`/glass-model/${id}/image`, form, token)
 }
+export const saveGlassVariableDefaults = (token: string, id: string, values: GlassVariableValues) =>
+  apiPut<GlassModelRecord>(`/glass-model/${id}/variable-defaults`, { values }, token)
 export const removeGlassModelImage = (token: string, id: string) => apiDelete<GlassModelRecord>(`/glass-model/${id}/image`, token)
 
 export const GLASS_STAGE_LABELS: Record<number, string> = {
@@ -573,7 +616,14 @@ export const deleteGlassAccessory = (token: string, id: string) => apiDelete<voi
 
 export const simulateGlassModel = (
   token: string,
-  payload: { company_id: string; width_mm: number; height_mm: number; folhas: number; components: GlassComponent[] }
+  payload: {
+    company_id: string
+    width_mm: number
+    height_mm: number
+    folhas: number
+    components: GlassComponent[]
+    variables: GlassVariable[]
+  }
 ) => apiPost<{ rows: GlassSimulationRow[]; total: number }>('/glass-model/simulate', payload, token)
 
 export interface GlassProfilePieceGroup {

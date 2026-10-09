@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import {
   previewGlassPrice,
+  saveGlassVariableDefaults,
   type GlassModelRecord,
+  type GlassVariableValues,
   type GlassOrderItemRecord,
   type GlassPricePreview,
   type GlassTypeRecord,
@@ -23,13 +25,30 @@ interface GlassItemModalProps {
   models: GlassModelRecord[]
   glassTypes: GlassTypeRecord[]
   onSave: (item: GlassOrderItemRecord, addAnother?: boolean) => void
+  onModelUpdated?: (model: GlassModelRecord) => void
   onClose: () => void
 }
 
 const digits = (value: string) => value.replace(/\D/g, '')
+// Valor de cada variável do modelo: o que o item já tinha ou o padrão do modelo.
+function initialVariableValues(model: GlassModelRecord | undefined, saved?: GlassVariableValues | null) {
+  const values: GlassVariableValues = {}
+  for (const variable of model?.variables ?? []) {
+    const current = saved?.[variable.key]
+    if (current !== undefined && current !== null && current !== '') {
+      values[variable.key] = current
+    } else if (variable.type === 'select') {
+      values[variable.key] = variable.default ? String(variable.default) : variable.options?.[0]?.id ?? ''
+    } else {
+      values[variable.key] = variable.default ?? 0
+    }
+  }
+  return values
+}
+
 const COLOR_SUGGESTIONS = ['Branco', 'Preto', 'Bronze', 'Natural (anodizado fosco)', 'Amadeirado', 'Cinza', 'Champanhe']
 
-export function GlassItemModal({ open, token, companyId, item, prefill, models, glassTypes, onSave, onClose }: GlassItemModalProps) {
+export function GlassItemModal({ open, token, companyId, item, prefill, models, glassTypes, onSave, onModelUpdated, onClose }: GlassItemModalProps) {
   const [modelId, setModelId] = useState('')
   const [typeId, setTypeId] = useState('')
   const [location, setLocation] = useState('')
@@ -44,6 +63,8 @@ export function GlassItemModal({ open, token, companyId, item, prefill, models, 
   const [aluminumColor, setAluminumColor] = useState('')
   const [accessoryColor, setAccessoryColor] = useState('')
   const [deliveryDate, setDeliveryDate] = useState('')
+  const [variableValues, setVariableValues] = useState<GlassVariableValues>({})
+  const [defaultsNotice, setDefaultsNotice] = useState<string | null>(null)
   const [preview, setPreview] = useState<GlassPricePreview | null>(null)
   const [previewing, setPreviewing] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -66,13 +87,24 @@ export function GlassItemModal({ open, token, companyId, item, prefill, models, 
     setAluminumColor(source?.aluminum_color ?? '')
     setAccessoryColor(source?.accessory_color ?? '')
     setDeliveryDate(source?.delivery_date ? source.delivery_date.slice(0, 10) : '')
+    setVariableValues(
+      initialVariableValues(
+        models.find((entry) => entry.id === source?.glass_model_id),
+        source?.variable_values
+      )
+    )
+    setDefaultsNotice(null)
     setPreview(null)
     setError(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, item, prefill])
 
   const widthMm = Number(width) || 0
   const heightMm = Number(height) || 0
   const qty = Number(quantity) || 0
+  const selectedModel = models.find((entry) => entry.id === modelId)
+  const modelVariables = selectedModel?.variables ?? []
+  const hasVariables = modelVariables.length > 0
 
   useEffect(() => {
     if (!open || widthMm <= 0 || heightMm <= 0 || qty <= 0) {
@@ -89,6 +121,7 @@ export function GlassItemModal({ open, token, companyId, item, prefill, models, 
         width_mm: widthMm,
         height_mm: heightMm,
         quantity: qty,
+        variable_values: hasVariables ? variableValues : null,
       })
         .then((res) => {
           if (!cancelled) setPreview(res)
@@ -104,16 +137,30 @@ export function GlassItemModal({ open, token, companyId, item, prefill, models, 
       cancelled = true
       clearTimeout(timeout)
     }
-  }, [open, token, companyId, modelId, typeId, widthMm, heightMm, qty])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, token, companyId, modelId, typeId, widthMm, heightMm, qty, variableValues])
 
   if (!open) return null
 
   function handleModelChange(nextId: string) {
     setModelId(nextId)
     const model = models.find((entry) => entry.id === nextId)
+    setVariableValues(initialVariableValues(model))
+    setDefaultsNotice(null)
     if (!model) return
     if (!description.trim()) setDescription(model.name)
     if (!typeId && model.default_glass_type_id) setTypeId(model.default_glass_type_id)
+  }
+
+  async function handleSaveDefaults() {
+    if (!selectedModel) return
+    try {
+      const updated = await saveGlassVariableDefaults(token, selectedModel.id, variableValues)
+      onModelUpdated?.(updated)
+      setDefaultsNotice('Valores salvos como padrão deste modelo.')
+    } catch {
+      setDefaultsNotice('Não foi possível salvar o padrão.')
+    }
   }
 
   const unitPrice = overridden ? parseMoney(manualPrice) ?? 0 : preview?.unit_price ?? 0
@@ -144,6 +191,7 @@ export function GlassItemModal({ open, token, companyId, item, prefill, models, 
       accessory_color: accessoryColor.trim() || null,
       delivery_date: deliveryDate || null,
       item_type: itemType.trim() || null,
+      variable_values: hasVariables ? variableValues : null,
       production_stage: item?.production_stage,
     }, addAnother)
   }
@@ -251,6 +299,53 @@ export function GlassItemModal({ open, token, companyId, item, prefill, models, 
             onChange={(event) => setNotes(event.target.value)}
           />
         </div>
+
+        {hasVariables && (
+          <div className="mt-4 rounded-xl bg-[var(--page)] p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-[13px] font-bold text-[var(--ink)]">Variáveis do modelo</p>
+              <button
+                type="button"
+                onClick={handleSaveDefaults}
+                className="rounded-lg px-2.5 py-1 text-[12px] font-bold text-[var(--blue-700)] hover:bg-[var(--blue-100)]"
+              >
+                Salvar como padrão
+              </button>
+            </div>
+            <div className="mt-3 grid gap-4 sm:grid-cols-2">
+              {modelVariables.map((variable) => (
+                <div key={variable.key} className="flex flex-col gap-1">
+                {variable.type === 'select' ? (
+                  <SelectField
+                    label={variable.label}
+                    variant="surface"
+                    value={String(variableValues[variable.key] ?? '')}
+                    onChange={(event) => setVariableValues((current) => ({ ...current, [variable.key]: event.target.value }))}
+                  >
+                    {(variable.options ?? []).map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </SelectField>
+                ) : (
+                  <TextField
+                    label={variable.unit ? `${variable.label} (${variable.unit})` : variable.label}
+                    icon={<TagIcon className="h-4 w-4" />}
+                    inputMode="decimal"
+                    value={String(variableValues[variable.key] ?? '')}
+                    onChange={(event) =>
+                      setVariableValues((current) => ({ ...current, [variable.key]: event.target.value.replace(/[^\d,.-]/g, '') }))
+                    }
+                  />
+                )}
+                {variable.help && <span className="text-[11px] text-[var(--muted)]">{variable.help}</span>}
+                </div>
+              ))}
+            </div>
+            {defaultsNotice && <p className="mt-2 text-[12px] text-[var(--ink-soft)]">{defaultsNotice}</p>}
+          </div>
+        )}
 
         <div className="mt-4 rounded-xl bg-[var(--page)] p-4">
           <label className="flex items-center gap-2.5">

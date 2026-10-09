@@ -634,6 +634,7 @@ export function GlassOrderFormPage({ session, company, orderId, onBack, onSaved 
         models={models}
         glassTypes={glassTypes}
         onSave={saveItem}
+        onModelUpdated={(model) => setModels((current) => current.map((entry) => (entry.id === model.id ? { ...entry, ...model } : entry)))}
         onClose={() => setEditing({ open: false, row: null })}
       />
       {quickPerson.modal}

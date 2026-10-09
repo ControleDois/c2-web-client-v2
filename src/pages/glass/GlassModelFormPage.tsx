@@ -19,6 +19,7 @@ import {
   type GlassProfileRecord,
   type GlassSimulationRow,
   type GlassTypeRecord,
+  type GlassVariable,
 } from '../../lib/glass'
 import { parseMoney } from '../../lib/money'
 import { ApiError } from '../../lib/api'
@@ -49,6 +50,76 @@ interface ComponentRow {
   accessoryId: string
   lengthFormula: string
   quantityFormula: string
+  profileVariable: string
+  accessoryVariable: string
+  condition: string
+}
+
+interface OptionRow {
+  id: string
+  label: string
+  value: string
+  profileId: string
+  accessoryId: string
+}
+
+interface VariableRow {
+  rowKey: string
+  key: string
+  label: string
+  type: 'select' | 'number'
+  unit: string
+  help: string
+  defaultText: string
+  options: OptionRow[]
+}
+
+let variableCounter = 0
+const newOption = (partial: Partial<OptionRow> = {}): OptionRow => ({
+  id: `o${Date.now().toString(36)}${++variableCounter}`,
+  label: '',
+  value: '0',
+  profileId: '',
+  accessoryId: '',
+  ...partial,
+})
+const newVariable = (partial: Partial<VariableRow> = {}): VariableRow => ({
+  rowKey: `var-${++variableCounter}`,
+  key: '',
+  label: '',
+  type: 'select',
+  unit: '',
+  help: '',
+  defaultText: '',
+  options: [],
+  ...partial,
+})
+
+function toVariable(row: VariableRow): GlassVariable | null {
+  const key = row.key.trim().toUpperCase()
+  const label = row.label.trim()
+  if (!key || !label) return null
+  if (row.type === 'number') {
+    return {
+      key,
+      label,
+      type: 'number',
+      unit: row.unit.trim() || null,
+      help: row.help.trim() || null,
+      default: row.defaultText.trim() || '0',
+    }
+  }
+  const options = row.options
+    .filter((option) => option.label.trim())
+    .map((option) => ({
+      id: option.id,
+      label: option.label.trim(),
+      value: Number(option.value.replace(',', '.')) || 0,
+      profile_id: option.profileId || null,
+      accessory_id: option.accessoryId || null,
+    }))
+  if (!options.length) return null
+  return { key, label, type: 'select', help: row.help.trim() || null, options, default: row.defaultText || options[0].id }
 }
 
 const KIND_LABELS: Record<GlassComponentKind, string> = {
@@ -58,23 +129,28 @@ const KIND_LABELS: Record<GlassComponentKind, string> = {
 }
 
 function toComponent(row: ComponentRow): GlassComponent | null {
+  const condition = row.condition.trim() || null
   if (row.kind === 'profile') {
-    if (!row.profileId) return null
+    if (!row.profileId && !row.profileVariable) return null
     return {
       kind: 'profile',
       name: row.name.trim() || 'Perfil',
-      profile_id: row.profileId,
+      profile_id: row.profileId || null,
+      profile_variable: row.profileVariable || null,
       length_formula: row.lengthFormula.trim(),
       quantity_formula: row.quantityFormula.trim() || '1',
+      condition,
     }
   }
   if (row.kind === 'accessory') {
-    if (!row.accessoryId) return null
+    if (!row.accessoryId && !row.accessoryVariable) return null
     return {
       kind: 'accessory',
       name: row.name.trim() || 'Acessório',
-      accessory_id: row.accessoryId,
+      accessory_id: row.accessoryId || null,
+      accessory_variable: row.accessoryVariable || null,
       quantity_formula: row.quantityFormula.trim() || '1',
+      condition,
     }
   }
   if (!row.name.trim()) return null
@@ -84,6 +160,7 @@ function toComponent(row: ComponentRow): GlassComponent | null {
     mode: row.mode,
     quantity: Number(row.quantity.replace(',', '.')) || 0,
     unit_value: parseMoney(row.unitValue) ?? 0,
+    condition,
   }
 }
 
@@ -98,6 +175,9 @@ const newRow = (partial: Partial<ComponentRow> = {}): ComponentRow => ({
   profileId: '',
   accessoryId: '',
   lengthFormula: '',
+  profileVariable: '',
+  accessoryVariable: '',
+  condition: '',
   quantityFormula: '',
   ...partial,
 })
@@ -121,6 +201,7 @@ export function GlassModelFormPage({ session, company, glassModelId, onBack, onS
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [product, setProduct] = useState<{ id: string; name: string } | null>(null)
   const [rows, setRows] = useState<ComponentRow[]>([])
+  const [varRows, setVarRows] = useState<VariableRow[]>([])
   const [profiles, setProfiles] = useState<GlassProfileRecord[]>([])
   const [accessories, setAccessories] = useState<GlassAccessoryRecord[]>([])
   const [sampleWidth, setSampleWidth] = useState('1500')
@@ -169,6 +250,30 @@ export function GlassModelFormPage({ session, company, glassModelId, onBack, onS
               accessoryId: component.accessory_id ?? '',
               lengthFormula: component.length_formula ?? '',
               quantityFormula: component.quantity_formula ?? '',
+              profileVariable: component.profile_variable ?? '',
+              accessoryVariable: component.accessory_variable ?? '',
+              condition: component.condition ?? '',
+            })
+          )
+        )
+        setVarRows(
+          (item.variables ?? []).map((variable) =>
+            newVariable({
+              key: variable.key,
+              label: variable.label,
+              type: variable.type,
+              unit: variable.unit ?? '',
+              help: variable.help ?? '',
+              defaultText: variable.default === null || variable.default === undefined ? '' : String(variable.default),
+              options: (variable.options ?? []).map((option) =>
+                newOption({
+                  id: option.id,
+                  label: option.label,
+                  value: String(option.value ?? 0),
+                  profileId: option.profile_id ?? '',
+                  accessoryId: option.accessory_id ?? '',
+                })
+              ),
             })
           )
         )
@@ -193,6 +298,25 @@ export function GlassModelFormPage({ session, company, glassModelId, onBack, onS
     [rows]
   )
 
+  const simulationVariables = useMemo(
+    () => varRows.map(toVariable).filter((variable): variable is GlassVariable => variable !== null),
+    [varRows]
+  )
+
+  function updateVariable(rowKey: string, patch: Partial<VariableRow>) {
+    setVarRows((current) => current.map((row) => (row.rowKey === rowKey ? { ...row, ...patch } : row)))
+  }
+
+  function updateOption(rowKey: string, optionId: string, patch: Partial<OptionRow>) {
+    setVarRows((current) =>
+      current.map((row) =>
+        row.rowKey === rowKey
+          ? { ...row, options: row.options.map((option) => (option.id === optionId ? { ...option, ...patch } : option)) }
+          : row
+      )
+    )
+  }
+
   useEffect(() => {
     const width = Number(sampleWidth)
     const height = Number(sampleHeight)
@@ -209,6 +333,7 @@ export function GlassModelFormPage({ session, company, glassModelId, onBack, onS
         height_mm: height,
         folhas: Math.max(Number(folhas) || 1, 1),
         components: simulationComponents,
+        variables: simulationVariables,
       })
         .then((res) => {
           if (cancelled) return
@@ -225,7 +350,7 @@ export function GlassModelFormPage({ session, company, glassModelId, onBack, onS
       cancelled = true
       clearTimeout(timeout)
     }
-  }, [session.token.token, company.id, simulationComponents, sampleWidth, sampleHeight, folhas])
+  }, [session.token.token, company.id, simulationComponents, simulationVariables, sampleWidth, sampleHeight, folhas])
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
@@ -249,6 +374,7 @@ export function GlassModelFormPage({ session, company, glassModelId, onBack, onS
       cut_height_discount_mm: Number(cutHeightDiscount) || 0,
       active,
       components,
+      variables: simulationVariables,
     }
 
     setSubmitting(true)
@@ -412,13 +538,181 @@ export function GlassModelFormPage({ session, company, glassModelId, onBack, onS
           </SectionCard>
 
           <SectionCard
+            title="Variáveis do modelo"
+            subtitle="Perguntas feitas em cada item (modo de fechamento, tipo de roldana, folga…). As respostas entram nas fórmulas e escolhem perfis e acessórios"
+            defaultCollapsed={varRows.length === 0}
+          >
+            <div className="flex flex-col gap-3">
+              <p className="rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[12px] text-[var(--ink-soft)]">
+                Cada variável tem uma <b>chave</b> (letras maiúsculas, ex.: <b>T</b> ou <b>FOLGA_L</b>) que você usa nas fórmulas das
+                linhas abaixo. <b>Lista</b>: cada opção tem um número para as fórmulas (ex.: Sim = 1, Não = 0) e pode escolher um perfil ou
+                acessório. <b>Número</b>: o operador digita o valor no item (ex.: folga em mm).
+              </p>
+              {varRows.length === 0 && <p className="text-[13px] text-[var(--muted)]">Nenhuma variável. Este modelo usa só a largura e a altura.</p>}
+              {varRows.map((row) => (
+                <div key={row.rowKey} className="flex flex-col gap-3 rounded-xl bg-[var(--page)] p-3">
+                  <div className="grid items-end gap-3 sm:grid-cols-[110px_2fr_1.2fr_1fr_auto]">
+                    <TextField
+                      label="Chave"
+                      icon={<TagIcon className="h-4 w-4" />}
+                      placeholder="Ex: T"
+                      value={row.key}
+                      onChange={(event) =>
+                        updateVariable(row.rowKey, { key: event.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, '').slice(0, 20) })
+                      }
+                    />
+                    <TextField
+                      label="Pergunta"
+                      icon={<BoxIcon className="h-4 w-4" />}
+                      placeholder="Ex: Modo de fechamento"
+                      value={row.label}
+                      onChange={(event) => updateVariable(row.rowKey, { label: event.target.value })}
+                    />
+                    <SelectField
+                      label="Tipo"
+                      variant="surface"
+                      value={row.type}
+                      onChange={(event) => updateVariable(row.rowKey, { type: event.target.value as VariableRow['type'], defaultText: '' })}
+                    >
+                      <option value="select">Lista de opções</option>
+                      <option value="number">Número</option>
+                    </SelectField>
+                    {row.type === 'number' ? (
+                      <div className="grid grid-cols-2 gap-2">
+                        <TextField
+                          label="Padrão"
+                          icon={<TagIcon className="h-4 w-4" />}
+                          inputMode="decimal"
+                          value={row.defaultText}
+                          onChange={(event) => updateVariable(row.rowKey, { defaultText: event.target.value.replace(/[^\d,.-]/g, '') })}
+                        />
+                        <TextField
+                          label="Unidade"
+                          icon={<TagIcon className="h-4 w-4" />}
+                          placeholder="mm"
+                          value={row.unit}
+                          onChange={(event) => updateVariable(row.rowKey, { unit: event.target.value })}
+                        />
+                      </div>
+                    ) : (
+                      <SelectField
+                        label="Opção padrão"
+                        variant="surface"
+                        value={row.defaultText}
+                        onChange={(event) => updateVariable(row.rowKey, { defaultText: event.target.value })}
+                      >
+                        <option value="">Primeira da lista</option>
+                        {row.options
+                          .filter((option) => option.label.trim())
+                          .map((option) => (
+                            <option key={option.id} value={option.id}>
+                              {option.label}
+                            </option>
+                          ))}
+                      </SelectField>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setVarRows((current) => current.filter((item) => item.rowKey !== row.rowKey))}
+                      className="mb-1 flex h-9 w-9 items-center justify-center rounded-lg text-[var(--muted)] hover:bg-[var(--red-100)] hover:text-[var(--red-500)]"
+                      aria-label="Remover variável"
+                    >
+                      <TrashIcon className="h-4 w-4" />
+                    </button>
+                  </div>
+
+                  {row.type === 'select' && (
+                    <div className="flex flex-col gap-2 border-l-2 border-[var(--border)] pl-3">
+                      {row.options.map((option) => (
+                        <div key={option.id} className="grid items-end gap-2 sm:grid-cols-[2fr_90px_1.5fr_1.5fr_auto]">
+                          <TextField
+                            label="Opção"
+                            icon={<TagIcon className="h-4 w-4" />}
+                            placeholder="Ex: Bate-fecha"
+                            value={option.label}
+                            onChange={(event) => updateOption(row.rowKey, option.id, { label: event.target.value })}
+                          />
+                          <TextField
+                            label="Número"
+                            icon={<TagIcon className="h-4 w-4" />}
+                            inputMode="decimal"
+                            value={option.value}
+                            onChange={(event) => updateOption(row.rowKey, option.id, { value: event.target.value.replace(/[^\d,.-]/g, '') })}
+                          />
+                          <SelectField
+                            label="Perfil"
+                            variant="surface"
+                            value={option.profileId}
+                            onChange={(event) => updateOption(row.rowKey, option.id, { profileId: event.target.value })}
+                          >
+                            <option value="">—</option>
+                            {profiles.map((profile) => (
+                              <option key={profile.id} value={profile.id}>
+                                {[profile.name, profile.color].filter(Boolean).join(' · ')}
+                              </option>
+                            ))}
+                          </SelectField>
+                          <SelectField
+                            label="Acessório"
+                            variant="surface"
+                            value={option.accessoryId}
+                            onChange={(event) => updateOption(row.rowKey, option.id, { accessoryId: event.target.value })}
+                          >
+                            <option value="">—</option>
+                            {accessories.map((accessory) => (
+                              <option key={accessory.id} value={accessory.id}>
+                                {accessory.name}
+                              </option>
+                            ))}
+                          </SelectField>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateVariable(row.rowKey, { options: row.options.filter((item) => item.id !== option.id) })
+                            }
+                            className="mb-1 flex h-9 w-9 items-center justify-center rounded-lg text-[var(--muted)] hover:bg-[var(--red-100)] hover:text-[var(--red-500)]"
+                            aria-label="Remover opção"
+                          >
+                            <TrashIcon className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => updateVariable(row.rowKey, { options: [...row.options, newOption()] })}
+                        className="flex w-fit items-center gap-1.5 rounded-xl border border-[var(--border)] px-3 py-1.5 text-[12px] font-bold text-[var(--ink-soft)] hover:text-[var(--ink)]"
+                      >
+                        <PlusIcon className="h-3.5 w-3.5" /> Opção
+                      </button>
+                    </div>
+                  )}
+
+                  <TextField
+                    label="Dica para quem preenche (opcional)"
+                    icon={<BoxIcon className="h-4 w-4" />}
+                    value={row.help}
+                    onChange={(event) => updateVariable(row.rowKey, { help: event.target.value })}
+                  />
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => setVarRows((current) => [...current, newVariable({ options: [newOption({ label: 'Sim', value: '1' }), newOption({ label: 'Não', value: '0' })] })])}
+                className="flex w-fit items-center gap-1.5 rounded-xl border border-[var(--border)] px-3.5 py-2 text-[12.5px] font-bold text-[var(--ink-soft)] hover:text-[var(--ink)]"
+              >
+                <PlusIcon className="h-3.5 w-3.5" /> Variável
+              </button>
+            </div>
+          </SectionCard>
+
+          <SectionCard
             title="Perfis, acessórios e ferragens"
             subtitle="Cada linha soma ao preço da peça. Perfis e acessórios usam o catálogo e fórmulas; ferragens usam valor digitado"
           >
             <div className="flex flex-col gap-3">
               <p className="rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[12px] text-[var(--ink-soft)]">
                 Nas fórmulas use <b>L</b> (largura do vão, mm), <b>H</b> (altura, mm), <b>F</b> (folhas), <b>A</b> (área, m²) e{' '}
-                <b>P</b> (perímetro, m), com + − × ÷, parênteses e ceil, floor, round, max, min. Ex.: <b>(L / F) - 20</b>
+                <b>P</b> (perímetro, m) e as chaves das variáveis do modelo, com + − × ÷, parênteses e ceil, floor, round, max, min. Ex.: <b>(L / F) - 20</b> ou <b>L - FOLGA_L</b>
               </p>
               {rows.length === 0 && (
                 <p className="text-[13px] text-[var(--muted)]">Nenhuma linha. Adicione perfis, acessórios ou ferragens.</p>
@@ -543,6 +837,51 @@ export function GlassModelFormPage({ session, company, glassModelId, onBack, onS
                   >
                     <TrashIcon className="h-4 w-4" />
                   </button>
+                  <div className="grid gap-3 sm:col-span-full sm:grid-cols-2">
+                    {row.kind === 'profile' && varRows.some((variable) => variable.type === 'select' && toVariable(variable)) && (
+                      <SelectField
+                        label="Perfil escolhido pela variável (opcional)"
+                        variant="surface"
+                        value={row.profileVariable}
+                        onChange={(event) => updateRow(row.key, { profileVariable: event.target.value })}
+                      >
+                        <option value="">Sempre o perfil acima</option>
+                        {simulationVariables
+                          .filter((variable) => variable.type === 'select')
+                          .map((variable) => (
+                            <option key={variable.key} value={variable.key}>
+                              {variable.key} — {variable.label}
+                            </option>
+                          ))}
+                      </SelectField>
+                    )}
+                    {row.kind === 'accessory' && varRows.some((variable) => variable.type === 'select' && toVariable(variable)) && (
+                      <SelectField
+                        label="Acessório escolhido pela variável (opcional)"
+                        variant="surface"
+                        value={row.accessoryVariable}
+                        onChange={(event) => updateRow(row.key, { accessoryVariable: event.target.value })}
+                      >
+                        <option value="">Sempre o acessório acima</option>
+                        {simulationVariables
+                          .filter((variable) => variable.type === 'select')
+                          .map((variable) => (
+                            <option key={variable.key} value={variable.key}>
+                              {variable.key} — {variable.label}
+                            </option>
+                          ))}
+                      </SelectField>
+                    )}
+                    {simulationVariables.length > 0 && (
+                      <TextField
+                        label="Só entra quando (fórmula, opcional)"
+                        icon={<TagIcon className="h-4 w-4" />}
+                        placeholder="Ex: T (entra se T for diferente de zero)"
+                        value={row.condition}
+                        onChange={(event) => updateRow(row.key, { condition: event.target.value })}
+                      />
+                    )}
+                  </div>
                 </div>
               ))}
               <div className="flex flex-wrap gap-2">
