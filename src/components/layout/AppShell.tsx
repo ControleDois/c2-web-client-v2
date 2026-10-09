@@ -92,6 +92,7 @@ export type AppPage =
   | 'glass-models'
   | 'glass-profiles'
   | 'glass-accessories'
+  | 'glass-colors'
   | 'glass-production'
   | 'glass-schedule'
 
@@ -235,6 +236,7 @@ function buildNavGroups(
         { page: 'glass-models' as const, label: 'Modelos', icon: TagIcon },
         { page: 'glass-profiles' as const, label: 'Perfis', icon: BoxIcon },
         { page: 'glass-accessories' as const, label: 'Acessórios', icon: BoxIcon },
+        { page: 'glass-colors' as const, label: 'Cores', icon: TagIcon },
       ],
     })
   }

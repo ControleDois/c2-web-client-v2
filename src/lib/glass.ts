@@ -118,6 +118,10 @@ export interface GlassTypeRecord {
   min_area_m2: number
   sheet_width_mm?: number | null
   sheet_height_mm?: number | null
+  // Vidro grande: acima da área ou do lado mínimo, acréscimo (%) no preço e no custo do vidro
+  jumbo_min_area_m2?: number | null
+  jumbo_min_side_mm?: number | null
+  jumbo_surcharge_percent?: number
   product_id?: string | null
   product?: { id: string; name: string } | null
   active: boolean
@@ -134,6 +138,9 @@ export interface GlassTypePayload {
   min_area_m2: number
   sheet_width_mm?: number | null
   sheet_height_mm?: number | null
+  jumbo_min_area_m2?: number | null
+  jumbo_min_side_mm?: number | null
+  jumbo_surcharge_percent?: number
   product_id?: string | null
   active: boolean
 }
@@ -144,6 +151,11 @@ export interface GlassModelRecord {
   name: string
   category: string
   folhas: number
+  line?: string | null
+  supplier?: string | null
+  gauge_mm?: number | null
+  default_aluminum_color?: string | null
+  default_accessory_color?: string | null
   default_glass_type_id?: string | null
   defaultGlassType?: GlassTypeRecord | null
   labor_per_m2: number
@@ -163,6 +175,11 @@ export interface GlassModelPayload {
   name: string
   category: string
   folhas: number
+  line?: string | null
+  supplier?: string | null
+  gauge_mm?: number | null
+  default_aluminum_color?: string | null
+  default_accessory_color?: string | null
   default_glass_type_id?: string | null
   labor_per_m2: number
   labor_fixed: number
@@ -311,8 +328,51 @@ export const createGlassType = (token: string, payload: GlassTypePayload) => api
 export const updateGlassType = (token: string, id: string, payload: GlassTypePayload) => apiPut<GlassTypeRecord>(`/glass-type/${id}`, payload, token)
 export const deleteGlassType = (token: string, id: string) => apiDelete<void>(`/glass-type/${id}`, token)
 
-export const fetchGlassModels = (token: string, companyId: string, options: { search?: string; page?: number; limit?: number; active?: boolean } = {}) =>
-  apiGet<Paginated<GlassModelRecord>>('/glass-model', listParams(companyId, options), token)
+export const fetchGlassModels = (
+  token: string,
+  companyId: string,
+  options: { search?: string; page?: number; limit?: number; active?: boolean; line?: string; supplier?: string; gauge?: string } = {}
+) =>
+  apiGet<Paginated<GlassModelRecord>>(
+    '/glass-model',
+    { ...listParams(companyId, options), line: options.line || undefined, supplier: options.supplier || undefined, gauge: options.gauge || undefined },
+    token
+  )
+
+export interface GlassModelFilters {
+  suppliers: string[]
+  lines: string[]
+  gauges: number[]
+}
+export const fetchGlassModelFilters = (token: string, companyId: string) =>
+  apiGet<GlassModelFilters>('/glass-model/filters', { companyId }, token)
+
+// Cores de perfil/alumínio e de acessório, com o acréscimo de preço que trazem.
+export type GlassColorKind = 'profile' | 'accessory'
+export const GLASS_COLOR_KIND_LABELS: Record<GlassColorKind, string> = {
+  profile: 'Perfil / alumínio',
+  accessory: 'Acessório',
+}
+export interface GlassColorRecord {
+  id: string
+  code?: number
+  name: string
+  kind: GlassColorKind
+  price_adjust_percent: number
+  active: boolean
+}
+export type GlassColorPayload = Omit<GlassColorRecord, 'id' | 'code'> & { company_id: string }
+
+export const fetchGlassColors = (
+  token: string,
+  companyId: string,
+  options: { search?: string; page?: number; limit?: number; active?: boolean; kind?: GlassColorKind } = {}
+) =>
+  apiGet<Paginated<GlassColorRecord>>('/glass-color', { ...listParams(companyId, options), kind: options.kind }, token)
+export const fetchGlassColor = (token: string, id: string) => apiGet<GlassColorRecord>(`/glass-color/${id}`, {}, token)
+export const createGlassColor = (token: string, payload: GlassColorPayload) => apiPost<GlassColorRecord>('/glass-color', payload, token)
+export const updateGlassColor = (token: string, id: string, payload: GlassColorPayload) => apiPut<GlassColorRecord>(`/glass-color/${id}`, payload, token)
+export const deleteGlassColor = (token: string, id: string) => apiDelete<void>(`/glass-color/${id}`, token)
 export const fetchGlassModel = (token: string, id: string) => apiGet<GlassModelRecord>(`/glass-model/${id}`, {}, token)
 export const createGlassModel = (token: string, payload: GlassModelPayload) => apiPost<GlassModelRecord>('/glass-model', payload, token)
 export const updateGlassModel = (token: string, id: string, payload: GlassModelPayload) => apiPut<GlassModelRecord>(`/glass-model/${id}`, payload, token)
@@ -346,6 +406,8 @@ export const previewGlassPrice = (
     height_mm: number
     quantity: number
     variable_values?: GlassVariableValues | null
+    aluminum_color?: string | null
+    accessory_color?: string | null
   }
 ) => apiPost<GlassPricePreview>('/glass-order/price-preview', payload, token)
 

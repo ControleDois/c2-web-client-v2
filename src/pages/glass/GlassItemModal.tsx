@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import {
+  fetchGlassColors,
   previewGlassPrice,
+  type GlassColorRecord,
   saveGlassVariableDefaults,
   type GlassModelRecord,
   type GlassVariableValues,
@@ -46,7 +48,6 @@ function initialVariableValues(model: GlassModelRecord | undefined, saved?: Glas
   return values
 }
 
-const COLOR_SUGGESTIONS = ['Branco', 'Preto', 'Bronze', 'Natural (anodizado fosco)', 'Amadeirado', 'Cinza', 'Champanhe']
 
 export function GlassItemModal({ open, token, companyId, item, prefill, models, glassTypes, onSave, onModelUpdated, onClose }: GlassItemModalProps) {
   const [modelId, setModelId] = useState('')
@@ -65,6 +66,11 @@ export function GlassItemModal({ open, token, companyId, item, prefill, models, 
   const [deliveryDate, setDeliveryDate] = useState('')
   const [variableValues, setVariableValues] = useState<GlassVariableValues>({})
   const [defaultsNotice, setDefaultsNotice] = useState<string | null>(null)
+  const [colors, setColors] = useState<GlassColorRecord[]>([])
+  const [supplierFilter, setSupplierFilter] = useState('')
+  const [lineFilter, setLineFilter] = useState('')
+  const [gaugeFilter, setGaugeFilter] = useState('')
+  const [showAllGlass, setShowAllGlass] = useState(false)
   const [preview, setPreview] = useState<GlassPricePreview | null>(null)
   const [previewing, setPreviewing] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -94,10 +100,21 @@ export function GlassItemModal({ open, token, companyId, item, prefill, models, 
       )
     )
     setDefaultsNotice(null)
+    setSupplierFilter('')
+    setLineFilter('')
+    setGaugeFilter('')
+    setShowAllGlass(false)
     setPreview(null)
     setError(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, item, prefill])
+
+  useEffect(() => {
+    if (!open) return
+    fetchGlassColors(token, companyId, { limit: 200, active: true })
+      .then((res) => setColors(res.data))
+      .catch(() => setColors([]))
+  }, [open, token, companyId])
 
   const widthMm = Number(width) || 0
   const heightMm = Number(height) || 0
@@ -122,6 +139,8 @@ export function GlassItemModal({ open, token, companyId, item, prefill, models, 
         height_mm: heightMm,
         quantity: qty,
         variable_values: hasVariables ? variableValues : null,
+        aluminum_color: aluminumColor.trim() || null,
+        accessory_color: accessoryColor.trim() || null,
       })
         .then((res) => {
           if (!cancelled) setPreview(res)
@@ -138,7 +157,58 @@ export function GlassItemModal({ open, token, companyId, item, prefill, models, 
       clearTimeout(timeout)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, token, companyId, modelId, typeId, widthMm, heightMm, qty, variableValues])
+  }, [open, token, companyId, modelId, typeId, widthMm, heightMm, qty, variableValues, aluminumColor, accessoryColor])
+
+  // Filtros em cascata do catálogo (fornecedor, linha, bitola) e vidros da bitola do modelo.
+  const suppliers = [...new Set(models.map((model) => model.supplier).filter(Boolean))] as string[]
+  const lines = [
+    ...new Set(
+      models.filter((model) => !supplierFilter || model.supplier === supplierFilter).map((model) => model.line).filter(Boolean)
+    ),
+  ] as string[]
+  const gauges = [
+    ...new Set(
+      models
+        .filter((model) => (!supplierFilter || model.supplier === supplierFilter) && (!lineFilter || model.line === lineFilter))
+        .map((model) => model.gauge_mm)
+        .filter(Boolean)
+    ),
+  ] as number[]
+  const visibleModels = models.filter(
+    (model) =>
+      model.id === modelId ||
+      ((!supplierFilter || model.supplier === supplierFilter) &&
+        (!lineFilter || model.line === lineFilter) &&
+        (!gaugeFilter || String(model.gauge_mm) === gaugeFilter))
+  )
+  const gaugeGlass = selectedModel?.gauge_mm
+    ? glassTypes.filter((type) => type.thickness_mm === selectedModel.gauge_mm || type.id === typeId)
+    : []
+  const glassFiltered = Boolean(selectedModel?.gauge_mm) && gaugeGlass.length > 1 && !showAllGlass
+  const visibleGlassTypes = glassFiltered ? gaugeGlass : glassTypes
+
+  // Cores cadastradas (com o acréscimo de preço); sem cadastro, campo livre.
+  function colorField(kind: 'profile' | 'accessory', label: string, value: string, set: (value: string) => void) {
+    const options = colors.filter((color) => color.kind === kind)
+    if (!options.length) {
+      return (
+        <TextField label={label} icon={<TagIcon className="h-4 w-4" />} placeholder="Ex: Preto" value={value} onChange={(event) => set(event.target.value)} />
+      )
+    }
+    const known = options.some((color) => color.name.toLowerCase() === value.trim().toLowerCase())
+    return (
+      <SelectField label={label} variant="surface" value={value} onChange={(event) => set(event.target.value)}>
+        <option value="">Sem cor definida</option>
+        {!known && value && <option value={value}>{value} (não cadastrada)</option>}
+        {options.map((color) => (
+          <option key={color.id} value={color.name}>
+            {color.name}
+            {color.price_adjust_percent ? ` (${color.price_adjust_percent > 0 ? '+' : ''}${color.price_adjust_percent}%)` : ''}
+          </option>
+        ))}
+      </SelectField>
+    )
+  }
 
   if (!open) return null
 
@@ -148,6 +218,8 @@ export function GlassItemModal({ open, token, companyId, item, prefill, models, 
     setVariableValues(initialVariableValues(model))
     setDefaultsNotice(null)
     if (!model) return
+    if (!aluminumColor && model.default_aluminum_color) setAluminumColor(model.default_aluminum_color)
+    if (!accessoryColor && model.default_accessory_color) setAccessoryColor(model.default_accessory_color)
     if (!description.trim()) setDescription(model.name)
     if (!typeId && model.default_glass_type_id) setTypeId(model.default_glass_type_id)
   }
@@ -202,31 +274,72 @@ export function GlassItemModal({ open, token, companyId, item, prefill, models, 
         className="max-h-[92vh] w-full max-w-[720px] overflow-y-auto rounded-2xl bg-[var(--surface)] p-6 shadow-[var(--card-shadow)]"
         onClick={(event) => event.stopPropagation()}
       >
-        <datalist id="glass-color-suggestions">
-          {COLOR_SUGGESTIONS.map((color) => (
-            <option key={color} value={color} />
-          ))}
-        </datalist>
         <h2 className="text-[17px] font-bold text-[var(--ink)]">{item ? 'Editar item' : 'Novo item'}</h2>
         <p className="mt-0.5 text-[12px] text-[var(--muted)]">As medidas são em milímetros. O preço é calculado pelo modelo e pelo vidro.</p>
 
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          {(suppliers.length > 0 || lines.length > 0 || gauges.length > 0) && (
+            <div className="grid gap-4 sm:col-span-2 sm:grid-cols-3">
+              {suppliers.length > 0 && (
+                <SelectField label="Fornecedor" variant="surface" value={supplierFilter} onChange={(event) => setSupplierFilter(event.target.value)}>
+                  <option value="">Todos</option>
+                  {suppliers.map((value) => (
+                    <option key={value} value={value}>
+                      {value}
+                    </option>
+                  ))}
+                </SelectField>
+              )}
+              {lines.length > 0 && (
+                <SelectField label="Linha" variant="surface" value={lineFilter} onChange={(event) => setLineFilter(event.target.value)}>
+                  <option value="">Todas</option>
+                  {lines.map((value) => (
+                    <option key={value} value={value}>
+                      {value}
+                    </option>
+                  ))}
+                </SelectField>
+              )}
+              {gauges.length > 0 && (
+                <SelectField label="Bitola" variant="surface" value={gaugeFilter} onChange={(event) => setGaugeFilter(event.target.value)}>
+                  <option value="">Todas</option>
+                  {gauges.map((value) => (
+                    <option key={value} value={String(value)}>
+                      {value} mm
+                    </option>
+                  ))}
+                </SelectField>
+              )}
+            </div>
+          )}
           <SelectField label="Modelo" variant="surface" value={modelId} onChange={(event) => handleModelChange(event.target.value)}>
             <option value="">Sem modelo (só vidro)</option>
-            {models.map((model) => (
+            {visibleModels.map((model) => (
               <option key={model.id} value={model.id}>
                 {model.name}
+                {model.line ? ` — ${model.line}` : ''}
               </option>
             ))}
           </SelectField>
-          <SelectField label="Vidro" variant="surface" value={typeId} onChange={(event) => setTypeId(event.target.value)}>
-            <option value="">Sem vidro</option>
-            {glassTypes.map((type) => (
-              <option key={type.id} value={type.id}>
-                {type.name}
-              </option>
-            ))}
-          </SelectField>
+          <div className="flex flex-col gap-1">
+            <SelectField label="Vidro" variant="surface" value={typeId} onChange={(event) => setTypeId(event.target.value)}>
+              <option value="">Sem vidro</option>
+              {visibleGlassTypes.map((type) => (
+                <option key={type.id} value={type.id}>
+                  {type.name}
+                </option>
+              ))}
+            </SelectField>
+            {glassFiltered && (
+              <button
+                type="button"
+                onClick={() => setShowAllGlass(true)}
+                className="w-fit text-left text-[11.5px] text-[var(--muted)] hover:text-[var(--ink)]"
+              >
+                Mostrando vidros de {selectedModel?.gauge_mm} mm (bitola do modelo). Ver todos
+              </button>
+            )}
+          </div>
           <TextField
             label="Descrição"
             icon={<BoxIcon className="h-4 w-4" />}
@@ -269,22 +382,8 @@ export function GlassItemModal({ open, token, companyId, item, prefill, models, 
             value={itemType}
             onChange={(event) => setItemType(event.target.value)}
           />
-          <TextField
-            label="Cor do perfil / alumínio"
-            icon={<TagIcon className="h-4 w-4" />}
-            list="glass-color-suggestions"
-            placeholder="Ex: Preto"
-            value={aluminumColor}
-            onChange={(event) => setAluminumColor(event.target.value)}
-          />
-          <TextField
-            label="Cor dos acessórios"
-            icon={<TagIcon className="h-4 w-4" />}
-            list="glass-color-suggestions"
-            placeholder="Ex: Preto"
-            value={accessoryColor}
-            onChange={(event) => setAccessoryColor(event.target.value)}
-          />
+          {colorField('profile', 'Cor do perfil / alumínio', aluminumColor, setAluminumColor)}
+          {colorField('accessory', 'Cor dos acessórios', accessoryColor, setAccessoryColor)}
           <TextField
             label="Data de entrega"
             icon={<CalendarIcon className="h-4 w-4" />}

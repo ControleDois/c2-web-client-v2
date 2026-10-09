@@ -4,6 +4,8 @@ import {
   createGlassModel,
   fetchGlassModel,
   fetchGlassAccessories,
+  fetchGlassColors,
+  fetchGlassModelFilters,
   fetchGlassProfiles,
   fetchGlassTypes,
   simulateGlassModel,
@@ -14,7 +16,9 @@ import {
   GLASS_COMPONENT_MODES,
   type GlassAccessoryRecord,
   type GlassComponent,
+  type GlassColorRecord,
   type GlassComponentKind,
+  type GlassModelFilters,
   type GlassModelRecord,
   type GlassProfileRecord,
   type GlassSimulationRow,
@@ -191,6 +195,13 @@ export function GlassModelFormPage({ session, company, glassModelId, onBack, onS
   const [name, setName] = useState('')
   const [category, setCategory] = useState('Janela')
   const [folhas, setFolhas] = useState('1')
+  const [line, setLine] = useState('')
+  const [supplier, setSupplier] = useState('')
+  const [gauge, setGauge] = useState('')
+  const [defaultAluminumColor, setDefaultAluminumColor] = useState('')
+  const [defaultAccessoryColor, setDefaultAccessoryColor] = useState('')
+  const [colors, setColors] = useState<GlassColorRecord[]>([])
+  const [catalogFilters, setCatalogFilters] = useState<GlassModelFilters>({ suppliers: [], lines: [], gauges: [] })
   const [defaultGlassTypeId, setDefaultGlassTypeId] = useState('')
   const [laborPerM2, setLaborPerM2] = useState('')
   const [laborFixed, setLaborFixed] = useState('')
@@ -208,6 +219,15 @@ export function GlassModelFormPage({ session, company, glassModelId, onBack, onS
   const [sampleHeight, setSampleHeight] = useState('1000')
   const [simulation, setSimulation] = useState<{ rows: GlassSimulationRow[]; total: number } | null>(null)
   const [simulationError, setSimulationError] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetchGlassModelFilters(session.token.token, company.id)
+      .then(setCatalogFilters)
+      .catch(() => setCatalogFilters({ suppliers: [], lines: [], gauges: [] }))
+    fetchGlassColors(session.token.token, company.id, { limit: 200, active: true })
+      .then((res) => setColors(res.data))
+      .catch(() => setColors([]))
+  }, [session.token.token, company.id])
 
   useEffect(() => {
     fetchGlassTypes(session.token.token, company.id, { limit: 200, active: true })
@@ -230,6 +250,11 @@ export function GlassModelFormPage({ session, company, glassModelId, onBack, onS
         setName(item.name)
         setCategory(item.category)
         setFolhas(String(item.folhas ?? 1))
+        setLine(item.line ?? '')
+        setSupplier(item.supplier ?? '')
+        setGauge(item.gauge_mm ? String(item.gauge_mm) : '')
+        setDefaultAluminumColor(item.default_aluminum_color ?? '')
+        setDefaultAccessoryColor(item.default_accessory_color ?? '')
         setDefaultGlassTypeId(item.default_glass_type_id ?? '')
         setLaborPerM2(String(item.labor_per_m2 ?? ''))
         setLaborFixed(String(item.labor_fixed ?? ''))
@@ -366,6 +391,11 @@ export function GlassModelFormPage({ session, company, glassModelId, onBack, onS
       name: name.trim(),
       category,
       folhas: Math.max(Number(folhas) || 1, 1),
+      line: line.trim() || null,
+      supplier: supplier.trim() || null,
+      gauge_mm: Number(gauge) || null,
+      default_aluminum_color: defaultAluminumColor || null,
+      default_accessory_color: defaultAccessoryColor || null,
       default_glass_type_id: defaultGlassTypeId || null,
       labor_per_m2: parseMoney(laborPerM2) ?? 0,
       labor_fixed: parseMoney(laborFixed) ?? 0,
@@ -415,6 +445,16 @@ export function GlassModelFormPage({ session, company, glassModelId, onBack, onS
         <p className="rounded-2xl bg-[var(--red-100)] p-5 text-[13.5px] font-medium text-[var(--red-500)]">{loadError}</p>
       ) : (
         <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+          <datalist id="glass-suppliers">
+            {catalogFilters.suppliers.map((value) => (
+              <option key={value} value={value} />
+            ))}
+          </datalist>
+          <datalist id="glass-lines">
+            {catalogFilters.lines.map((value) => (
+              <option key={value} value={value} />
+            ))}
+          </datalist>
           <SectionCard
             title="Dados do modelo"
             subtitle="O modelo define o vidro padrão, a mão de obra e as ferragens que entram no preço do item"
@@ -441,6 +481,50 @@ export function GlassModelFormPage({ session, company, glassModelId, onBack, onS
                 value={folhas}
                 onChange={(event) => setFolhas(event.target.value.replace(/\D/g, ''))}
               />
+              <TextField
+                label="Fornecedor do sistema"
+                icon={<TagIcon className="h-4 w-4" />}
+                list="glass-suppliers"
+                placeholder="Ex: Perfisud, Vitralsul"
+                value={supplier}
+                onChange={(event) => setSupplier(event.target.value)}
+              />
+              <TextField
+                label="Linha"
+                icon={<TagIcon className="h-4 w-4" />}
+                list="glass-lines"
+                placeholder="Ex: Suprema, Gold, Solene 32"
+                value={line}
+                onChange={(event) => setLine(event.target.value)}
+              />
+              <TextField
+                label="Bitola do vidro (mm)"
+                icon={<TagIcon className="h-4 w-4" />}
+                inputMode="numeric"
+                placeholder="Ex: 6, 8, 10"
+                value={gauge}
+                onChange={(event) => setGauge(event.target.value.replace(/\D/g, ''))}
+              />
+              <SelectField label="Cor padrão do perfil" value={defaultAluminumColor} onChange={(event) => setDefaultAluminumColor(event.target.value)}>
+                <option value="">Sem cor padrão</option>
+                {colors
+                  .filter((color) => color.kind === 'profile')
+                  .map((color) => (
+                    <option key={color.id} value={color.name}>
+                      {color.name}
+                    </option>
+                  ))}
+              </SelectField>
+              <SelectField label="Cor padrão dos acessórios" value={defaultAccessoryColor} onChange={(event) => setDefaultAccessoryColor(event.target.value)}>
+                <option value="">Sem cor padrão</option>
+                {colors
+                  .filter((color) => color.kind === 'accessory')
+                  .map((color) => (
+                    <option key={color.id} value={color.name}>
+                      {color.name}
+                    </option>
+                  ))}
+              </SelectField>
               <SelectField
                 label="Vidro padrão"
                 value={defaultGlassTypeId}

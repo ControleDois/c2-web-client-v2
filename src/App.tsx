@@ -50,6 +50,8 @@ import { GlassProfilesPage } from './pages/glass/GlassProfilesPage'
 import { GlassProfileFormPage } from './pages/glass/GlassProfileFormPage'
 import { GlassAccessoriesPage } from './pages/glass/GlassAccessoriesPage'
 import { GlassAccessoryFormPage } from './pages/glass/GlassAccessoryFormPage'
+import { GlassColorsPage } from './pages/glass/GlassColorsPage'
+import { GlassColorFormPage } from './pages/glass/GlassColorFormPage'
 import { GlassOrdersPage } from './pages/glass/GlassOrdersPage'
 import { GlassOrderFormPage } from './pages/glass/GlassOrderFormPage'
 import { GlassProductionPage } from './pages/glass/GlassProductionPage'
@@ -193,6 +195,7 @@ function App() {
   const glassModelsView = useEntityView()
   const glassProfilesView = useEntityView()
   const glassAccessoriesView = useEntityView()
+  const glassColorsView = useEntityView()
   const glassOrdersView = useEntityView()
 
   const entityViews = {
@@ -229,6 +232,7 @@ function App() {
     'glass-models': glassModelsView,
     'glass-profiles': glassProfilesView,
     'glass-accessories': glassAccessoriesView,
+    'glass-colors': glassColorsView,
     'glass-orders': glassOrdersView,
   } as const
 
@@ -716,6 +720,24 @@ function App() {
             company={activeCompany}
             onCreate={glassAccessoriesView.create}
             onEdit={(item) => glassAccessoriesView.edit(item.id)}
+          />
+        )
+    } else if (page === 'glass-colors') {
+      pageContent =
+        glassColorsView.view.mode === 'form' ? (
+          <GlassColorFormPage
+            session={session}
+            company={activeCompany}
+            colorId={glassColorsView.view.id}
+            onBack={glassColorsView.reset}
+            onSaved={glassColorsView.reset}
+          />
+        ) : (
+          <GlassColorsPage
+            session={session}
+            company={activeCompany}
+            onCreate={glassColorsView.create}
+            onEdit={(item) => glassColorsView.edit(item.id)}
           />
         )
     } else if (page === 'glass-orders') {

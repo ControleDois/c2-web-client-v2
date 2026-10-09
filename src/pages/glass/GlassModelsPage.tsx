@@ -1,4 +1,6 @@
-import { deleteGlassModel, fetchGlassModels, type GlassModelRecord } from '../../lib/glass'
+import { useEffect, useState } from 'react'
+import { deleteGlassModel, fetchGlassModelFilters, fetchGlassModels, type GlassModelFilters, type GlassModelRecord } from '../../lib/glass'
+import { SelectField } from '../../components/form/SelectField'
 import { GlassList } from './GlassList'
 import { PencilIcon, TrashIcon } from '../../components/icons'
 import type { AuthCompany, AuthSession } from '../../lib/auth'
@@ -12,18 +14,67 @@ interface GlassModelsPageProps {
 
 export function GlassModelsPage({ session, company, onCreate, onEdit }: GlassModelsPageProps) {
   const token = session.token.token
+  const [options, setOptions] = useState<GlassModelFilters>({ suppliers: [], lines: [], gauges: [] })
+  const [supplier, setSupplier] = useState('')
+  const [line, setLine] = useState('')
+  const [gauge, setGauge] = useState('')
+
+  useEffect(() => {
+    fetchGlassModelFilters(token, company.id)
+      .then(setOptions)
+      .catch(() => setOptions({ suppliers: [], lines: [], gauges: [] }))
+  }, [token, company.id])
 
   return (
     <GlassList<GlassModelRecord>
       eyebrow="Vidraçaria"
       title="Modelos"
       newLabel="Novo modelo"
-      searchPlaceholder="Buscar por nome ou categoria"
+      searchPlaceholder="Buscar por nome, categoria ou linha"
+      filterKey={`${supplier}:${line}:${gauge}`}
+      filters={
+        (options.suppliers.length > 0 || options.lines.length > 0 || options.gauges.length > 0) && (
+          <div className="flex flex-wrap gap-2">
+            <div className="min-w-[170px]"><SelectField label="" variant="surface" value={supplier} onChange={(event) => setSupplier(event.target.value)}>
+              <option value="">Todos os fornecedores</option>
+              {options.suppliers.map((value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ))}
+            </SelectField></div>
+            <div className="min-w-[170px]"><SelectField label="" variant="surface" value={line} onChange={(event) => setLine(event.target.value)}>
+              <option value="">Todas as linhas</option>
+              {options.lines.map((value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ))}
+            </SelectField></div>
+            <div className="min-w-[170px]"><SelectField label="" variant="surface" value={gauge} onChange={(event) => setGauge(event.target.value)}>
+              <option value="">Todas as bitolas</option>
+              {options.gauges.map((value) => (
+                <option key={value} value={value}>
+                  {value} mm
+                </option>
+              ))}
+            </SelectField></div>
+          </div>
+        )
+      }
       emptyLabel="Nenhum modelo encontrado"
-      fetchPage={(search, page) => fetchGlassModels(token, company.id, { search, page, limit: 10 })}
+      fetchPage={(search, page) => fetchGlassModels(token, company.id, { search, page, limit: 10, supplier, line, gauge })}
       columns={[
         { header: 'Nome', render: (item) => <span className="font-medium text-[var(--ink)]">{item.name}</span> },
         { header: 'Categoria', render: (item) => <span className="text-[var(--ink-soft)]">{item.category}</span> },
+        {
+          header: 'Linha',
+          render: (item) => (
+            <span className="text-[var(--ink-soft)]">
+              {[item.supplier, item.line, item.gauge_mm ? `${item.gauge_mm} mm` : null].filter(Boolean).join(' · ') || '—'}
+            </span>
+          ),
+        },
         { header: 'Folhas', render: (item) => <span className="text-[var(--ink-soft)]">{item.folhas}</span> },
         {
           header: 'Vidro padrão',

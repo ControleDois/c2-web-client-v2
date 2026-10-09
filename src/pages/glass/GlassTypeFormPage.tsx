@@ -37,6 +37,9 @@ export function GlassTypeFormPage({ session, company, glassTypeId, onBack, onSav
   const [minArea, setMinArea] = useState('')
   const [sheetWidth, setSheetWidth] = useState('')
   const [sheetHeight, setSheetHeight] = useState('')
+  const [jumboArea, setJumboArea] = useState('')
+  const [jumboSide, setJumboSide] = useState('')
+  const [jumboPercent, setJumboPercent] = useState('')
   const [active, setActive] = useState(true)
   const [product, setProduct] = useState<{ id: string; name: string } | null>(null)
 
@@ -55,6 +58,9 @@ export function GlassTypeFormPage({ session, company, glassTypeId, onBack, onSav
         setMinArea(item.min_area_m2 ? String(item.min_area_m2).replace('.', ',') : '')
         setSheetWidth(item.sheet_width_mm ? String(item.sheet_width_mm) : '')
         setSheetHeight(item.sheet_height_mm ? String(item.sheet_height_mm) : '')
+        setJumboArea(item.jumbo_min_area_m2 ? String(item.jumbo_min_area_m2).replace('.', ',') : '')
+        setJumboSide(item.jumbo_min_side_mm ? String(item.jumbo_min_side_mm) : '')
+        setJumboPercent(item.jumbo_surcharge_percent ? String(item.jumbo_surcharge_percent).replace('.', ',') : '')
         setActive(item.active)
         setProduct(item.product ? { id: item.product.id, name: item.product.name } : null)
       })
@@ -88,6 +94,9 @@ export function GlassTypeFormPage({ session, company, glassTypeId, onBack, onSav
       min_area_m2: Number(minArea.replace(',', '.')) || 0,
       sheet_width_mm: sheetWidth ? Number(sheetWidth) : null,
       sheet_height_mm: sheetHeight ? Number(sheetHeight) : null,
+      jumbo_min_area_m2: Number(jumboArea.replace(',', '.')) || null,
+      jumbo_min_side_mm: Number(jumboSide) || null,
+      jumbo_surcharge_percent: Number(jumboPercent.replace(',', '.')) || 0,
       product_id: product?.id ?? null,
       active,
     }
@@ -200,6 +209,38 @@ export function GlassTypeFormPage({ session, company, glassTypeId, onBack, onSav
                 onChange={(event) => setSheetHeight(event.target.value.replace(/\D/g, ''))}
               />
               <FiscalProductField session={session} company={company} value={product} onChange={setProduct} />
+            </div>
+            <div className="mt-4 rounded-xl bg-[var(--page)] p-4">
+              <p className="text-[13px] font-bold text-[var(--ink)]">Vidro grande (jumbo)</p>
+              <p className="mt-0.5 text-[11.5px] text-[var(--muted)]">
+                Quando o item passa da área ou do lado informado, o vidro leva o acréscimo, no preço e no custo. Em branco, não há acréscimo.
+              </p>
+              <div className="mt-3 grid gap-4 sm:grid-cols-3">
+                <TextField
+                  label="A partir de (m²)"
+                  icon={<TagIcon className="h-4 w-4" />}
+                  inputMode="decimal"
+                  placeholder="Ex: 3"
+                  value={jumboArea}
+                  onChange={(event) => setJumboArea(event.target.value.replace(/[^\d,.]/g, ''))}
+                />
+                <TextField
+                  label="Ou maior lado a partir de (mm)"
+                  icon={<TagIcon className="h-4 w-4" />}
+                  inputMode="numeric"
+                  placeholder="Ex: 2500"
+                  value={jumboSide}
+                  onChange={(event) => setJumboSide(event.target.value.replace(/\D/g, ''))}
+                />
+                <TextField
+                  label="Acréscimo (%)"
+                  icon={<TagIcon className="h-4 w-4" />}
+                  inputMode="decimal"
+                  placeholder="Ex: 30"
+                  value={jumboPercent}
+                  onChange={(event) => setJumboPercent(event.target.value.replace(/[^\d,.]/g, ''))}
+                />
+              </div>
             </div>
             <p className="mt-2 text-[11.5px] text-[var(--muted)]">
               O tamanho da chapa é usado no plano de corte. Em branco, vale 2200 × 3210 mm.
