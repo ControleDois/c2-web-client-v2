@@ -1028,7 +1028,32 @@ function App() {
     } else if (isGaragemInvestidor(activeCompany.system_type)) {
       pageContent = <GaragemDashboardPage session={session} company={activeCompany} />
     } else if (isVidracaria(activeCompany.system_type)) {
-      pageContent = <GlassDashboardPage session={session} company={activeCompany} />
+      pageContent = (
+        <GlassDashboardPage
+          session={session}
+          company={activeCompany}
+          onNewQuote={() => {
+            setPage('glass-orders')
+            glassOrdersView.create()
+          }}
+          onNewClient={() => {
+            setPage('people')
+            peopleView.create()
+          }}
+          onOpenOrders={() => {
+            setPage('glass-orders')
+            glassOrdersView.reset()
+          }}
+          onOpenModels={() => {
+            setPage('glass-models')
+            glassModelsView.reset()
+          }}
+          onOpenOrder={(orderId) => {
+            setPage('glass-orders')
+            glassOrdersView.edit(orderId)
+          }}
+        />
+      )
     } else {
       pageContent = <DashboardPage session={session} company={activeCompany} />
     }

@@ -815,8 +815,18 @@ export interface GlassCalculationMemory {
 export const fetchGlassCalculationMemory = (token: string, orderId: string) =>
   apiGet<GlassCalculationMemory>(`/glass-order/${orderId}/calculation-memory`, {}, token)
 
+export interface GlassDashboardMonth {
+  label: string
+  sales: { count: number; total: number; prev_count: number; prev_total: number }
+  quotes: { count: number; prev: number }
+  new_clients: { count: number; prev: number }
+  canceled: { count: number; prev: number }
+  daily_sales: { date: string; total: number; count: number }[]
+}
+
 export interface GlassDashboard {
   period: string
+  month: GlassDashboardMonth
   kpis: {
     open_quotes_count: number
     open_quotes_total: number
