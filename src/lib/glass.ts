@@ -773,3 +773,55 @@ export interface GlassDashboard {
 
 export const fetchGlassDashboard = (token: string, companyId: string, period: string) =>
   apiGet<GlassDashboard>('/glass-dashboard', { companyId, period }, token)
+
+// Compras: perfis (barras) e acessórios a comprar e pedido de têmpera ao fornecedor.
+export interface GlassPurchaseBar {
+  profile_id: string
+  profile: string
+  color: string
+  bar_length_mm: number
+  total_bars: number
+  too_long: number
+  estimated_cost: number
+}
+
+export interface GlassPurchaseAccessory {
+  accessory_id: string
+  name: string
+  reference: string
+  unit: string
+  quantity: number
+  estimated_cost: number
+}
+
+export const fetchGlassMaterials = (token: string, companyId: string, options: { orderIds?: string[]; kerf: number }) =>
+  apiGet<{ bars: GlassPurchaseBar[]; accessories: GlassPurchaseAccessory[]; order_codes: number[] }>(
+    '/glass-purchase/materials',
+    { companyId, orderIds: options.orderIds?.join(','), kerf: String(options.kerf) },
+    token
+  )
+
+export const fetchGlassTempering = (token: string, companyId: string, options: { orderIds?: string[]; allGlass: boolean }) =>
+  apiGet<{ groups: GlassCutGroup[]; order_codes: number[] }>(
+    '/glass-purchase/tempering',
+    { companyId, orderIds: options.orderIds?.join(','), allGlass: options.allGlass ? 'true' : 'false' },
+    token
+  )
+
+export interface GlassPurchaseDocPayload {
+  company_id: string
+  type: 'materials' | 'tempering'
+  order_ids?: string[]
+  supplier_id?: string | null
+  notes?: string
+  kerf?: number
+  all_glass?: boolean
+}
+
+export const printGlassPurchase = (token: string, payload: GlassPurchaseDocPayload) =>
+  apiPost<{ url: string }>('/glass-purchase/document', payload, token)
+
+export const sendGlassPurchase = (
+  token: string,
+  payload: GlassPurchaseDocPayload & { whatsappId: string; message?: string; mark_stage?: boolean }
+) => apiPost<{ fileUrl: string; whatsappQueued: boolean; moved: number }>('/glass-purchase/send', payload, token)

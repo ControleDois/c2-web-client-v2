@@ -3,6 +3,7 @@ import { fetchGlassCutList, fetchGlassProfileList, type GlassCutGroup, type Glas
 import { ApiError } from '../../lib/api'
 import { PrintPreviewModal } from '../../components/PrintPreviewModal'
 import { GlassOptimizationModal } from './GlassOptimizationModal'
+import { GlassPurchaseModal } from './GlassPurchaseModal'
 import { CloseIcon, PrinterIcon } from '../../components/icons'
 import type { AuthCompany, AuthSession } from '../../lib/auth'
 
@@ -26,6 +27,7 @@ export function GlassCutListModal({ open, session, company, orderIds, title = 'L
   const [error, setError] = useState<string | null>(null)
   const [printing, setPrinting] = useState(false)
   const [optimizing, setOptimizing] = useState(false)
+  const [purchasing, setPurchasing] = useState(false)
 
   useEffect(() => {
     if (!open) return
@@ -97,6 +99,13 @@ export function GlassCutListModal({ open, session, company, orderIds, title = 'L
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setPurchasing(true)}
+              className="rounded-xl bg-[var(--page)] px-3.5 py-2 text-[12.5px] font-bold text-[var(--blue-700)] hover:bg-[var(--blue-100)]"
+            >
+              Compras e têmpera
+            </button>
             <button
               type="button"
               onClick={() => setOptimizing(true)}
@@ -237,6 +246,7 @@ export function GlassCutListModal({ open, session, company, orderIds, title = 'L
         </div>
       </div>
 
+      <GlassPurchaseModal open={purchasing} session={session} company={company} orderIds={orderIds} onClose={() => setPurchasing(false)} />
       <GlassOptimizationModal
         open={optimizing}
         session={session}
