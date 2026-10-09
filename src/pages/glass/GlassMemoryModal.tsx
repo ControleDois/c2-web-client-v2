@@ -23,6 +23,7 @@ const KIND_LABELS: Record<string, string> = {
   accessory: 'Acessório',
   free: 'Ferragem',
   labor: 'Mão de obra',
+  frame: 'Esquadria',
 }
 
 export function GlassMemoryModal({ open, session, company, order, onClose }: GlassMemoryModalProps) {

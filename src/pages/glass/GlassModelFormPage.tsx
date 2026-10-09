@@ -13,9 +13,11 @@ import {
   removeGlassModelImage,
   updateGlassModel,
   GLASS_CATEGORIES,
+  GLASS_CALC_TYPES,
   GLASS_COMPONENT_MODES,
   type GlassAccessoryRecord,
   type GlassComponent,
+  type GlassCalcType,
   type GlassColorRecord,
   type GlassComponentKind,
   type GlassModelFilters,
@@ -205,6 +207,9 @@ export function GlassModelFormPage({ session, company, glassModelId, onBack, onS
   const [defaultGlassTypeId, setDefaultGlassTypeId] = useState('')
   const [laborPerM2, setLaborPerM2] = useState('')
   const [laborFixed, setLaborFixed] = useState('')
+  const [calcType, setCalcType] = useState<GlassCalcType>('composition')
+  const [marginPercent, setMarginPercent] = useState('')
+  const [framePrice, setFramePrice] = useState('')
   const [cutWidthDiscount, setCutWidthDiscount] = useState('')
   const [cutHeightDiscount, setCutHeightDiscount] = useState('')
   const [active, setActive] = useState(true)
@@ -258,6 +263,9 @@ export function GlassModelFormPage({ session, company, glassModelId, onBack, onS
         setDefaultGlassTypeId(item.default_glass_type_id ?? '')
         setLaborPerM2(String(item.labor_per_m2 ?? ''))
         setLaborFixed(String(item.labor_fixed ?? ''))
+        setCalcType(item.calc_type ?? 'composition')
+        setMarginPercent(item.margin_percent ? String(item.margin_percent).replace('.', ',') : '')
+        setFramePrice(item.frame_price_per_m2 ? String(item.frame_price_per_m2) : '')
         setCutWidthDiscount(item.cut_width_discount_mm ? String(item.cut_width_discount_mm) : '')
         setCutHeightDiscount(item.cut_height_discount_mm ? String(item.cut_height_discount_mm) : '')
         setActive(item.active)
@@ -399,6 +407,9 @@ export function GlassModelFormPage({ session, company, glassModelId, onBack, onS
       default_glass_type_id: defaultGlassTypeId || null,
       labor_per_m2: parseMoney(laborPerM2) ?? 0,
       labor_fixed: parseMoney(laborFixed) ?? 0,
+      calc_type: calcType,
+      margin_percent: Number(marginPercent.replace(',', '.')) || 0,
+      frame_price_per_m2: parseMoney(framePrice) ?? 0,
       cut_width_discount_mm: Number(cutWidthDiscount) || 0,
       product_id: product?.id ?? null,
       cut_height_discount_mm: Number(cutHeightDiscount) || 0,
@@ -537,6 +548,31 @@ export function GlassModelFormPage({ session, company, glassModelId, onBack, onS
                   </option>
                 ))}
               </SelectField>
+              <SelectField label="Tipo de cálculo" value={calcType} onChange={(event) => setCalcType(event.target.value as GlassCalcType)}>
+                {GLASS_CALC_TYPES.map((type) => (
+                  <option key={type.value} value={type.value}>
+                    {type.label}
+                  </option>
+                ))}
+              </SelectField>
+              {calcType === 'cost_margin' && (
+                <TextField
+                  label="Margem sobre o custo (%)"
+                  icon={<TagIcon className="h-4 w-4" />}
+                  inputMode="decimal"
+                  placeholder="Ex: 60"
+                  value={marginPercent}
+                  onChange={(event) => setMarginPercent(event.target.value.replace(/[^\d,.]/g, ''))}
+                />
+              )}
+              {calcType === 'per_m2' && (
+                <MoneyField
+                  label="Preço por m² da esquadria"
+                  icon={<CoinIcon className="h-4 w-4" />}
+                  value={framePrice}
+                  onChange={(event) => setFramePrice(event.target.value)}
+                />
+              )}
               <MoneyField
                 label="Mão de obra por m²"
                 icon={<CoinIcon className="h-4 w-4" />}
@@ -606,6 +642,9 @@ export function GlassModelFormPage({ session, company, glassModelId, onBack, onS
                 </p>
               </div>
             </div>
+            <p className="mt-2 text-[11.5px] text-[var(--muted)]">
+              {GLASS_CALC_TYPES.find((type) => type.value === calcType)?.hint}
+            </p>
             <p className="mt-2 text-[11.5px] text-[var(--muted)]">
               Na lista de corte, a peça de vidro é a medida do vão menos esses descontos; a largura ainda é dividida pelo
               número de folhas.

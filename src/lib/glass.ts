@@ -145,12 +145,40 @@ export interface GlassTypePayload {
   active: boolean
 }
 
+// Como o preço da esquadria é calculado no modelo.
+export type GlassCalcType = 'composition' | 'cost_margin' | 'per_m2'
+export const GLASS_CALC_TYPES: { value: GlassCalcType; label: string; hint: string }[] = [
+  {
+    value: 'composition',
+    label: 'Composição (soma dos valores de venda)',
+    hint: 'Soma o valor de venda do vidro, dos perfis, dos acessórios, das ferragens e da mão de obra.',
+  },
+  {
+    value: 'cost_margin',
+    label: 'Custo + margem',
+    hint: 'Soma o custo de tudo e aplica a margem. O custo vem do cadastro de vidros, perfis e acessórios.',
+  },
+  {
+    value: 'per_m2',
+    label: 'Preço por m² da esquadria',
+    hint: 'A esquadria (perfis, acessórios e mão de obra) vale a área × o preço por m². O vidro continua somado à parte.',
+  },
+]
+export const GLASS_CALC_TYPE_LABELS: Record<GlassCalcType, string> = {
+  composition: 'Composição',
+  cost_margin: 'Custo + margem',
+  per_m2: 'Preço por m²',
+}
+
 export interface GlassModelRecord {
   id: string
   code?: number
   name: string
   category: string
   folhas: number
+  calc_type?: GlassCalcType
+  margin_percent?: number
+  frame_price_per_m2?: number
   line?: string | null
   supplier?: string | null
   gauge_mm?: number | null
@@ -175,6 +203,9 @@ export interface GlassModelPayload {
   name: string
   category: string
   folhas: number
+  calc_type: GlassCalcType
+  margin_percent: number
+  frame_price_per_m2: number
   line?: string | null
   supplier?: string | null
   gauge_mm?: number | null
@@ -338,6 +369,19 @@ export const fetchGlassModels = (
     { ...listParams(companyId, options), line: options.line || undefined, supplier: options.supplier || undefined, gauge: options.gauge || undefined },
     token
   )
+
+export const bulkGlassCalcType = (
+  token: string,
+  payload: {
+    company_id: string
+    calc_type: GlassCalcType
+    margin_percent?: number
+    frame_price_per_m2?: number
+    supplier?: string
+    line?: string
+    gauge?: number
+  }
+) => apiPut<{ updated: number }>('/glass-model/bulk-calc-type', payload, token)
 
 export interface GlassModelFilters {
   suppliers: string[]
