@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiPut, apiDelete } from './api'
+import { apiGet, apiPost, apiPostForm, apiPut, apiDelete } from './api'
 import type { SendTimeline, SignatureEvidence } from './supportContracts'
 
 export interface Paginated<T> {
@@ -124,6 +124,7 @@ export interface GlassModelRecord {
   cut_height_discount_mm?: number
   product_id?: string | null
   product?: { id: string; name: string } | null
+  image_url?: string | null
   components: GlassComponent[]
   active: boolean
 }
@@ -172,6 +173,10 @@ export interface GlassOrderItemRecord {
   price_overridden: boolean
   price_breakdown?: GlassPriceBreakdown | null
   notes?: string | null
+  aluminum_color?: string | null
+  accessory_color?: string | null
+  delivery_date?: string | null
+  item_type?: string | null
   production_stage?: number
 }
 
@@ -326,6 +331,68 @@ export const fetchGlassSendTimeline = (token: string, id: string) =>
 
 export const fetchGlassSignatureEvidence = (token: string, id: string) =>
   apiGet<{ signature: SignatureEvidence | null }>(`/glass-contract/${id}/signature-evidence`, {}, token)
+
+// Orçamento impresso: opções (sim/não), mensagem do WhatsApp e observações padrão.
+export interface GlassQuoteOptions {
+  show_cover: boolean
+  show_drawing: boolean
+  show_measures: boolean
+  show_colors: boolean
+  show_delivery: boolean
+  show_item_values: boolean
+  show_total: boolean
+  show_discount: boolean
+  show_installments: boolean
+  show_area: boolean
+  show_avg_price_m2: boolean
+  show_total_quantity: boolean
+  show_validity: boolean
+  show_notes: boolean
+  show_acceptance: boolean
+}
+
+export interface GlassQuoteSettings {
+  options: GlassQuoteOptions
+  whatsapp_message: string
+  observations: string
+}
+
+export const GLASS_QUOTE_OPTION_LABELS: { key: keyof GlassQuoteOptions; label: string }[] = [
+  { key: 'show_cover', label: 'Imprimir capa' },
+  { key: 'show_drawing', label: 'Desenho dos itens' },
+  { key: 'show_measures', label: 'Medidas' },
+  { key: 'show_colors', label: 'Cores (perfil e acessório)' },
+  { key: 'show_delivery', label: 'Data de entrega' },
+  { key: 'show_item_values', label: 'Valor de cada item' },
+  { key: 'show_total', label: 'Valor total' },
+  { key: 'show_discount', label: 'Desconto' },
+  { key: 'show_installments', label: 'Parcelas de pagamento' },
+  { key: 'show_area', label: 'Área em m²' },
+  { key: 'show_avg_price_m2', label: 'Valor médio por m²' },
+  { key: 'show_total_quantity', label: 'Quantidade total de peças' },
+  { key: 'show_validity', label: 'Validade do orçamento' },
+  { key: 'show_notes', label: 'Observações do pedido' },
+  { key: 'show_acceptance', label: 'Campo "Aceite do cliente"' },
+]
+
+export const fetchGlassQuoteSettings = (token: string, companyId: string) =>
+  apiGet<GlassQuoteSettings>('/glass-quote/settings', { companyId }, token)
+
+export const saveGlassQuoteSettings = (token: string, companyId: string, settings: GlassQuoteSettings) =>
+  apiPut<GlassQuoteSettings>('/glass-quote/settings', { company_id: companyId, ...settings }, token)
+
+export const printGlassQuote = (token: string, id: string, settings: GlassQuoteSettings) =>
+  apiPost<{ url: string }>(`/glass-order/${id}/quote/print`, settings, token)
+
+export const sendGlassQuote = (token: string, id: string, whatsappId: string, settings: GlassQuoteSettings) =>
+  apiPost<{ fileUrl: string; whatsappQueued: boolean }>(`/glass-order/${id}/quote/send`, { whatsappId, ...settings }, token)
+
+export const uploadGlassModelImage = (token: string, id: string, file: File) => {
+  const form = new FormData()
+  form.append('image', file)
+  return apiPostForm<GlassModelRecord>(`/glass-model/${id}/image`, form, token)
+}
+export const removeGlassModelImage = (token: string, id: string) => apiDelete<GlassModelRecord>(`/glass-model/${id}/image`, token)
 
 export const GLASS_STAGE_LABELS: Record<number, string> = {
   0: 'Aguardando',

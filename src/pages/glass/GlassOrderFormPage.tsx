@@ -32,6 +32,7 @@ import { GlassStatusBadge } from './GlassOrdersPage'
 import { GlassContractModals, type GlassContractTarget } from './GlassContractModals'
 import { GlassInvoiceModal } from './GlassInvoiceModal'
 import { GlassMemoryModal } from './GlassMemoryModal'
+import { GlassQuoteModal } from './GlassQuoteModal'
 import { NFE_STATUS_LABELS } from '../../lib/nfes'
 import { ChevronLeftIcon, PlusIcon, PencilIcon, TrashIcon, TagIcon, FileTextIcon, CalendarIcon, CopyIcon } from '../../components/icons'
 import type { AuthSession, AuthCompany } from '../../lib/auth'
@@ -89,7 +90,11 @@ export function GlassOrderFormPage({ session, company, orderId, onBack, onSaved 
   const [notice, setNotice] = useState<string | null>(null)
   const [invoiceOpen, setInvoiceOpen] = useState(false)
   const [memoryOpen, setMemoryOpen] = useState(false)
-  const [editing, setEditing] = useState<{ open: boolean; row: ItemRow | null }>({ open: false, row: null })
+  const [quoteOpen, setQuoteOpen] = useState(false)
+  const [editing, setEditing] = useState<{ open: boolean; row: ItemRow | null; prefill?: GlassOrderItemRecord | null }>({
+    open: false,
+    row: null,
+  })
 
   useEffect(() => {
     fetchGlassModels(token, company.id, { limit: 200, active: true })
@@ -154,13 +159,14 @@ export function GlassOrderFormPage({ session, company, orderId, onBack, onSaved 
   const approved = Boolean(order) && (order?.status ?? 0) >= GLASS_ORDER_STATUS.SALE && !locked
   const bills = order?.bills ?? []
 
-  function saveItem(item: GlassOrderItemRecord) {
+  function saveItem(item: GlassOrderItemRecord, addAnother = false) {
     setItems((current) =>
       editing.row
         ? current.map((row) => (row.key === editing.row?.key ? { ...item, key: row.key } : row))
         : [...current, withKey(item)]
     )
-    setEditing({ open: false, row: null })
+    // Mesma peça, outra medida: reabre o modal já preenchido com o item que acabou de salvar.
+    setEditing(addAnother ? { open: true, row: null, prefill: item } : { open: false, row: null })
   }
 
   function duplicateItem(row: ItemRow) {
@@ -258,6 +264,13 @@ export function GlassOrderFormPage({ session, company, orderId, onBack, onSaved 
               className="rounded-xl border border-[var(--border)] px-3.5 py-2 text-[12.5px] font-bold text-[var(--ink-soft)] hover:text-[var(--ink)]"
             >
               {order.meta?.contract ? 'Reenviar contrato' : 'Enviar contrato'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setQuoteOpen(true)}
+              className="rounded-xl border border-[var(--border)] px-3.5 py-2 text-[12.5px] font-bold text-[var(--ink-soft)] hover:text-[var(--ink)]"
+            >
+              Imprimir / enviar orçamento
             </button>
             <button
               type="button"
@@ -403,6 +416,10 @@ export function GlassOrderFormPage({ session, company, orderId, onBack, onSaved 
                           <p className="text-[11.5px] text-[var(--muted)]">
                             {[
                               row.location,
+                              row.item_type,
+                              row.aluminum_color ? `perfil ${row.aluminum_color}` : null,
+                              row.accessory_color ? `acessório ${row.accessory_color}` : null,
+                              row.delivery_date ? `entrega ${row.delivery_date.slice(8, 10)}/${row.delivery_date.slice(5, 7)}` : null,
                               row.price_overridden ? 'valor alterado manualmente' : null,
                               approved ? GLASS_STAGE_LABELS[row.production_stage ?? 0] : null,
                             ]
@@ -613,12 +630,14 @@ export function GlassOrderFormPage({ session, company, orderId, onBack, onSaved 
         token={token}
         companyId={company.id}
         item={editing.row}
+        prefill={editing.prefill}
         models={models}
         glassTypes={glassTypes}
         onSave={saveItem}
         onClose={() => setEditing({ open: false, row: null })}
       />
       {quickPerson.modal}
+      <GlassQuoteModal open={quoteOpen} session={session} company={company} order={order} onClose={() => setQuoteOpen(false)} />
       <GlassMemoryModal
         open={memoryOpen}
         session={session}

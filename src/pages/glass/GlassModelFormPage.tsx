@@ -7,6 +7,8 @@ import {
   fetchGlassProfiles,
   fetchGlassTypes,
   simulateGlassModel,
+  uploadGlassModelImage,
+  removeGlassModelImage,
   updateGlassModel,
   GLASS_CATEGORIES,
   GLASS_COMPONENT_MODES,
@@ -115,6 +117,8 @@ export function GlassModelFormPage({ session, company, glassModelId, onBack, onS
   const [cutWidthDiscount, setCutWidthDiscount] = useState('')
   const [cutHeightDiscount, setCutHeightDiscount] = useState('')
   const [active, setActive] = useState(true)
+  const [imageUrl, setImageUrl] = useState<string | null>(null)
+  const [imageFile, setImageFile] = useState<File | null>(null)
   const [product, setProduct] = useState<{ id: string; name: string } | null>(null)
   const [rows, setRows] = useState<ComponentRow[]>([])
   const [profiles, setProfiles] = useState<GlassProfileRecord[]>([])
@@ -151,6 +155,7 @@ export function GlassModelFormPage({ session, company, glassModelId, onBack, onS
         setCutWidthDiscount(item.cut_width_discount_mm ? String(item.cut_width_discount_mm) : '')
         setCutHeightDiscount(item.cut_height_discount_mm ? String(item.cut_height_discount_mm) : '')
         setActive(item.active)
+        setImageUrl(item.image_url ?? null)
         setProduct(item.product ? { id: item.product.id, name: item.product.name } : null)
         setRows(
           (item.components ?? []).map((component) =>
@@ -248,8 +253,11 @@ export function GlassModelFormPage({ session, company, glassModelId, onBack, onS
 
     setSubmitting(true)
     try {
-      if (glassModelId) await updateGlassModel(session.token.token, glassModelId, payload)
-      else await createGlassModel(session.token.token, payload)
+      const saved = glassModelId
+        ? await updateGlassModel(session.token.token, glassModelId, payload)
+        : await createGlassModel(session.token.token, payload)
+      if (imageFile) await uploadGlassModelImage(session.token.token, saved.id, imageFile)
+      else if (glassModelId && !imageUrl) await removeGlassModelImage(session.token.token, glassModelId)
       onSaved()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Não foi possível salvar o modelo.')
@@ -348,6 +356,45 @@ export function GlassModelFormPage({ session, company, glassModelId, onBack, onS
                 value={cutHeightDiscount}
                 onChange={(event) => setCutHeightDiscount(event.target.value.replace(/\D/g, ''))}
               />
+            </div>
+            <div className="mt-4 flex flex-wrap items-center gap-4 rounded-xl bg-[var(--page)] p-4">
+              <span className="flex h-20 w-28 flex-none items-center justify-center overflow-hidden rounded-lg border border-[var(--border)] bg-white">
+                {imageFile || imageUrl ? (
+                  <img
+                    src={imageFile ? URL.createObjectURL(imageFile) : (imageUrl as string)}
+                    alt="Desenho do modelo"
+                    className="h-full w-full object-contain"
+                  />
+                ) : (
+                  <span className="px-2 text-center text-[11px] text-[var(--muted)]">Desenho padrão pelas folhas</span>
+                )}
+              </span>
+              <div className="flex flex-col gap-1.5">
+                <label className="flex w-fit cursor-pointer items-center gap-2 rounded-xl border border-[var(--border)] px-3.5 py-2 text-[12.5px] font-bold text-[var(--ink-soft)] hover:text-[var(--ink)]">
+                  {imageFile ? imageFile.name : 'Enviar desenho do modelo'}
+                  <input
+                    type="file"
+                    accept=".png,.jpg,.jpeg,.webp"
+                    className="hidden"
+                    onChange={(event) => setImageFile(event.target.files?.[0] ?? null)}
+                  />
+                </label>
+                {(imageFile || imageUrl) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setImageFile(null)
+                      setImageUrl(null)
+                    }}
+                    className="w-fit text-[11.5px] font-bold text-[var(--red-500)] hover:underline"
+                  >
+                    Remover desenho
+                  </button>
+                )}
+                <p className="text-[11.5px] text-[var(--muted)]">
+                  Aparece em cada item e no orçamento impresso. Sem imagem, o orçamento usa um desenho simples com as folhas.
+                </p>
+              </div>
             </div>
             <p className="mt-2 text-[11.5px] text-[var(--muted)]">
               Na lista de corte, a peça de vidro é a medida do vão menos esses descontos; a largura ainda é dividida pelo

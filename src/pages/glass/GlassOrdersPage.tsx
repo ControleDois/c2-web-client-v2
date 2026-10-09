@@ -17,6 +17,7 @@ import { GlassContractModals, type GlassContractTarget } from './GlassContractMo
 import { GlassCutListModal } from './GlassCutListModal'
 import { GlassInvoiceModal } from './GlassInvoiceModal'
 import { GlassMemoryModal } from './GlassMemoryModal'
+import { GlassQuoteModal } from './GlassQuoteModal'
 import { NFE_STATUS_LABELS } from '../../lib/nfes'
 import { GlassAppointmentModal, type GlassAppointmentDraft } from './GlassAppointmentModal'
 import {
@@ -78,6 +79,7 @@ export function GlassOrdersPage({ session, company, onCreate, onEdit }: GlassOrd
   const [contractTarget, setContractTarget] = useState<GlassContractTarget | null>(null)
   const [reloadToken, setReloadToken] = useState(0)
   const [memoryOrder, setMemoryOrder] = useState<GlassOrderRecord | null>(null)
+  const [quoteOrder, setQuoteOrder] = useState<GlassOrderRecord | null>(null)
   const [invoiceOrder, setInvoiceOrder] = useState<GlassOrderRecord | null>(null)
   const [cutListOrder, setCutListOrder] = useState<GlassOrderRecord | null>(null)
   const [appointmentDraft, setAppointmentDraft] = useState<GlassAppointmentDraft | null>(null)
@@ -178,6 +180,13 @@ export function GlassOrdersPage({ session, company, onCreate, onEdit }: GlassOrd
               onClick: () => run(() => duplicateGlassOrder(token, item.id), reload),
             },
           ]
+          list.push({
+            key: 'quote',
+            label: 'Imprimir / enviar orçamento',
+            icon: <FileTextIcon className="h-4 w-4" />,
+            dividerBefore: true,
+            onClick: () => setQuoteOrder(item),
+          })
           const hasContract = Boolean(item.meta?.contract)
           const openContract = (mode: GlassContractTarget['mode']) => setContractTarget({ mode, order: item })
           list.push(
@@ -185,7 +194,6 @@ export function GlassOrdersPage({ session, company, onCreate, onEdit }: GlassOrd
               key: 'contract-preview',
               label: 'Ver contrato',
               icon: <FileTextIcon className="h-4 w-4" />,
-              dividerBefore: true,
               onClick: () => openContract('preview'),
             },
             {
@@ -327,6 +335,15 @@ export function GlassOrdersPage({ session, company, onCreate, onEdit }: GlassOrd
           setAppointmentDraft(null)
           setNotice('Visita agendada. Veja na Agenda.')
         }}
+      />
+
+      <GlassQuoteModal
+        open={Boolean(quoteOrder)}
+        session={session}
+        company={company}
+        order={quoteOrder}
+        onClose={() => setQuoteOrder(null)}
+        onNotice={setNotice}
       />
 
       <GlassMemoryModal

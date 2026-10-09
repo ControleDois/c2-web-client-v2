@@ -11,22 +11,25 @@ import { parseMoney } from '../../lib/money'
 import { TextField } from '../../components/form/TextField'
 import { MoneyField } from '../../components/form/MoneyField'
 import { SelectField } from '../../components/form/SelectField'
-import { BoxIcon, TagIcon, FileTextIcon } from '../../components/icons'
+import { BoxIcon, TagIcon, FileTextIcon, CalendarIcon } from '../../components/icons'
 
 interface GlassItemModalProps {
   open: boolean
   token: string
   companyId: string
   item: GlassOrderItemRecord | null
+  // Item novo já preenchido com os dados de outro (mesma peça, outra medida).
+  prefill?: GlassOrderItemRecord | null
   models: GlassModelRecord[]
   glassTypes: GlassTypeRecord[]
-  onSave: (item: GlassOrderItemRecord) => void
+  onSave: (item: GlassOrderItemRecord, addAnother?: boolean) => void
   onClose: () => void
 }
 
 const digits = (value: string) => value.replace(/\D/g, '')
+const COLOR_SUGGESTIONS = ['Branco', 'Preto', 'Bronze', 'Natural (anodizado fosco)', 'Amadeirado', 'Cinza', 'Champanhe']
 
-export function GlassItemModal({ open, token, companyId, item, models, glassTypes, onSave, onClose }: GlassItemModalProps) {
+export function GlassItemModal({ open, token, companyId, item, prefill, models, glassTypes, onSave, onClose }: GlassItemModalProps) {
   const [modelId, setModelId] = useState('')
   const [typeId, setTypeId] = useState('')
   const [location, setLocation] = useState('')
@@ -37,25 +40,35 @@ export function GlassItemModal({ open, token, companyId, item, models, glassType
   const [overridden, setOverridden] = useState(false)
   const [manualPrice, setManualPrice] = useState('')
   const [notes, setNotes] = useState('')
+  const [itemType, setItemType] = useState('')
+  const [aluminumColor, setAluminumColor] = useState('')
+  const [accessoryColor, setAccessoryColor] = useState('')
+  const [deliveryDate, setDeliveryDate] = useState('')
   const [preview, setPreview] = useState<GlassPricePreview | null>(null)
   const [previewing, setPreviewing] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!open) return
-    setModelId(item?.glass_model_id ?? '')
-    setTypeId(item?.glass_type_id ?? '')
-    setLocation(item?.location ?? '')
-    setDescription(item?.description ?? '')
+    // "Mesma peça, outra medida": copia tudo menos medidas e valor digitado.
+    const source = item ?? prefill ?? null
+    setModelId(source?.glass_model_id ?? '')
+    setTypeId(source?.glass_type_id ?? '')
+    setLocation(source?.location ?? '')
+    setDescription(source?.description ?? '')
     setWidth(item?.width_mm ? String(item.width_mm) : '')
     setHeight(item?.height_mm ? String(item.height_mm) : '')
     setQuantity(item?.quantity ? String(item.quantity) : '1')
     setOverridden(Boolean(item?.price_overridden))
     setManualPrice(item?.price_overridden ? String(item.unit_price) : '')
-    setNotes(item?.notes ?? '')
+    setNotes(source?.notes ?? '')
+    setItemType(source?.item_type ?? '')
+    setAluminumColor(source?.aluminum_color ?? '')
+    setAccessoryColor(source?.accessory_color ?? '')
+    setDeliveryDate(source?.delivery_date ? source.delivery_date.slice(0, 10) : '')
     setPreview(null)
     setError(null)
-  }, [open, item])
+  }, [open, item, prefill])
 
   const widthMm = Number(width) || 0
   const heightMm = Number(height) || 0
@@ -106,7 +119,7 @@ export function GlassItemModal({ open, token, companyId, item, models, glassType
   const unitPrice = overridden ? parseMoney(manualPrice) ?? 0 : preview?.unit_price ?? 0
   const total = Math.round(unitPrice * qty * 100) / 100
 
-  function handleSave() {
+  function handleSave(addAnother = false) {
     if (!description.trim()) return setError('Informe a descrição do item.')
     if (widthMm <= 0 || heightMm <= 0) return setError('Informe largura e altura em milímetros.')
     if (qty <= 0) return setError('A quantidade precisa ser maior que zero.')
@@ -127,8 +140,12 @@ export function GlassItemModal({ open, token, companyId, item, models, glassType
       price_overridden: overridden,
       price_breakdown: preview?.breakdown ?? null,
       notes: notes.trim() || null,
+      aluminum_color: aluminumColor.trim() || null,
+      accessory_color: accessoryColor.trim() || null,
+      delivery_date: deliveryDate || null,
+      item_type: itemType.trim() || null,
       production_stage: item?.production_stage,
-    })
+    }, addAnother)
   }
 
   return (
@@ -137,6 +154,11 @@ export function GlassItemModal({ open, token, companyId, item, models, glassType
         className="max-h-[92vh] w-full max-w-[720px] overflow-y-auto rounded-2xl bg-[var(--surface)] p-6 shadow-[var(--card-shadow)]"
         onClick={(event) => event.stopPropagation()}
       >
+        <datalist id="glass-color-suggestions">
+          {COLOR_SUGGESTIONS.map((color) => (
+            <option key={color} value={color} />
+          ))}
+        </datalist>
         <h2 className="text-[17px] font-bold text-[var(--ink)]">{item ? 'Editar item' : 'Novo item'}</h2>
         <p className="mt-0.5 text-[12px] text-[var(--muted)]">As medidas são em milímetros. O preço é calculado pelo modelo e pelo vidro.</p>
 
@@ -191,6 +213,36 @@ export function GlassItemModal({ open, token, companyId, item, models, glassType
             inputMode="numeric"
             value={quantity}
             onChange={(event) => setQuantity(digits(event.target.value))}
+          />
+          <TextField
+            label="Tipo"
+            icon={<TagIcon className="h-4 w-4" />}
+            placeholder="Ex: Janela, Porta, Box"
+            value={itemType}
+            onChange={(event) => setItemType(event.target.value)}
+          />
+          <TextField
+            label="Cor do perfil / alumínio"
+            icon={<TagIcon className="h-4 w-4" />}
+            list="glass-color-suggestions"
+            placeholder="Ex: Preto"
+            value={aluminumColor}
+            onChange={(event) => setAluminumColor(event.target.value)}
+          />
+          <TextField
+            label="Cor dos acessórios"
+            icon={<TagIcon className="h-4 w-4" />}
+            list="glass-color-suggestions"
+            placeholder="Ex: Preto"
+            value={accessoryColor}
+            onChange={(event) => setAccessoryColor(event.target.value)}
+          />
+          <TextField
+            label="Data de entrega"
+            icon={<CalendarIcon className="h-4 w-4" />}
+            type="date"
+            value={deliveryDate}
+            onChange={(event) => setDeliveryDate(event.target.value)}
           />
           <TextField
             label="Observação"
@@ -259,7 +311,15 @@ export function GlassItemModal({ open, token, companyId, item, models, glassType
           </button>
           <button
             type="button"
-            onClick={handleSave}
+            onClick={() => handleSave(true)}
+            className="rounded-xl bg-[var(--page)] px-5 py-2.5 text-[14px] font-bold text-[var(--blue-700)] transition hover:bg-[var(--blue-100)]"
+            title="Salva este item e já abre outro igual, só para informar a nova medida"
+          >
+            Salvar e incluir mesma peça com outra medida
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSave(false)}
             className="rounded-xl bg-[var(--blue-500)] px-6 py-2.5 text-[14px] font-bold text-white transition hover:bg-[var(--blue-700)]"
           >
             Salvar item
