@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ConfigPayload, ConfigRecord } from '../../lib/config'
 import {
   SICREDI_BOLETO_TIPO_COBRANCA_OPTIONS,
@@ -13,6 +13,11 @@ import {
   atualizarWebhookBoletoSicredi,
   testCoraConnection,
   registerCoraWebhook,
+  fetchCoraPartnerInfo,
+  fetchCoraAuthorizeUrl,
+  disconnectCora,
+  CORA_CONNECT_STORAGE_KEY,
+  type CoraPartnerInfo,
 } from '../../lib/config'
 import { ApiError } from '../../lib/api'
 import { SectionCard } from '../../components/SectionCard'
@@ -249,16 +254,105 @@ function SicrediBoletoWebhookCard({ token, companyId }: { token: string; company
   )
 }
 
+// Parceria: a empresa entra com o login da Cora e autoriza o Controle Dois (sem certificado).
+function CoraPartnerCard({ token, companyId, onStatus }: { token: string; companyId: string; onStatus: (connected: boolean) => void }) {
+  const [info, setInfo] = useState<CoraPartnerInfo | null>(null)
+  const [busy, setBusy] = useState<'connect' | 'disconnect' | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetchCoraPartnerInfo(token, companyId)
+      .then((res) => {
+        setInfo(res)
+        onStatus(res.connected)
+      })
+      .catch(() => setInfo(null))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, companyId])
+
+  async function handleConnect() {
+    setBusy('connect')
+    setError(null)
+    try {
+      const { url } = await fetchCoraAuthorizeUrl(token, companyId)
+      // Guarda a empresa: o retorno da Cora volta numa página nova, que precisa saber de quem é a conexão.
+      localStorage.setItem(CORA_CONNECT_STORAGE_KEY, companyId)
+      window.location.href = url
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Não foi possível iniciar a conexão com a Cora.')
+      setBusy(null)
+    }
+  }
+
+  async function handleDisconnect() {
+    setBusy('disconnect')
+    setError(null)
+    try {
+      await disconnectCora(token, companyId)
+      const next = await fetchCoraPartnerInfo(token, companyId)
+      setInfo(next)
+      onStatus(next.connected)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Não foi possível desconectar a conta.')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border border-[var(--border)] p-4">
+      <h4 className="mb-1 text-[12.5px] font-bold text-[var(--ink)]">Conta Cora</h4>
+      {info && !info.available ? (
+        <p className="text-[12px] text-[var(--amber-500)]">
+          A parceria com a Cora ainda não foi ativada neste servidor. Peça ao suporte do Controle Dois.
+        </p>
+      ) : (
+        <>
+          <p className="mb-3 text-[11.5px] text-[var(--muted)]">
+            {info?.connected
+              ? `Conta conectada${info.connected_at ? ` em ${new Date(info.connected_at).toLocaleDateString('pt-BR')}` : ''}. Os boletos saem pela sua conta Cora e são baixados sozinhos quando pagos.`
+              : 'Entre com o seu login da Cora e autorize o Controle Dois a emitir boletos na sua conta. Não precisa gerar certificado nem chave.'}
+            {info?.environment === 'stage' ? ' (ambiente de testes da Cora)' : ''}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={handleConnect}
+              disabled={busy !== null || !info?.available}
+              className="rounded-lg bg-[var(--blue-500)] px-3 py-2 text-[12px] font-bold text-white hover:bg-[var(--blue-700)] disabled:opacity-60"
+            >
+              {busy === 'connect' ? 'Abrindo a Cora…' : info?.connected ? 'Conectar de novo' : 'Conectar com a Cora'}
+            </button>
+            {info?.connected && (
+              <button
+                type="button"
+                onClick={handleDisconnect}
+                disabled={busy !== null}
+                className="rounded-lg border border-[var(--border)] px-3 py-2 text-[12px] font-bold text-[var(--ink-soft)] hover:text-[var(--red-500)] disabled:opacity-60"
+              >
+                {busy === 'disconnect' ? 'Desconectando…' : 'Desconectar'}
+              </button>
+            )}
+          </div>
+        </>
+      )}
+      {error && <p className="mt-2 text-[12px] font-medium text-[var(--red-500)]">{error}</p>}
+    </div>
+  )
+}
+
 function CoraActionsCard({
   token,
   companyId,
   ready,
   webhookRegistered,
+  partner,
 }: {
   token: string
   companyId: string
   ready: boolean
   webhookRegistered: boolean
+  partner: boolean
 }) {
   const [loading, setLoading] = useState<'test' | 'webhook' | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -282,9 +376,10 @@ function CoraActionsCard({
     <div className="rounded-2xl border border-[var(--border)] p-4">
       <h4 className="mb-1 text-[12.5px] font-bold text-[var(--ink)]">Conexão e aviso de pagamento</h4>
       <p className="mb-3 text-[11.5px] text-[var(--muted)]">
-        Salve as configurações antes de testar. O aviso de pagamento faz a Cora avisar o sistema quando o boleto é
-        pago, para baixar o título sozinho.
-        {webhookRegistered ? ' Já registrado — registre de novo só se trocar de certificado ou ambiente.' : ''}
+        {partner
+          ? 'O aviso de pagamento (baixa automática do boleto) é cadastrado pelo Controle Dois para todas as contas conectadas.'
+          : 'Salve as configurações antes de testar. O aviso de pagamento faz a Cora avisar o sistema quando o boleto é pago, para baixar o título sozinho.'}
+        {!partner && webhookRegistered ? ' Já registrado — registre de novo só se trocar de certificado ou ambiente.' : ''}
       </p>
       <div className="flex flex-wrap gap-2">
         <button
@@ -295,18 +390,22 @@ function CoraActionsCard({
         >
           {loading === 'test' ? 'Testando…' : 'Testar conexão'}
         </button>
-        <button
-          type="button"
-          onClick={() => run('webhook')}
-          disabled={!ready || loading !== null}
-          className="rounded-lg bg-[var(--blue-500)] px-3 py-2 text-[12px] font-bold text-white hover:bg-[var(--blue-700)] disabled:opacity-60"
-        >
-          {loading === 'webhook' ? 'Registrando…' : 'Registrar aviso de pagamento'}
-        </button>
+        {!partner && (
+          <button
+            type="button"
+            onClick={() => run('webhook')}
+            disabled={!ready || loading !== null}
+            className="rounded-lg bg-[var(--blue-500)] px-3 py-2 text-[12px] font-bold text-white hover:bg-[var(--blue-700)] disabled:opacity-60"
+          >
+            {loading === 'webhook' ? 'Registrando…' : 'Registrar aviso de pagamento'}
+          </button>
+        )}
       </div>
       {!ready && (
         <p className="mt-2 text-[11.5px] text-[var(--muted)]">
-          Informe o Client ID, envie o certificado e a chave e salve para liberar estes botões.
+          {partner
+            ? 'Conecte a conta Cora para liberar o teste.'
+            : 'Informe o Client ID, envie o certificado e a chave e salve para liberar estes botões.'}
         </p>
       )}
       {error && <p className="mt-2 text-[12px] font-medium text-[var(--red-500)]">{error}</p>}
@@ -339,6 +438,8 @@ function NumberField({
 
 export function IntegracoesSection({ value, onChange, config, session, company }: IntegracoesSectionProps) {
   const token = session.token.token
+  const coraPartner = (value.cora_auth_mode ?? 'direct') === 'partner'
+  const [coraConnected, setCoraConnected] = useState(false)
   return (
     <div className="flex flex-col gap-4">
       <SectionCard
@@ -357,6 +458,21 @@ export function IntegracoesSection({ value, onChange, config, session, company }
             <span className="text-[13.5px] font-semibold text-[var(--ink)]">Emitir boletos pelo Banco Cora</span>
           </label>
 
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <SelectField
+              label="Forma de conexão"
+              value={value.cora_auth_mode ?? 'direct'}
+              onChange={(event) => onChange({ cora_auth_mode: event.target.value as 'direct' | 'partner' })}
+            >
+              <option value="partner">Parceria (conectar com o login da Cora)</option>
+              <option value="direct">Integração direta (certificado e chave)</option>
+            </SelectField>
+          </div>
+
+          {coraPartner && <CoraPartnerCard token={token} companyId={company.id} onStatus={setCoraConnected} />}
+
+          {!coraPartner && (
+          <>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <TextField
               label="Client ID"
@@ -407,6 +523,8 @@ export function IntegracoesSection({ value, onChange, config, session, company }
             Gere o Client ID, o certificado e a chave no Cora Web (Conta &gt; Integrações via APIs). Os arquivos ficam
             guardados de forma privada no servidor, nunca com link público.
           </p>
+          </>
+          )}
 
           <div>
             <h4 className="mb-3 text-[12.5px] font-bold text-[var(--ink)]">Regras de cobrança</h4>
@@ -455,8 +573,13 @@ export function IntegracoesSection({ value, onChange, config, session, company }
           <CoraActionsCard
             token={token}
             companyId={company.id}
-            ready={Boolean(config?.cora_client_id && config?.cora_cert_file_name && config?.cora_key_file_name)}
+            ready={
+              coraPartner
+                ? coraConnected
+                : Boolean(config?.cora_client_id && config?.cora_cert_file_name && config?.cora_key_file_name)
+            }
             webhookRegistered={Boolean(config?.cora_webhook_endpoint_id)}
+            partner={coraPartner}
           />
         </div>
       </SectionCard>

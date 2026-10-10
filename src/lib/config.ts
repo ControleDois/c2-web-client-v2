@@ -169,6 +169,10 @@ export interface ConfigRecord {
   cora_enabled?: boolean
   cora_client_id?: string | null
   cora_environment?: 'production' | 'stage' | null
+  // direct = integração direta (certificado); partner = conta conectada pelo login da Cora
+  cora_auth_mode?: 'direct' | 'partner' | null
+  cora_partner_connected?: boolean
+  cora_partner_connected_at?: string | null
   cora_cert_file_name?: string | null
   cora_key_file_name?: string | null
   cora_fine_rate?: number | null
@@ -468,6 +472,7 @@ export interface ConfigPayload {
   cora_enabled?: boolean
   cora_client_id?: string
   cora_environment?: 'production' | 'stage'
+  cora_auth_mode?: 'direct' | 'partner'
   cora_fine_rate?: number
   cora_interest_rate?: number
   cora_discount_type?: 'FIXED' | 'PERCENT' | ''
@@ -720,6 +725,32 @@ export function atualizarWebhookBoletoSicredi(
 
 export function testCoraConnection(token: string, companyId: string) {
   return apiPost<{ message: string }>('/config/cora/test', { companyId }, token)
+}
+
+// Parceria Cora (OAuth): a empresa autoriza o Controle Dois na própria conta Cora.
+export interface CoraPartnerInfo {
+  available: boolean
+  environment: 'stage' | 'production'
+  connected: boolean
+  connected_at?: string | null
+}
+
+export const CORA_CONNECT_STORAGE_KEY = 'c2_cora_connect_company'
+
+export function fetchCoraPartnerInfo(token: string, companyId: string) {
+  return apiGet<CoraPartnerInfo>('/config/cora/partner/info', { companyId }, token)
+}
+
+export function fetchCoraAuthorizeUrl(token: string, companyId: string) {
+  return apiPost<{ url: string }>('/config/cora/partner/authorize-url', { companyId }, token)
+}
+
+export function finishCoraConnection(token: string, payload: { companyId: string; code: string; state: string }) {
+  return apiPost<{ message: string }>('/config/cora/partner/callback', payload, token)
+}
+
+export function disconnectCora(token: string, companyId: string) {
+  return apiPost<{ message: string }>('/config/cora/partner/disconnect', { companyId }, token)
 }
 
 export function registerCoraWebhook(token: string, companyId: string) {

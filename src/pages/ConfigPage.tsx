@@ -145,6 +145,7 @@ function buildConfigPayload(companyId: string, config: ConfigRecord | null): Con
     cora_enabled: config?.cora_enabled ?? false,
     cora_client_id: config?.cora_client_id ?? undefined,
     cora_environment: config?.cora_environment ?? 'production',
+    cora_auth_mode: config?.cora_auth_mode ?? 'direct',
     cora_fine_rate: config?.cora_fine_rate ?? undefined,
     cora_interest_rate: config?.cora_interest_rate ?? undefined,
     cora_discount_type: config?.cora_discount_type ?? '',
