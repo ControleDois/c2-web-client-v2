@@ -1,4 +1,4 @@
-import { apiGet, apiPatch, apiPost } from './api'
+import { apiGet, apiPatch, apiPost, apiPut } from './api'
 
 export type LicenseStatus = 'trial' | 'active' | 'blocked'
 
@@ -35,8 +35,24 @@ export interface LicenseCompanyRecord {
   createdAt?: string
 }
 
+// Conta a receber da matriz vinculada à cobrança da licença do cliente.
+export interface LicenseBillSummary {
+  id: string
+  code?: number
+  name: string
+  amount: number
+  date_due: string
+  status?: number
+  people_name?: string | null
+  boleto_provider?: string | null
+  boleto_pdf_url?: string | null
+  boleto_linha_digital?: string | null
+  pix_copia_e_cola?: string | null
+}
+
 export interface LicenseCompanyDetail extends LicenseCompanyRecord {
   delphiKey: LicenseDelphiKey | null
+  license_bill: LicenseBillSummary | null
 }
 
 interface Paginated<T> {
@@ -86,6 +102,7 @@ export interface UpdateLicenseCompanyPayload {
   monthly_fee?: number | null
   commission_percent?: number | null
   representative_user_id?: string | null
+  license_bill_id?: string | null
 }
 
 export function updateLicenseCompany(token: string, id: string, payload: UpdateLicenseCompanyPayload) {
@@ -106,4 +123,41 @@ export function searchRepresentatives(token: string, search: string) {
     { search, limit: '10' },
     token
   ).then((res) => res.data.map((item) => ({ id: item.id, userId: item.userId, name: item.name })))
+}
+
+// Contas a receber em aberto da matriz, para vincular à cobrança de uma licença.
+export function searchLicenseBills(token: string, search: string) {
+  return apiGet<LicenseBillSummary[]>('/license/candidate-bills', { search }, token)
+}
+
+// Quantos dias antes do vencimento o cliente começa a ser avisado (configuração da matriz).
+export function fetchLicenseSettings(token: string) {
+  return apiGet<{ warning_days: number }>('/license/settings', {}, token)
+}
+
+export function saveLicenseSettings(token: string, warningDays: number) {
+  return apiPut<{ warning_days: number }>('/license/settings', { warning_days: warningDays }, token)
+}
+
+// Aviso da cobrança da licença no sistema do cliente (boleto e PIX para pagar na hora).
+export interface LicenseNotice {
+  show: boolean
+  state: 'due_soon' | 'due_today' | 'overdue' | null
+  days_left: number | null
+  due_date: string | null
+  amount: number | null
+  bill_name: string | null
+  warning_days: number
+  blocked: boolean
+  boleto: {
+    provider: string | null
+    pdf_url: string | null
+    digitable_line: string | null
+    barcode: string | null
+    pix_copy_paste: string | null
+  } | null
+}
+
+export function fetchLicenseNotice(token: string, companyId: string) {
+  return apiGet<LicenseNotice>('/license/notice', { companyId }, token)
 }

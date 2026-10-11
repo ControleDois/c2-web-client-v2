@@ -12,6 +12,7 @@ import {
   generateBillBoleto,
   fetchBoletoBanks,
   cancelBillBoleto,
+  removeManualBoleto,
   type BillRecord,
   type BoletoBank,
 } from '../lib/bills'
@@ -38,6 +39,7 @@ import { BoletoBankPickerModal } from '../components/BoletoBankPickerModal'
 import { PrintPreviewModal, type PrintColumn } from '../components/PrintPreviewModal'
 import { BillReceiptPreviewModal } from '../components/BillReceiptPreviewModal'
 import { BillBoletoPreviewModal } from '../components/BillBoletoPreviewModal'
+import { ManualBoletoModal } from '../components/ManualBoletoModal'
 import { BillsSummaryCards, type BillsSummaryFilter } from '../components/BillsSummaryCards'
 import { BillsMoreFiltersPanel, type BillsMoreFilters } from '../components/BillsMoreFiltersPanel'
 import { BatchReceiveBillsModal } from '../components/BatchReceiveBillsModal'
@@ -143,6 +145,8 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
   const [boletoBill, setBoletoBill] = useState<BillRecord | null>(null)
   const [bankPicker, setBankPicker] = useState<{ bill: BillRecord; banks: BoletoBank[] } | null>(null)
   const [cancelBoletoTarget, setCancelBoletoTarget] = useState<BillRecord | null>(null)
+  const [manualBoletoBill, setManualBoletoBill] = useState<BillRecord | null>(null)
+  const [removeManualTarget, setRemoveManualTarget] = useState<BillRecord | null>(null)
   const [pixBusyId, setPixBusyId] = useState<string | null>(null)
   const [pixError, setPixError] = useState<string | null>(null)
   const [pixLoteBusy, setPixLoteBusy] = useState(false)
@@ -499,6 +503,22 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
     }
   }
 
+  async function handleRemoveManualBoleto() {
+    if (!removeManualTarget) return
+    setPixBusyId(removeManualTarget.id)
+    setPixError(null)
+    try {
+      await removeManualBoleto(session.token.token, company.id, removeManualTarget.id)
+      setRemoveManualTarget(null)
+      silentReload()
+    } catch (err) {
+      setRemoveManualTarget(null)
+      setPixError(err instanceof ApiError ? err.message : 'Não foi possível remover o boleto.')
+    } finally {
+      setPixBusyId(null)
+    }
+  }
+
   async function handleGeneratePixLote() {
     setPixLoteBusy(true)
     setPixError(null)
@@ -552,7 +572,52 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
         onClick: () => setReceiveTarget(bill),
       })
 
-      if (role === 1) {
+      if (role === 1 && bill.boleto_provider === 'manual') {
+        // Boleto anexado à mão (emitido fora do sistema): sem cancelamento no banco.
+        if (bill.pix_copia_e_cola) {
+          actions.push({
+            key: 'copy-pix',
+            label: 'Copiar código PIX',
+            icon: <CopyIcon className="h-4 w-4" />,
+            onClick: () => handleCopyPix(bill),
+          })
+        }
+        if (bill.boleto_pdf_url) {
+          actions.push({
+            key: 'print-boleto',
+            label: 'Ver boleto (PDF)',
+            icon: <FileTextIcon className="h-4 w-4" />,
+            onClick: () => setBoletoBill(bill),
+          })
+        }
+        actions.push({
+          key: 'edit-manual-boleto',
+          label: 'Editar boleto anexado',
+          icon: <PencilIcon className="h-4 w-4" />,
+          onClick: () => setManualBoletoBill(bill),
+        })
+        actions.push({
+          key: 'remove-manual-boleto',
+          label: 'Remover boleto anexado',
+          icon: <XCircleIcon className="h-4 w-4" />,
+          tone: 'danger',
+          onClick: () => setRemoveManualTarget(bill),
+        })
+        actions.push({
+          key: 'send-whatsapp',
+          label: 'Enviar WhatsApp',
+          icon: <WhatsappIcon className="h-4 w-4" />,
+          onClick: () => setWhatsappBill(bill),
+        })
+      } else if (role === 1) {
+        if (!bill.pix_copia_e_cola && !bill.boleto_linha_digital) {
+          actions.push({
+            key: 'attach-manual-boleto',
+            label: 'Anexar boleto manual',
+            icon: <FileTextIcon className="h-4 w-4" />,
+            onClick: () => setManualBoletoBill(bill),
+          })
+        }
         if (bill.pix_copia_e_cola) {
           actions.push({
             key: 'copy-pix',
@@ -1184,6 +1249,30 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
         loading={Boolean(pixBusyId)}
         onConfirm={handleCancelBoleto}
         onCancel={() => setCancelBoletoTarget(null)}
+      />
+
+      <ManualBoletoModal
+        open={Boolean(manualBoletoBill)}
+        session={session}
+        company={company}
+        bill={manualBoletoBill}
+        onClose={() => setManualBoletoBill(null)}
+        onSaved={(message) => {
+          setManualBoletoBill(null)
+          setSuccessToast(message)
+          silentReload()
+        }}
+      />
+
+      <ConfirmDialog
+        open={Boolean(removeManualTarget)}
+        title="Remover boleto anexado"
+        message="O PDF, a linha digitável e o PIX anexados serão tirados deste título. O boleto continua válido no banco; só deixa de aparecer aqui."
+        confirmLabel="Remover"
+        cancelLabel="Voltar"
+        loading={Boolean(pixBusyId)}
+        onConfirm={handleRemoveManualBoleto}
+        onCancel={() => setRemoveManualTarget(null)}
       />
 
       <BillBoletoPreviewModal

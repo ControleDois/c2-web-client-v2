@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiPut, apiDelete } from './api'
+import { apiGet, apiPost, apiPostForm, apiPut, apiDelete } from './api'
 
 export interface BillRecord {
   id: string
@@ -330,4 +330,26 @@ export function groupBillsSelected(token: string, payload: { ids: string[]; name
 
 export function ungroupBill(token: string, id: string) {
   return apiPost<{ message: string }>(`/bill/ungroup/${id}`, {}, token)
+}
+
+// Boleto emitido fora do sistema (ex.: no app do banco): PDF, linha digitável e PIX copia e cola.
+export function attachManualBoleto(
+  token: string,
+  companyId: string,
+  billId: string,
+  payload: { file?: File | null; boleto_linha_digital?: string; pix_copia_e_cola?: string }
+) {
+  const form = new FormData()
+  if (payload.file) form.append('file', payload.file)
+  form.append('boleto_linha_digital', payload.boleto_linha_digital ?? '')
+  form.append('pix_copia_e_cola', payload.pix_copia_e_cola ?? '')
+  return apiPostForm<{ message: string; bill: BillRecord }>(
+    `/bill/manual-boleto/${billId}?companyId=${encodeURIComponent(companyId)}`,
+    form,
+    token
+  )
+}
+
+export function removeManualBoleto(token: string, companyId: string, billId: string) {
+  return apiDelete<{ message: string }>(`/bill/manual-boleto/${billId}?companyId=${encodeURIComponent(companyId)}`, token)
 }

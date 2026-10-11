@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import {
   fetchLicenseCompanies,
+  fetchLicenseSettings,
+  saveLicenseSettings,
   syncSaasClients,
   representativeName,
   type LicenseCompanyRecord,
@@ -37,6 +39,10 @@ function isExpired(item: LicenseCompanyRecord): boolean {
 }
 
 export function LicensesPage({ session, company, onEdit }: LicensesPageProps) {
+  const [warningDays, setWarningDays] = useState('')
+  const [savedWarningDays, setSavedWarningDays] = useState<number | null>(null)
+  const [savingWarning, setSavingWarning] = useState(false)
+  const [warningMessage, setWarningMessage] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const [items, setItems] = useState<LicenseCompanyRecord[]>([])
@@ -91,6 +97,35 @@ export function LicensesPage({ session, company, onEdit }: LicensesPageProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, page, company.id, session.token.token])
 
+  useEffect(() => {
+    fetchLicenseSettings(session.token.token)
+      .then((res) => {
+        setWarningDays(String(res.warning_days))
+        setSavedWarningDays(res.warning_days)
+      })
+      .catch(() => undefined)
+  }, [session.token.token])
+
+  async function handleSaveWarning() {
+    const days = Number(warningDays)
+    if (!Number.isInteger(days) || days < 0 || days > 90) {
+      setWarningMessage('Informe um número de 0 a 90.')
+      return
+    }
+    setSavingWarning(true)
+    setWarningMessage(null)
+    try {
+      const res = await saveLicenseSettings(session.token.token, days)
+      setSavedWarningDays(res.warning_days)
+      setWarningMessage('Salvo.')
+    } catch (err) {
+      setWarningMessage(err instanceof ApiError ? err.message : 'Não foi possível salvar.')
+    } finally {
+      setSavingWarning(false)
+      setTimeout(() => setWarningMessage(null), 4000)
+    }
+  }
+
   async function handleSync() {
     setSyncing(true)
     setSyncMessage(null)
@@ -131,6 +166,34 @@ export function LicensesPage({ session, company, onEdit }: LicensesPageProps) {
             {syncing ? 'Sincronizando…' : 'Sincronizar clientes SaaS'}
           </button>
         </div>
+      </div>
+
+      <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
+        <div className="min-w-[220px] flex-1">
+          <p className="text-[13.5px] font-bold text-[var(--ink)]">Aviso de vencimento para o cliente</p>
+          <p className="text-[12px] text-[var(--muted)]">
+            Quantos dias antes do vencimento da cobrança vinculada o cliente começa a ver o aviso com o boleto e o PIX. No dia e depois do
+            vencimento o aviso continua até a conta ser recebida.
+          </p>
+        </div>
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Dias de antecedência</span>
+          <input
+            value={warningDays}
+            onChange={(event) => setWarningDays(event.target.value.replace(/\D/g, '').slice(0, 2))}
+            inputMode="numeric"
+            className="w-28 rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--blue-300)]"
+          />
+        </label>
+        <button
+          type="button"
+          onClick={handleSaveWarning}
+          disabled={savingWarning || warningDays === '' || Number(warningDays) === savedWarningDays}
+          className="rounded-xl bg-[var(--blue-500)] px-4 py-2.5 text-[13.5px] font-bold text-white transition hover:bg-[var(--blue-700)] disabled:opacity-60"
+        >
+          {savingWarning ? 'Salvando…' : 'Salvar'}
+        </button>
+        {warningMessage && <span className="text-[12.5px] font-medium text-[var(--ink-soft)]">{warningMessage}</span>}
       </div>
 
       <div className="flex min-w-[240px] items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2.5">

@@ -4,12 +4,14 @@ import {
   fetchLicenseCompany,
   updateLicenseCompany,
   searchRepresentatives,
+  searchLicenseBills,
   representativeName,
+  type LicenseBillSummary,
   type LicenseCompanyDetail,
   type LicenseStatus,
 } from '../lib/licenses'
 import { formatDocument } from '../lib/formatDocument'
-import { formatDate } from '../lib/format'
+import { formatCurrency, formatDate } from '../lib/format'
 import { ApiError } from '../lib/api'
 import { TextField } from '../components/form/TextField'
 import { SearchSelectField } from '../components/form/SearchSelectField'
@@ -71,6 +73,8 @@ export function LicenseFormPage({ session, licenseId, onBack }: LicenseFormPageP
   const [representativeLabel, setRepresentativeLabel] = useState<string | null>(null)
   const [savingCommercial, setSavingCommercial] = useState(false)
   const [commercialError, setCommercialError] = useState<string | null>(null)
+  const [savingBill, setSavingBill] = useState(false)
+  const [billError, setBillError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -146,6 +150,19 @@ export function LicenseFormPage({ session, licenseId, onBack }: LicenseFormPageP
       setKeyError(err instanceof ApiError ? err.message : 'Não foi possível gerar a chave.')
     } finally {
       setSavingKey(false)
+    }
+  }
+
+  async function handleLinkBill(billId: string | null) {
+    setSavingBill(true)
+    setBillError(null)
+    try {
+      const updated = await updateLicenseCompany(session.token.token, licenseId, { license_bill_id: billId })
+      setDetail(updated)
+    } catch (err) {
+      setBillError(err instanceof ApiError ? err.message : 'Não foi possível vincular a cobrança.')
+    } finally {
+      setSavingBill(false)
     }
   }
 
@@ -264,6 +281,64 @@ export function LicenseFormPage({ session, licenseId, onBack }: LicenseFormPageP
                   Bloquear
                 </button>
               </div>
+            </div>
+          </SectionCard>
+
+          <SectionCard
+            title="Cobrança da licença"
+            subtitle="Vincule a conta a receber (com o boleto e o PIX anexados) para o sistema do cliente avisar o vencimento e deixar pagar na hora"
+          >
+            <div className="flex flex-col gap-4">
+              {detail.license_bill ? (
+                <div className="rounded-xl bg-[var(--page)] px-4 py-3">
+                  <p className="text-[13.5px] font-semibold text-[var(--ink)]">
+                    {detail.license_bill.name}
+                    {detail.license_bill.code ? <span className="ml-1.5 font-mono text-[12px] text-[var(--muted)]">#{detail.license_bill.code}</span> : null}
+                  </p>
+                  <p className="mt-0.5 text-[12.5px] text-[var(--ink-soft)]">
+                    {detail.license_bill.people_name ? `${detail.license_bill.people_name} · ` : ''}
+                    {formatCurrency(detail.license_bill.amount)} · vence em {formatDate(detail.license_bill.date_due)}
+                    {detail.license_bill.status === 1 ? ' · já recebida' : ''}
+                  </p>
+                  <p className="mt-1 text-[12px] text-[var(--muted)]">
+                    {detail.license_bill.pix_copia_e_cola || detail.license_bill.boleto_linha_digital || detail.license_bill.boleto_pdf_url
+                      ? 'Boleto/PIX anexado: o cliente vai ver as opções de pagamento no aviso.'
+                      : 'Este título ainda não tem boleto nem PIX. Anexe em Contas a Receber para o cliente poder pagar pelo aviso.'}
+                  </p>
+                </div>
+              ) : (
+                <p className="text-[12.5px] text-[var(--muted)]">Nenhuma cobrança vinculada: o cliente não recebe aviso de vencimento.</p>
+              )}
+
+              <SearchSelectField
+                label={detail.license_bill ? 'Trocar a conta a receber' : 'Vincular conta a receber'}
+                placeholder="Buscar pelo nome do cliente ou da cobrança"
+                selectedLabel={null}
+                onSearch={(query) => searchLicenseBills(session.token.token, query)}
+                getOptionLabel={(item: LicenseBillSummary) => `${item.people_name ? `${item.people_name} — ` : ''}${item.name}`}
+                getOptionSubLabel={(item: LicenseBillSummary) =>
+                  `${formatCurrency(item.amount)} · vence em ${formatDate(item.date_due)}${
+                    item.pix_copia_e_cola || item.boleto_linha_digital || item.boleto_pdf_url ? ' · com boleto/PIX' : ''
+                  }`
+                }
+                onSelect={(item: LicenseBillSummary) => handleLinkBill(item.id)}
+                onClear={() => undefined}
+              />
+
+              {billError && <p className="text-[13px] font-medium text-[var(--red-500)]">{billError}</p>}
+
+              {detail.license_bill && (
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => handleLinkBill(null)}
+                    disabled={savingBill}
+                    className="rounded-xl border border-[var(--border)] px-4 py-2.5 text-[13px] font-semibold text-[var(--ink-soft)] transition hover:text-[var(--red-500)] disabled:opacity-60"
+                  >
+                    {savingBill ? 'Salvando…' : 'Desvincular cobrança'}
+                  </button>
+                </div>
+              )}
             </div>
           </SectionCard>
 

@@ -81,6 +81,7 @@ import { PermissionFormPage } from './pages/PermissionFormPage'
 import { CompanyGroupsPage } from './pages/CompanyGroupsPage'
 import { CompanyGroupFormPage } from './pages/CompanyGroupFormPage'
 import { LicensesPage } from './pages/LicensesPage'
+import { LicenseNotice } from './components/LicenseNotice'
 import { LicenseFormPage } from './pages/LicenseFormPage'
 import { AuditLogsPage } from './pages/AuditLogsPage'
 import { VehicleInspectionsPage } from './pages/VehicleInspectionsPage'
@@ -1072,6 +1073,7 @@ function App() {
         nfseModuleEnabled={nfseModuleEnabled}
         timeClockEnabled={timeClockEnabled}
       >
+        <LicenseNotice session={session} company={activeCompany} />
         {pageContent}
       </AppShell>
     )
