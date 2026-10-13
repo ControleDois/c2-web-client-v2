@@ -153,3 +153,23 @@ export function deleteProduct(token: string, id: string) {
 export function deleteProductsSelected(token: string, ids: string[]) {
   return Promise.all(ids.map((id) => deleteProduct(token, id)))
 }
+
+// Catálogo de produtos de mercearia (cada um com o código de barras real): quantos a empresa já
+// tem e o cadastro em lote dos que faltam.
+export interface MerceariaCatalogPreview {
+  total: number
+  existing: number
+  missing: number
+}
+
+export function fetchMerceariaCatalogPreview(token: string, companyId: string) {
+  return apiGet<MerceariaCatalogPreview>('/product-catalog/mercearia', { companyId }, token)
+}
+
+export function importMerceariaCatalog(token: string, companyId: string) {
+  return apiPost<{ total: number; created: number; skipped: number }>(
+    '/product-catalog/mercearia/import',
+    { company_id: companyId },
+    token
+  )
+}

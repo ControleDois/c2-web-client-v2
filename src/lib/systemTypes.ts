@@ -20,6 +20,7 @@ export const SYSTEM_TYPE_LABELS: Record<number, string> = {
   18: 'SoftwareHouse / TI',
   19: 'Garagem do Investidor',
   20: 'Vidraçaria',
+  21: 'Mercearia',
 }
 
 export const SYSTEM_TYPE_PROTECAO_VEICULAR = 1
@@ -33,6 +34,7 @@ export const SYSTEM_TYPE_PADARIA = 17
 export const SYSTEM_TYPE_SOFTWARE_HOUSE = 18
 export const SYSTEM_TYPE_GARAGEM_INVESTIDOR = 19
 export const SYSTEM_TYPE_VIDRACARIA = 20
+export const SYSTEM_TYPE_MERCEARIA = 21
 // Loja Online cobre qualquer nicho com delivery/cardápio próprio (inclui os
 // 4 nichos de comida - Pizzaria/Lanchonete ficavam de fora antes por omissão,
 // não por design; corrigido junto da criação de Hamburgeria/Padaria).
@@ -79,6 +81,12 @@ export function isPadaria(systemType?: number): boolean {
   return systemType === SYSTEM_TYPE_PADARIA
 }
 
+// Mercearia/mercadinho: venda de balcão e PDV (Venda Rápida) com produtos de código de barras,
+// estoque e fiscal. Sem veículos; usa o menu padrão dos nichos sem veículo.
+export function isMercearia(systemType?: number): boolean {
+  return systemType === SYSTEM_TYPE_MERCEARIA
+}
+
 // Não confundir com o nicho 0 "Padrão Geral" (default histórico usado por
 // dezenas de empresas sem niche definido, de ramos bem diferentes) - esse
 // aqui é um nicho próprio e isolado, só pra empresa que presta serviço de
@@ -99,6 +107,7 @@ export function isNoVehicleNiche(systemType?: number): boolean {
     isPadaria(systemType) ||
     isSoftwareHouse(systemType) ||
     isVidracaria(systemType) ||
+    isMercearia(systemType) ||
     isDistribuidoraBebidas(systemType)
   )
 }

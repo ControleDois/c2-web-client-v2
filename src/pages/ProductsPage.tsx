@@ -1,5 +1,15 @@
 import { useEffect, useState } from 'react'
-import { fetchProducts, deleteProduct, deleteProductsSelected, PRODUCT_ROLE_LABELS, type ProductRecord } from '../lib/products'
+import {
+  fetchProducts,
+  deleteProduct,
+  deleteProductsSelected,
+  fetchMerceariaCatalogPreview,
+  importMerceariaCatalog,
+  PRODUCT_ROLE_LABELS,
+  type MerceariaCatalogPreview,
+  type ProductRecord,
+} from '../lib/products'
+import { isMercearia } from '../lib/systemTypes'
 import { formatCurrency } from '../lib/format'
 import { ApiError } from '../lib/api'
 import { getCached, setCached } from '../lib/cache'
@@ -40,6 +50,10 @@ export function ProductsPage({ session, company, onCreate, onEdit }: ProductsPag
   const [page, setPage] = useState(1)
   const [items, setItems] = useState<ProductRecord[]>([])
   const [importOpen, setImportOpen] = useState(false)
+  const [merceariaOpen, setMerceariaOpen] = useState(false)
+  const [merceariaPreview, setMerceariaPreview] = useState<MerceariaCatalogPreview | null>(null)
+  const [merceariaBusy, setMerceariaBusy] = useState(false)
+  const [merceariaMessage, setMerceariaMessage] = useState<string | null>(null)
   const [meta, setMeta] = useState({ total: 0, lastPage: 1 })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -108,6 +122,37 @@ export function ProductsPage({ session, company, onCreate, onEdit }: ProductsPag
       .catch(() => {})
   }
 
+  async function openMerceariaImport() {
+    setMerceariaMessage(null)
+    setMerceariaPreview(null)
+    setMerceariaOpen(true)
+    try {
+      setMerceariaPreview(await fetchMerceariaCatalogPreview(session.token.token, company.id))
+    } catch (err) {
+      setMerceariaOpen(false)
+      setMerceariaMessage(err instanceof ApiError ? err.message : 'Não foi possível consultar o catálogo.')
+    }
+  }
+
+  async function handleMerceariaImport() {
+    setMerceariaBusy(true)
+    try {
+      const result = await importMerceariaCatalog(session.token.token, company.id)
+      setMerceariaOpen(false)
+      setMerceariaMessage(
+        result.created
+          ? `${result.created} produto${result.created === 1 ? '' : 's'} cadastrado${result.created === 1 ? '' : 's'}. Defina o preço de venda de cada um.`
+          : 'Todos os produtos do catálogo já estão cadastrados.'
+      )
+      silentReload()
+    } catch (err) {
+      setMerceariaOpen(false)
+      setMerceariaMessage(err instanceof ApiError ? err.message : 'Não foi possível cadastrar os produtos.')
+    } finally {
+      setMerceariaBusy(false)
+    }
+  }
+
   async function handleConfirmDelete() {
     if (!deleteTarget) return
     const deletedId = deleteTarget.id
@@ -160,6 +205,15 @@ export function ProductsPage({ session, company, onCreate, onEdit }: ProductsPag
           <h1 className="mt-0.5 text-[22px] font-bold tracking-tight text-[var(--ink)]">Produtos e Serviços</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
+          {isMercearia(company.system_type) && (
+            <button
+              type="button"
+              onClick={openMerceariaImport}
+              className="flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 text-[13.5px] font-bold text-[var(--ink)] hover:bg-[var(--page)]"
+            >
+              Cadastrar produtos de mercearia
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setImportOpen(true)}
@@ -445,6 +499,35 @@ export function ProductsPage({ session, company, onCreate, onEdit }: ProductsPag
       {deleteError && (
         <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-xl bg-[var(--red-500)] px-4 py-2.5 text-[13px] font-semibold text-white shadow-lg">
           {deleteError}
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={merceariaOpen}
+        title="Cadastrar produtos de mercearia"
+        message={
+          merceariaPreview
+            ? merceariaPreview.missing === 0
+              ? `Os ${merceariaPreview.total} produtos do catálogo já estão cadastrados.`
+              : `Serão cadastrados ${merceariaPreview.missing} produtos de mercearia, cada um com o código de barras (EAN) correto${
+                  merceariaPreview.existing ? `. Os ${merceariaPreview.existing} que você já tem, pelo código de barras, não são mexidos` : ''
+                }. O preço de venda entra zerado: defina o seu depois.`
+            : 'Consultando o catálogo…'
+        }
+        confirmLabel={merceariaPreview && merceariaPreview.missing === 0 ? 'Fechar' : 'Cadastrar produtos'}
+        cancelLabel="Voltar"
+        danger={false}
+        loading={merceariaBusy || !merceariaPreview}
+        onConfirm={() => (merceariaPreview && merceariaPreview.missing === 0 ? setMerceariaOpen(false) : handleMerceariaImport())}
+        onCancel={() => setMerceariaOpen(false)}
+      />
+
+      {merceariaMessage && (
+        <div
+          className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 cursor-pointer rounded-xl bg-[var(--blue-700)] px-4 py-2.5 text-[13px] font-semibold text-white shadow-lg"
+          onClick={() => setMerceariaMessage(null)}
+        >
+          {merceariaMessage}
         </div>
       )}
 
