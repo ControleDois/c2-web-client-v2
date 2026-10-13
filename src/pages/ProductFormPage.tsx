@@ -44,6 +44,7 @@ export function ProductFormPage({ session, company, productId, onBack, onSaved }
   const [barcode, setBarcode] = useState('')
   const [description, setDescription] = useState('')
   const [printToken, setPrintToken] = useState(false)
+  const [askName, setAskName] = useState(false)
 
   const [selectedCategories, setSelectedCategories] = useState<ProductCategoryRef[]>([])
   const [availableCategories, setAvailableCategories] = useState<CategoryProductRecord[]>([])
@@ -96,6 +97,7 @@ export function ProductFormPage({ session, company, productId, onBack, onSaved }
         setBarcode(product.barcode ?? '')
         setDescription(product.description ?? '')
         setPrintToken(Boolean(product.print_token))
+        setAskName(Boolean(product.ask_name))
         setSelectedCategories(product.categories ?? [])
         setNcm(product.ncm ? { id: product.ncm.id, label: `${product.ncm.code} - ${product.ncm.description}` } : null)
         setNfeTaxation(product.taxation ? { id: product.taxation.id, label: product.taxation.name } : null)
@@ -134,6 +136,7 @@ export function ProductFormPage({ session, company, productId, onBack, onSaved }
       barcode: isProduct && barcode.trim() ? barcode.trim() : undefined,
       description: isProduct && description.trim() ? description.trim() : undefined,
       print_token: isProduct ? printToken : false,
+      ask_name: isProduct ? askName : false,
       categories: isProduct ? selectedCategories.map((category) => ({ id: category.id })) : undefined,
       ncm_id: isProduct ? ncm?.id : undefined,
       nfe_taxation_id: isProduct ? nfeTaxation?.id : undefined,
@@ -266,6 +269,24 @@ export function ProductFormPage({ session, company, productId, onBack, onSaved }
                   <span className="block text-[12px] text-[var(--ink-soft)]">
                     Cada unidade vendida no PDV imprime uma ficha com código de barras. O cliente troca a ficha pelo produto e o
                     caixa bipa para dar baixa. Sai na impressora do comprovante.
+                  </span>
+                </span>
+              </label>
+            )}
+
+            {isProduct && (
+              <label className="mt-4 flex items-start gap-2.5 rounded-xl bg-[var(--page)] p-3.5">
+                <input
+                  type="checkbox"
+                  checked={askName}
+                  onChange={(event) => setAskName(event.target.checked)}
+                  className="mt-0.5 h-4 w-4 accent-[var(--blue-500)]"
+                />
+                <span>
+                  <span className="block text-[13.5px] font-semibold text-[var(--ink)]">Produto avulso (pedir o nome na venda)</span>
+                  <span className="block text-[12px] text-[var(--ink-soft)]">
+                    Ao bipar ou escolher este produto no PDV, o caixa digita o nome do item e o valor. Serve para vender na hora algo que
+                    não está cadastrado, sem criar um produto novo.
                   </span>
                 </span>
               </label>
