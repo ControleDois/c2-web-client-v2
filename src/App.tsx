@@ -56,6 +56,7 @@ import { GlassOrdersPage } from './pages/glass/GlassOrdersPage'
 import { GlassOrderFormPage } from './pages/glass/GlassOrderFormPage'
 import { GlassProductionPage } from './pages/glass/GlassProductionPage'
 import { GlassDashboardPage } from './pages/glass/GlassDashboardPage'
+import { MerceariaDashboardPage } from './pages/MerceariaDashboardPage'
 import { PrintersPage } from './pages/PrintersPage'
 import { AppReleasesPage } from './pages/AppReleasesPage'
 import { SaleTokensPage } from './pages/SaleTokensPage'
@@ -114,7 +115,7 @@ import {
   type AuthSession,
   type AuthCompany,
 } from './lib/auth'
-import { isLocacaoVeiculos, isEmprestimo, isGaragemInvestidor, isVidracaria } from './lib/systemTypes'
+import { isLocacaoVeiculos, isEmprestimo, isGaragemInvestidor, isVidracaria, isMercearia } from './lib/systemTypes'
 
 type Screen = 'login' | 'forgot-password' | 'signup'
 
@@ -1053,6 +1054,15 @@ function App() {
             setPage('glass-orders')
             glassOrdersView.edit(orderId)
           }}
+        />
+      )
+    } else if (isMercearia(activeCompany.system_type)) {
+      pageContent = (
+        <MerceariaDashboardPage
+          session={session}
+          company={activeCompany}
+          onOpenProducts={() => handleNavigate('products')}
+          onOpenPayables={() => handleNavigate('bills-payable')}
         />
       )
     } else {
