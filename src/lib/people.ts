@@ -35,6 +35,29 @@ export interface PersonDocumentInput {
   file?: File
 }
 
+// Acesso remoto às máquinas do cliente (nicho TI). Tipos gravados em `role`.
+export const REMOTE_ACCESS_LABELS: Record<number, string> = {
+  0: 'RustDesk',
+  1: 'AnyDesk',
+  2: 'TeamViewer',
+}
+
+export interface RemoteAccessEntry {
+  role: number
+  name: string
+  access_id: string
+  access_password: string
+}
+
+// Link que abre o programa já na máquina (precisa do programa instalado no computador de quem atende).
+export function remoteAccessLink(role: number, accessId: string): string {
+  const id = accessId.replace(/\s/g, '')
+  if (!id) return ''
+  if (role === 1) return `anydesk:${id}`
+  if (role === 2) return `teamviewer10://${id}`
+  return `rustdesk://${id}`
+}
+
 export interface PersonRecord {
   id: string
   code?: number
@@ -53,6 +76,7 @@ export interface PersonRecord {
   state_registration_indicator?: number | null
   state_registration?: string | null
   documents?: PersonDocument[]
+  remoteAccess?: RemoteAccessEntry[]
   // Limite de crédito (nicho Empréstimo) - `limit_credit` é o total
   // cadastrado, `available_limit` já desconta o que está em aberto.
   limit_credit?: number | null
@@ -93,6 +117,8 @@ export interface PersonPayload {
   time_clock_salary_value?: number
   address?: PersonAddress
   documents?: PersonDocumentInput[]
+  // Só enviar no nicho TI: o servidor troca a lista inteira quando o campo vem.
+  remoteAccess?: RemoteAccessEntry[]
   file?: File
 }
 
@@ -199,6 +225,8 @@ function buildPersonForm(payload: PersonPayload): FormData {
     form.append(`documents[${index}][description]`, doc.description ?? '')
     if (doc.file) form.append(`documents[${index}][file]`, doc.file)
   })
+
+  if (payload.remoteAccess) form.append('remoteAccess', JSON.stringify(payload.remoteAccess))
 
   if (payload.file) form.append('file', payload.file)
 

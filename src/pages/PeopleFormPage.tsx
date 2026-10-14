@@ -7,6 +7,9 @@ import {
   ROLE_LABELS,
   STATUS_LABELS,
   PERSON_IE_INDICATOR_LABELS,
+  REMOTE_ACCESS_LABELS,
+  remoteAccessLink,
+  type RemoteAccessEntry,
   type PersonRecord,
   type PersonDocumentInput,
 } from '../lib/people'
@@ -30,7 +33,7 @@ import {
   PaperclipIcon,
   EyeIcon,
 } from '../components/icons'
-import { isEmprestimo } from '../lib/systemTypes'
+import { isEmprestimo, isSoftwareHouse } from '../lib/systemTypes'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
 interface PeopleFormPageProps {
@@ -93,6 +96,9 @@ export function PeopleFormPage({
   const [limitCredit, setLimitCredit] = useState('')
   const [availableLimit, setAvailableLimit] = useState<number | null>(null)
   const showCreditLimit = isEmprestimo(company.system_type)
+  const showRemoteAccess = isSoftwareHouse(company.system_type)
+  const [remotes, setRemotes] = useState<RemoteAccessEntry[]>([])
+  const [visiblePasswords, setVisiblePasswords] = useState<number[]>([])
 
   // Ponto: jornada e remuneração - em branco = usa o padrão da empresa
   // (Configurações → Ponto).
@@ -209,6 +215,15 @@ export function PeopleFormPage({
               : 9
         )
         setStateRegistration(person.state_registration ?? '')
+        setRemotes(
+          (person.remoteAccess ?? []).map((item) => ({
+            role: Number(item.role ?? 0),
+            name: item.name ?? '',
+            access_id: item.access_id ?? '',
+            access_password: item.access_password ?? '',
+          }))
+        )
+        setVisiblePasswords([])
         setDocuments(
           (person.documents ?? []).map((doc) => ({
             id: doc.id,
@@ -280,6 +295,27 @@ export function PeopleFormPage({
     }
   }
 
+  function addRemote() {
+    setRemotes((list) => [...list, { role: 1, name: '', access_id: '', access_password: '' }])
+  }
+
+  function updateRemote(index: number, patch: Partial<RemoteAccessEntry>) {
+    setRemotes((list) => list.map((item, i) => (i === index ? { ...item, ...patch } : item)))
+  }
+
+  function removeRemote(index: number) {
+    setRemotes((list) => list.filter((_, i) => i !== index))
+    setVisiblePasswords([])
+  }
+
+  function togglePasswordVisible(index: number) {
+    setVisiblePasswords((list) => (list.includes(index) ? list.filter((i) => i !== index) : [...list, index]))
+  }
+
+  function copyToClipboard(value: string) {
+    navigator.clipboard?.writeText(value).catch(() => undefined)
+  }
+
   function addDocument() {
     setDocuments((docs) => [...docs, { title: '', description: '' }])
   }
@@ -323,6 +359,14 @@ export function PeopleFormPage({
         file: doc.file,
       }))
 
+    const remoteEntries = remotes
+      .map((item) => ({ ...item, name: item.name.trim(), access_id: item.access_id.trim() }))
+      .filter((item) => item.name || item.access_id)
+    if (showRemoteAccess && remoteEntries.some((item) => !item.name || !item.access_id)) {
+      setError('Acesso remoto: informe o nome da máquina e o ID de cada acesso.')
+      return
+    }
+
     const payload = {
       company_id: company.id,
       name,
@@ -347,6 +391,7 @@ export function PeopleFormPage({
       state_registration_indicator: ieIndicator,
       state_registration: ieIndicator === 1 ? stateRegistration.trim() || undefined : undefined,
       documents: documentEntries,
+      remoteAccess: showRemoteAccess ? remoteEntries : undefined,
       file: avatarFile,
     }
 
@@ -751,6 +796,125 @@ export function PeopleFormPage({
               </div>
             </div>
           </div>
+
+          {showRemoteAccess && (
+            <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-[14px] font-bold text-[var(--ink)]">Acesso remoto</h2>
+                  <p className="mt-0.5 text-[12px] text-[var(--muted)]">
+                    RustDesk, AnyDesk ou TeamViewer: o nome, o ID e a senha de cada máquina do cliente
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={addRemote}
+                  className="flex flex-none items-center gap-1.5 rounded-xl border border-[var(--border)] px-3 py-2 text-[12.5px] font-bold text-[var(--ink-soft)] hover:text-[var(--ink)]"
+                >
+                  <PlusIcon className="h-3.5 w-3.5" />
+                  Adicionar máquina
+                </button>
+              </div>
+
+              {remotes.length === 0 ? (
+                <p className="py-4 text-center text-[13px] text-[var(--muted)]">Nenhuma máquina cadastrada ainda.</p>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {remotes.map((item, index) => {
+                    const link = remoteAccessLink(item.role, item.access_id)
+                    const inputClass =
+                      'min-w-0 rounded-lg bg-[var(--surface)] px-3 py-2 text-[13.5px] text-[var(--ink)] ring-1 ring-transparent focus:outline-none focus:ring-[var(--blue-300)]'
+                    return (
+                      <div key={index} className="flex flex-col gap-3 rounded-xl bg-[var(--page)] p-4">
+                        <div className="grid gap-3 sm:grid-cols-[9rem_1fr]">
+                          <select
+                            value={item.role}
+                            onChange={(event) => updateRemote(index, { role: Number(event.target.value) })}
+                            className={inputClass}
+                          >
+                            {Object.entries(REMOTE_ACCESS_LABELS).map(([value, label]) => (
+                              <option key={value} value={value}>
+                                {label}
+                              </option>
+                            ))}
+                          </select>
+                          <input
+                            type="text"
+                            placeholder="Nome da máquina (ex: Servidor, Caixa 1)"
+                            value={item.name}
+                            onChange={(event) => updateRemote(index, { name: event.target.value })}
+                            className={inputClass}
+                          />
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              placeholder="ID (ex: 123 456 789)"
+                              value={item.access_id}
+                              onChange={(event) => updateRemote(index, { access_id: event.target.value })}
+                              className={`${inputClass} flex-1`}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => copyToClipboard(item.access_id.replace(/\s/g, ''))}
+                              disabled={!item.access_id}
+                              className="flex-none text-[12px] font-semibold text-[var(--blue-700)] disabled:opacity-40"
+                            >
+                              Copiar
+                            </button>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type={visiblePasswords.includes(index) ? 'text' : 'password'}
+                              autoComplete="new-password"
+                              placeholder="Senha"
+                              value={item.access_password}
+                              onChange={(event) => updateRemote(index, { access_password: event.target.value })}
+                              className={`${inputClass} flex-1`}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => togglePasswordVisible(index)}
+                              title="Mostrar ou ocultar a senha"
+                              className="flex-none text-[var(--ink-soft)] hover:text-[var(--ink)]"
+                            >
+                              <EyeIcon className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => copyToClipboard(item.access_password)}
+                              disabled={!item.access_password}
+                              className="flex-none text-[12px] font-semibold text-[var(--blue-700)] disabled:opacity-40"
+                            >
+                              Copiar
+                            </button>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          {link ? (
+                            <a href={link} className="text-[12.5px] font-bold text-[var(--blue-700)] hover:underline">
+                              Conectar pelo {REMOTE_ACCESS_LABELS[item.role]}
+                            </a>
+                          ) : (
+                            <span />
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => removeRemote(index)}
+                            className="flex items-center gap-1 text-[12.5px] font-semibold text-[var(--red-500)]"
+                          >
+                            <TrashIcon className="h-3.5 w-3.5" />
+                            Remover
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6">
             <div className="mb-4 flex items-center justify-between">
