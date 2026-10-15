@@ -241,13 +241,18 @@ export function printBillReceipt(token: string, id: string) {
   return apiPost<{ url: string; html: string }>(`/bill/print-receipt/${id}`, {}, token)
 }
 
-export function generateBillPix(token: string, companyId: string, id: string) {
-  return apiPost<{ message: string; pix: { txid: string; copiaECola: string } }>(
+export function generateBillPix(token: string, companyId: string, id: string, bank?: BoletoBank['id']) {
+  return apiPost<{ message: string; pix: { txid?: string; copiaECola: string } }>(
     `/bill/generate-pix/${id}`,
-    {},
+    bank ? { bank } : {},
     token,
     { companyId }
   )
+}
+
+// Bancos habilitados para gerar PIX (o painel pergunta por qual gerar quando houver mais de um).
+export function fetchPixBanks(token: string, companyId: string) {
+  return apiGet<{ banks: BoletoBank[] }>('/bill/pix-banks', { companyId }, token)
 }
 
 export function cancelBillPix(token: string, companyId: string, id: string) {
@@ -263,8 +268,8 @@ export interface BillsBatchResult {
   }
 }
 
-export function generateBillsPixLote(token: string, companyId: string, ids: string[]) {
-  return apiPost<BillsBatchResult>('/bill/generate-pix-lote', { ids }, token, { companyId })
+export function generateBillsPixLote(token: string, companyId: string, ids: string[], bank?: BoletoBank['id']) {
+  return apiPost<BillsBatchResult>('/bill/generate-pix-lote', bank ? { ids, bank } : { ids }, token, { companyId })
 }
 
 export function cancelBillsPixLote(token: string, companyId: string, ids: string[]) {

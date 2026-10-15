@@ -6,9 +6,20 @@ interface BoletoBankPickerModalProps {
   loading?: boolean
   onPick: (bank: BoletoBank) => void
   onCancel: () => void
+  // Textos da janela: o mesmo seletor serve para boleto e para PIX.
+  title?: string
+  subtitle?: string
 }
 
-export function BoletoBankPickerModal({ open, banks, loading = false, onPick, onCancel }: BoletoBankPickerModalProps) {
+export function BoletoBankPickerModal({
+  open,
+  banks,
+  loading = false,
+  onPick,
+  onCancel,
+  title = 'Gerar boleto por qual banco?',
+  subtitle = 'Esta empresa tem mais de um banco habilitado para boleto.',
+}: BoletoBankPickerModalProps) {
   if (!open) return null
 
   return (
@@ -17,10 +28,8 @@ export function BoletoBankPickerModal({ open, banks, loading = false, onPick, on
         className="w-full max-w-[400px] rounded-2xl bg-[var(--surface)] p-6 shadow-[var(--card-shadow)]"
         onClick={(event) => event.stopPropagation()}
       >
-        <h2 className="text-[15px] font-bold text-[var(--ink)]">Gerar boleto por qual banco?</h2>
-        <p className="mt-1 text-[13.5px] leading-relaxed text-[var(--ink-soft)]">
-          Esta empresa tem mais de um banco habilitado para boleto.
-        </p>
+        <h2 className="text-[15px] font-bold text-[var(--ink)]">{title}</h2>
+        <p className="mt-1 text-[13.5px] leading-relaxed text-[var(--ink-soft)]">{subtitle}</p>
 
         <div className="mt-4 flex flex-col gap-2">
           {banks.map((bank) => (

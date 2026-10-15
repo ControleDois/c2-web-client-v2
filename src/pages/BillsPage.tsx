@@ -11,6 +11,7 @@ import {
   cancelBillsPixLote,
   generateBillBoleto,
   fetchBoletoBanks,
+  fetchPixBanks,
   cancelBillBoleto,
   removeManualBoleto,
   type BillRecord,
@@ -144,6 +145,8 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
 
   const [boletoBill, setBoletoBill] = useState<BillRecord | null>(null)
   const [bankPicker, setBankPicker] = useState<{ bill: BillRecord; banks: BoletoBank[] } | null>(null)
+  // PIX: quando há mais de um banco habilitado, pergunta por qual gerar (uma conta ou várias de uma vez).
+  const [pixBankPicker, setPixBankPicker] = useState<{ bill: BillRecord | null; banks: BoletoBank[] } | null>(null)
   const [cancelBoletoTarget, setCancelBoletoTarget] = useState<BillRecord | null>(null)
   const [manualBoletoBill, setManualBoletoBill] = useState<BillRecord | null>(null)
   const [removeManualTarget, setRemoveManualTarget] = useState<BillRecord | null>(null)
@@ -403,7 +406,36 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
     setPixBusyId(bill.id)
     setPixError(null)
     try {
-      await generateBillPix(session.token.token, company.id, bill.id)
+      const { banks } = await fetchPixBanks(session.token.token, company.id)
+      if (banks.length === 0) {
+        setPixError('Nenhum banco habilitado para PIX. Configure o Sicredi ou o Banco Cora em Configurações > Integrações Bancárias.')
+        return
+      }
+      if (banks.length > 1) {
+        setPixBankPicker({ bill, banks })
+        return
+      }
+      await generateBillPix(session.token.token, company.id, bill.id, banks[0].id)
+      silentReload()
+    } catch (err) {
+      setPixError(err instanceof ApiError ? err.message : 'Não foi possível gerar o PIX.')
+    } finally {
+      setPixBusyId(null)
+    }
+  }
+
+  async function handlePickPixBank(bank: BoletoBank) {
+    if (!pixBankPicker) return
+    const { bill } = pixBankPicker
+    setPixBankPicker(null)
+    if (!bill) {
+      await runGeneratePixLote(bank.id)
+      return
+    }
+    setPixBusyId(bill.id)
+    setPixError(null)
+    try {
+      await generateBillPix(session.token.token, company.id, bill.id, bank.id)
       silentReload()
     } catch (err) {
       setPixError(err instanceof ApiError ? err.message : 'Não foi possível gerar o PIX.')
@@ -523,8 +555,33 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
     setPixLoteBusy(true)
     setPixError(null)
     setPixLoteResult(null)
+    let singleBank: BoletoBank['id'] | undefined
     try {
-      const res = await generateBillsPixLote(session.token.token, company.id, Array.from(selected))
+      const { banks } = await fetchPixBanks(session.token.token, company.id)
+      singleBank = banks[0]?.id
+      if (banks.length === 0) {
+        setPixError('Nenhum banco habilitado para PIX. Configure o Sicredi ou o Banco Cora em Configurações > Integrações Bancárias.')
+        return
+      }
+      if (banks.length > 1) {
+        setPixBankPicker({ bill: null, banks })
+        return
+      }
+    } catch (err) {
+      setPixError(err instanceof ApiError ? err.message : 'Não foi possível consultar os bancos.')
+      return
+    } finally {
+      setPixLoteBusy(false)
+    }
+    await runGeneratePixLote(singleBank)
+  }
+
+  async function runGeneratePixLote(bank?: BoletoBank['id']) {
+    setPixLoteBusy(true)
+    setPixError(null)
+    setPixLoteResult(null)
+    try {
+      const res = await generateBillsPixLote(session.token.token, company.id, Array.from(selected), bank)
       setPixLoteResult(`${res.results.sucesso.length} PIX gerados, ${res.results.erros.length} com erro.`)
       silentReload()
     } catch (err) {
@@ -625,13 +682,16 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
             icon: <CopyIcon className="h-4 w-4" />,
             onClick: () => handleCopyPix(bill),
           })
-          actions.push({
-            key: 'cancel-pix',
-            label: 'Cancelar PIX',
-            icon: <XCircleIcon className="h-4 w-4" />,
-            tone: 'danger',
-            onClick: () => handleCancelPix(bill),
-          })
+          // O PIX que veio junto do boleto da Cora sai pelo "Cancelar boleto".
+          if (!(bill.boleto_provider === 'cora' && bill.boleto_linha_digital)) {
+            actions.push({
+              key: 'cancel-pix',
+              label: 'Cancelar PIX',
+              icon: <XCircleIcon className="h-4 w-4" />,
+              tone: 'danger',
+              onClick: () => handleCancelPix(bill),
+            })
+          }
         } else if (!bill.boleto_linha_digital) {
           actions.push({
             key: 'generate-pix',
@@ -1230,6 +1290,16 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
         session={session}
         bill={receiptBill}
         onClose={() => setReceiptBill(null)}
+      />
+
+      <BoletoBankPickerModal
+        open={Boolean(pixBankPicker)}
+        banks={pixBankPicker?.banks ?? []}
+        loading={Boolean(pixBusyId)}
+        title="Gerar PIX por qual banco?"
+        subtitle="Esta empresa tem mais de um banco habilitado para PIX."
+        onPick={handlePickPixBank}
+        onCancel={() => setPixBankPicker(null)}
       />
 
       <BoletoBankPickerModal
