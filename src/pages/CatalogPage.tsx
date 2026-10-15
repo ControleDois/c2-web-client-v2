@@ -19,6 +19,7 @@ import { formatCurrency, formatDateTime } from '../lib/format'
 import { parseMoney } from '../lib/money'
 import { MoneyField } from '../components/form/MoneyField'
 import { TextField } from '../components/form/TextField'
+import { OwnMenuTab } from './catalog/OwnMenuTab'
 import { BoxIcon, CameraIcon, CloseIcon, DollarSignIcon, PencilIcon, RefreshIcon, SearchIcon, TagIcon, TrashIcon } from '../components/icons'
 
 interface CatalogPageProps {
@@ -72,7 +73,7 @@ function SyncChip({ item }: { item: CatalogItem }) {
 export function CatalogPage({ session, company }: CatalogPageProps) {
   const token = session.token.token
   const [overview, setOverview] = useState<CatalogChannelsResponse | null>(null)
-  const [channelId, setChannelId] = useState<string | null>(null)
+  const [channelId, setChannelId] = useState<string>('own')
   const [items, setItems] = useState<CatalogItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -94,7 +95,6 @@ export function CatalogPage({ session, company }: CatalogPageProps) {
     try {
       const data = await fetchCatalogChannels(token, company.id)
       setOverview(data)
-      setChannelId((current) => current ?? data.channels[0]?.id ?? null)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Não foi possível carregar os canais.')
     } finally {
@@ -103,7 +103,7 @@ export function CatalogPage({ session, company }: CatalogPageProps) {
   }, [token, company.id])
 
   const loadItems = useCallback(async () => {
-    if (!channelId) return
+    if (channelId === 'own') return
     try {
       setItems(await fetchCatalogItems(token, channelId, search.trim()))
       setError(null)
@@ -217,7 +217,7 @@ export function CatalogPage({ session, company }: CatalogPageProps) {
   }
 
   async function refreshFormItem(productId: string) {
-    if (!channelId) return
+    if (channelId === 'own') return
     const fresh = (await fetchCatalogItems(token, channelId, '')).find((entry) => entry.product_id === productId)
     setItems((current) => current.map((entry) => (entry.product_id === productId && fresh ? fresh : entry)))
     if (fresh) setForm((current) => (current ? { ...current, item: fresh } : current))
@@ -269,35 +269,40 @@ export function CatalogPage({ session, company }: CatalogPageProps) {
         </p>
       </div>
 
-      {overview && overview.channels.length === 0 ? (
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 text-[13.5px] text-[var(--ink-soft)]">
-          Nenhum canal conectado ainda. Conecte a sua loja do iFood em Configurações → Integrações para controlar o
-          catálogo dela por aqui. O cardápio próprio continua sendo editado em Produtos ({overview.own.products}{' '}
-          publicado(s)).
-        </div>
+      <div className="flex flex-wrap gap-2">
+        {[{ id: 'own', name: 'Cardápio próprio' }, ...(overview?.channels ?? [])].map((entry) => (
+          <button
+            key={entry.id}
+            type="button"
+            onClick={() => {
+              setChannelId(entry.id)
+              setItems([])
+              setMessage(null)
+              setError(null)
+            }}
+            className={`rounded-xl px-4 py-2 text-[13px] font-bold transition ${
+              entry.id === channelId
+                ? 'bg-[var(--blue-500)] text-white'
+                : 'bg-[var(--surface)] text-[var(--ink-soft)] ring-1 ring-[var(--border)] hover:text-[var(--ink)]'
+            }`}
+          >
+            {entry.name}
+          </button>
+        ))}
+      </div>
+
+      {channelId === 'own' ? (
+        <>
+          <OwnMenuTab session={session} company={company} />
+          {overview && overview.channels.length === 0 && (
+            <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 text-[13px] text-[var(--ink-soft)]">
+              Para controlar o catálogo do iFood por aqui, conecte a sua loja em Configurações → Integrações. Depois
+              de autorizada, ela aparece como uma aba ao lado do cardápio próprio.
+            </div>
+          )}
+        </>
       ) : (
         <>
-          <div className="flex flex-wrap gap-2">
-            {overview?.channels.map((entry) => (
-              <button
-                key={entry.id}
-                type="button"
-                onClick={() => {
-                  setChannelId(entry.id)
-                  setItems([])
-                  setMessage(null)
-                }}
-                className={`rounded-xl px-4 py-2 text-[13px] font-bold transition ${
-                  entry.id === channelId
-                    ? 'bg-[var(--blue-500)] text-white'
-                    : 'bg-[var(--surface)] text-[var(--ink-soft)] ring-1 ring-[var(--border)] hover:text-[var(--ink)]'
-                }`}
-              >
-                {entry.name}
-              </button>
-            ))}
-          </div>
-
           {channel && (
             <div className="grid gap-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)] lg:grid-cols-[1fr_1fr_auto] lg:items-end">
               <MoneyField
@@ -373,7 +378,7 @@ export function CatalogPage({ session, company }: CatalogPageProps) {
           <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-[var(--card-shadow)]">
             {items.length === 0 ? (
               <p className="py-12 text-center text-[13.5px] text-[var(--muted)]">
-                Nenhum produto no cardápio. Publique produtos em Produtos → aba Cardápio online.
+                Nenhum produto no cardápio. Publique produtos na aba Cardápio próprio.
               </p>
             ) : (
               <ul className="divide-y divide-[var(--border)]">

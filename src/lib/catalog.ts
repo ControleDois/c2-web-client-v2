@@ -110,3 +110,49 @@ export function deleteCatalogImage(token: string, channelId: string, productId: 
 export function syncCatalogChannel(token: string, channelId: string, data: { product_id?: string; force?: boolean }) {
   return apiPost<CatalogSyncResult>(`/catalog/channels/${channelId}/sync`, data, token)
 }
+
+export interface OwnMenuItem {
+  product_id: string
+  code: number
+  name: string
+  product_price: number
+  stock: number
+  in_menu: boolean
+  shop: {
+    active: boolean
+    name: string
+    description: string
+    price: number | null
+    images: CatalogChannelImage[]
+  }
+}
+
+export function fetchOwnMenuItems(token: string, companyId: string, search?: string) {
+  return apiGet<OwnMenuItem[]>('/catalog/own/items', { companyId, search: search || undefined }, token)
+}
+
+export function saveOwnMenuItem(
+  token: string,
+  companyId: string,
+  productId: string,
+  data: { active: boolean; name: string; description: string; price: number | null }
+) {
+  return apiPut<{ ok: true }>(`/catalog/own/items/${productId}?companyId=${encodeURIComponent(companyId)}`, data, token)
+}
+
+export function uploadOwnMenuImage(token: string, companyId: string, productId: string, file: File) {
+  const form = new FormData()
+  form.append('file', file)
+  return apiPostForm<CatalogChannelImage>(
+    `/catalog/own/items/${productId}/images?companyId=${encodeURIComponent(companyId)}`,
+    form,
+    token
+  )
+}
+
+export function deleteOwnMenuImage(token: string, companyId: string, productId: string, imageId: string) {
+  return apiDelete<{ ok: true }>(
+    `/catalog/own/items/${productId}/images/${imageId}?companyId=${encodeURIComponent(companyId)}`,
+    token
+  )
+}
