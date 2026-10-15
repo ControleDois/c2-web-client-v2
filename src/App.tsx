@@ -60,6 +60,11 @@ import { MerceariaDashboardPage } from './pages/MerceariaDashboardPage'
 import { PrintersPage } from './pages/PrintersPage'
 import { AppReleasesPage } from './pages/AppReleasesPage'
 import { BlogPostsPage } from './pages/BlogPostsPage'
+import { OnboardingPage } from './pages/OnboardingPage'
+import { LicenseBlockedPage } from './pages/LicenseBlockedPage'
+import { TrialBanner } from './components/TrialBanner'
+import { isLicenseBlocked } from './lib/licenseState'
+import type { OnboardingResult } from './lib/onboarding'
 import { BlogPostFormPage } from './pages/BlogPostFormPage'
 import { SaleTokensPage } from './pages/SaleTokensPage'
 import { PrinterFormPage } from './pages/PrinterFormPage'
@@ -124,7 +129,10 @@ type Screen = 'login' | 'forgot-password' | 'signup'
 function App() {
   const [session, setSession] = useState<AuthSession | null>(() => loadSession())
   const [activeCompany, setActiveCompany] = useState<AuthCompany | null>(() => loadActiveCompany())
-  const [screen, setScreen] = useState<Screen>('login')
+  // O site leva quem quer testar para ?cadastro=1: abre direto na criação de conta.
+  const [screen, setScreen] = useState<Screen>(() =>
+    new URLSearchParams(window.location.search).has('cadastro') ? 'signup' : 'login'
+  )
   const [page, setPage] = useState<AppPage>('dashboard')
   const [switchingCompany, setSwitchingCompany] = useState(false)
   const [purchaseManagementEnabled, setPurchaseManagementEnabled] = useState(false)
@@ -303,6 +311,29 @@ function App() {
     }
   }
 
+  // Junta o que o passo a passo inicial gravou (segmento, nome, documento, conclusão) na empresa em uso e na sessão.
+  function handleOnboardingResult(result: OnboardingResult) {
+    if (!session || !activeCompany) return
+    const patch = {
+      system_type: result.system_type,
+      onboarding_completed_at: result.onboarding_completed_at,
+      people: { ...(activeCompany.people ?? {}), ...result.people },
+    }
+    const nextCompany = { ...activeCompany, ...patch } as AuthCompany
+    saveActiveCompany(nextCompany)
+    setActiveCompany(nextCompany)
+
+    const nextSession = {
+      ...session,
+      user: {
+        ...session.user,
+        companies: getUserCompanies(session).map((item) => (item.id === nextCompany.id ? { ...item, ...patch } : item)),
+      },
+    } as AuthSession
+    saveSession(nextSession)
+    setSession(nextSession)
+  }
+
   function handleLogout() {
     clearSession()
     setSession(null)
@@ -326,6 +357,25 @@ function App() {
       <div className="flex h-svh items-center justify-center bg-[var(--page)]">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--blue-300)] border-t-[var(--blue-500)]" />
       </div>
+    )
+  } else if (session && activeCompany && isLicenseBlocked(activeCompany)) {
+    // Teste grátis acabou ou assinatura bloqueada: o servidor também barra as chamadas.
+    content = (
+      <div className="min-h-svh bg-[var(--page)]">
+        <LicenseNotice session={session} company={activeCompany} />
+        <LicenseBlockedPage company={activeCompany} onSwitchCompany={handleSwitchCompany} onLogout={handleLogout} />
+      </div>
+    )
+  } else if (session && activeCompany && activeCompany.onboarding_completed_at === null && !activeCompany.is_master) {
+    // Só empresa recém-criada (null); empresas antigas não têm o campo ou já estão concluídas.
+    content = (
+      <OnboardingPage
+        session={session}
+        company={activeCompany}
+        onCompanyChange={handleOnboardingResult}
+        onFinish={(destination) => handleNavigate(destination ?? 'dashboard')}
+        onLogout={handleLogout}
+      />
     )
   } else if (session && activeCompany) {
     let pageContent: ReactNode
@@ -1099,6 +1149,7 @@ function App() {
         nfseModuleEnabled={nfseModuleEnabled}
         timeClockEnabled={timeClockEnabled}
       >
+        <TrialBanner company={activeCompany} />
         <LicenseNotice session={session} company={activeCompany} />
         {pageContent}
       </AppShell>
@@ -1115,7 +1166,7 @@ function App() {
   } else if (screen === 'forgot-password') {
     content = <ForgotPasswordPage onBackToLogin={() => setScreen('login')} />
   } else if (screen === 'signup') {
-    content = <SignupPage onBackToLogin={() => setScreen('login')} />
+    content = <SignupPage onBackToLogin={() => setScreen('login')} onSignedUp={handleLoginSuccess} />
   } else {
     content = (
       <LoginPage

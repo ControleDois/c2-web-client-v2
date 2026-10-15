@@ -19,6 +19,8 @@ export interface AuthCompany {
   system_type?: number
   license_status?: string
   license_expires_at?: string | null
+  // Fim do passo a passo inicial: null = ainda falta (o painel mostra o assistente); ausente = empresa antiga.
+  onboarding_completed_at?: string | null
   people?: AuthPeople | null
   isMaster?: boolean
   // Flag de empresa matriz ("Controle Dois", Company.is_master) — diferente de
@@ -45,6 +47,12 @@ export interface AuthSession {
 
 const SESSION_KEY = 'c2_auth'
 const ACTIVE_COMPANY_KEY = 'c2_active_company'
+
+// Cadastro simples (nome da empresa, e-mail e senha): cria a conta com teste grátis e já entra no sistema.
+export async function signup(name: string, email: string, password: string) {
+  await apiPost<unknown>('/auth/signup', { name: name.trim(), email: email.trim(), password })
+  return signin(email.trim(), password)
+}
 
 export async function signin(email: string, password: string) {
   try {

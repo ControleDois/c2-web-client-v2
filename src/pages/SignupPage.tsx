@@ -4,12 +4,15 @@ import { LegalFooter } from '../components/LegalFooter'
 import { TextField } from '../components/form/TextField'
 import { PasswordField } from '../components/form/PasswordField'
 import { BuildingIcon, MailIcon } from '../components/icons'
+import { signup, type AuthSession } from '../lib/auth'
+import { ApiError } from '../lib/api'
 
 interface SignupPageProps {
   onBackToLogin: () => void
+  onSignedUp: (session: AuthSession) => void
 }
 
-export function SignupPage({ onBackToLogin }: SignupPageProps) {
+export function SignupPage({ onBackToLogin, onSignedUp }: SignupPageProps) {
   const [companyName, setCompanyName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -35,8 +38,13 @@ export function SignupPage({ onBackToLogin }: SignupPageProps) {
     }
 
     setSubmitting(true)
-    await new Promise((resolve) => setTimeout(resolve, 900))
-    setSubmitting(false)
+    try {
+      onSignedUp(await signup(companyName, email, password))
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Não foi possível criar a conta. Tente novamente.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -57,7 +65,7 @@ export function SignupPage({ onBackToLogin }: SignupPageProps) {
           <Logo className="h-20 w-20" />
           <div>
             <h1 className="text-[17px] font-bold tracking-tight text-[var(--ink)]">Controle Dois</h1>
-            <p className="mt-0.5 text-[13px] text-[var(--muted)]">14 dias grátis, sem cartão de crédito</p>
+            <p className="mt-0.5 text-[13px] text-[var(--muted)]">7 dias grátis, sem cartão de crédito</p>
           </div>
         </div>
 
