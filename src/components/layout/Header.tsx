@@ -44,6 +44,8 @@ interface HeaderProps {
       | 'licenses'
       | 'app-releases'
       | 'blog-posts'
+      | 'subscription'
+      | 'plans'
   ) => void
   onGoToMatrixCompany: () => void
   onOpenMobileNav: () => void
@@ -354,6 +356,19 @@ export function Header({
               <ClockIcon className="h-4 w-4 flex-none text-[var(--muted)]" />
               Logs do Sistema
             </button>
+            {company && !company.is_master && (
+              <button
+                type="button"
+                onClick={() => {
+                  setUserMenuOpen(false)
+                  onNavigate('subscription')
+                }}
+                className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-[13px] font-semibold text-[var(--ink)] hover:bg-[var(--page)]"
+              >
+                <KeyIcon className="h-4 w-4 flex-none text-[var(--muted)]" />
+                Planos e assinatura
+              </button>
+            )}
             {company?.is_master && (
               <>
                 <div className="my-1.5 border-t border-[var(--border)]" />
@@ -381,6 +396,17 @@ export function Header({
                 >
                   <PrinterIcon className="h-4 w-4 flex-none text-[var(--muted)]" />
                   Aplicativos
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUserMenuOpen(false)
+                    onNavigate('plans')
+                  }}
+                  className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-[13px] font-semibold text-[var(--ink)] hover:bg-[var(--page)]"
+                >
+                  <KeyIcon className="h-4 w-4 flex-none text-[var(--muted)]" />
+                  Planos
                 </button>
                 <button
                   type="button"

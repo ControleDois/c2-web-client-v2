@@ -21,6 +21,10 @@ export interface AuthCompany {
   license_expires_at?: string | null
   // Fim do passo a passo inicial: null = ainda falta (o painel mostra o assistente); ausente = empresa antiga.
   onboarding_completed_at?: string | null
+  // 'signup' = criada pelo cadastro do site (teste restrito); plan_id = plano contratado.
+  origin?: string
+  plan_id?: string | null
+  plan_cycle?: string | null
   people?: AuthPeople | null
   isMaster?: boolean
   // Flag de empresa matriz ("Controle Dois", Company.is_master) — diferente de

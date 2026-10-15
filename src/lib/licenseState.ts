@@ -8,6 +8,11 @@ export function isLicenseBlocked(company: AuthCompany | null | undefined): boole
   return company.license_status === 'blocked' || expired
 }
 
+// Quem se cadastrou pelo site e ainda não escolheu plano: teste com só o básico e convite para assinar.
+export function isSelfServiceTrial(company: AuthCompany | null | undefined): boolean {
+  return isTrial(company) && company?.origin === 'signup' && !company?.plan_id
+}
+
 export function isTrial(company: AuthCompany | null | undefined): boolean {
   return Boolean(company) && !company?.is_master && company?.license_status === 'trial'
 }
@@ -21,6 +26,10 @@ export function trialDaysLeft(company: AuthCompany | null | undefined): number |
 }
 
 // WhatsApp do suporte (o mesmo do rodapé do login); VITE_CONTACT_URL troca por outro endereço.
-export const CONTACT_URL =
-  import.meta.env.VITE_CONTACT_URL ??
-  'https://wa.me/5565992819663?text=Ol%C3%A1%2C%20quero%20ativar%20a%20assinatura%20do%20Controle%20Dois'
+const SUPPORT_WHATSAPP = '5565992819663'
+
+export function contactLink(message: string): string {
+  return import.meta.env.VITE_CONTACT_URL ?? `https://wa.me/${SUPPORT_WHATSAPP}?text=${encodeURIComponent(message)}`
+}
+
+export const CONTACT_URL = contactLink('Olá, quero ativar a assinatura do Controle Dois')

@@ -63,6 +63,12 @@ import { BlogPostsPage } from './pages/BlogPostsPage'
 import { OnboardingPage } from './pages/OnboardingPage'
 import { LicenseBlockedPage } from './pages/LicenseBlockedPage'
 import { TrialBanner } from './components/TrialBanner'
+import { UpgradeModal } from './components/UpgradeModal'
+import { SetupChecklist } from './components/SetupChecklist'
+import { SubscriptionPage } from './pages/SubscriptionPage'
+import { PlansPage } from './pages/PlansPage'
+import { PlanFormPage } from './pages/PlanFormPage'
+import { peekPendingPlan, rememberPendingPlan, takePendingPlan, type SubscriptionSummary } from './lib/subscription'
 import { isLicenseBlocked } from './lib/licenseState'
 import type { OnboardingResult } from './lib/onboarding'
 import { BlogPostFormPage } from './pages/BlogPostFormPage'
@@ -134,6 +140,13 @@ function App() {
     new URLSearchParams(window.location.search).has('cadastro') ? 'signup' : 'login'
   )
   const [page, setPage] = useState<AppPage>('dashboard')
+  // Plano escolhido no site (?plano=...&ciclo=...): guardado até a pessoa criar a conta e chegar na compra.
+  const [pendingPlan, setPendingPlan] = useState(() => {
+    const params = new URLSearchParams(window.location.search)
+    const slug = params.get('plano')
+    if (slug) rememberPendingPlan(slug, ['anual', 'yearly'].includes(params.get('ciclo') ?? '') ? 'yearly' : 'monthly')
+    return peekPendingPlan()
+  })
   const [switchingCompany, setSwitchingCompany] = useState(false)
   const [purchaseManagementEnabled, setPurchaseManagementEnabled] = useState(false)
   const [nfeModuleEnabled, setNfeModuleEnabled] = useState(false)
@@ -204,6 +217,7 @@ function App() {
   const investmentsView = useEntityView()
   const printersView = useEntityView()
   const blogPostsView = useEntityView()
+  const plansView = useEntityView()
   const glassTypesView = useEntityView()
   const glassModelsView = useEntityView()
   const glassProfilesView = useEntityView()
@@ -242,6 +256,7 @@ function App() {
     investments: investmentsView,
     printers: printersView,
     'blog-posts': blogPostsView,
+    plans: plansView,
     'glass-types': glassTypesView,
     'glass-models': glassModelsView,
     'glass-profiles': glassProfilesView,
@@ -311,14 +326,9 @@ function App() {
     }
   }
 
-  // Junta o que o passo a passo inicial gravou (segmento, nome, documento, conclusão) na empresa em uso e na sessão.
-  function handleOnboardingResult(result: OnboardingResult) {
+  // Junta mudanças na empresa em uso (passo a passo, plano contratado) e também na sessão.
+  function patchActiveCompany(patch: Partial<AuthCompany>) {
     if (!session || !activeCompany) return
-    const patch = {
-      system_type: result.system_type,
-      onboarding_completed_at: result.onboarding_completed_at,
-      people: { ...(activeCompany.people ?? {}), ...result.people },
-    }
     const nextCompany = { ...activeCompany, ...patch } as AuthCompany
     saveActiveCompany(nextCompany)
     setActiveCompany(nextCompany)
@@ -333,6 +343,33 @@ function App() {
     saveSession(nextSession)
     setSession(nextSession)
   }
+
+  function handleOnboardingResult(result: OnboardingResult) {
+    if (!activeCompany) return
+    patchActiveCompany({
+      system_type: result.system_type,
+      onboarding_completed_at: result.onboarding_completed_at,
+      people: { ...(activeCompany.people ?? {}), ...result.people },
+    })
+  }
+
+  // Pagamento do plano confirmado: libera a empresa na hora, sem precisar sair e entrar de novo.
+  function handleSubscriptionActivated(summary: SubscriptionSummary) {
+    patchActiveCompany({
+      license_status: summary.status,
+      license_expires_at: summary.expires_at,
+      plan_id: summary.plan?.id ?? null,
+      plan_cycle: summary.cycle,
+    })
+  }
+
+  // Quem já tem conta e chegou do site escolhendo um plano vai direto para a compra (depois do assistente, se ainda faltar).
+  useEffect(() => {
+    if (!session || !activeCompany || !pendingPlan) return
+    if (activeCompany.onboarding_completed_at === null && !activeCompany.is_master) return
+    setPage('subscription')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session, activeCompany?.id, pendingPlan])
 
   function handleLogout() {
     clearSession()
@@ -363,7 +400,18 @@ function App() {
     content = (
       <div className="min-h-svh bg-[var(--page)]">
         <LicenseNotice session={session} company={activeCompany} />
-        <LicenseBlockedPage company={activeCompany} onSwitchCompany={handleSwitchCompany} onLogout={handleLogout} />
+        <LicenseBlockedPage
+          session={session}
+          company={activeCompany}
+          onSwitchCompany={handleSwitchCompany}
+          onLogout={handleLogout}
+          onActivated={handleSubscriptionActivated}
+          initialPlan={pendingPlan}
+          onPlanConsumed={() => {
+            takePendingPlan()
+            setPendingPlan(null)
+          }}
+        />
       </div>
     )
   } else if (session && activeCompany && activeCompany.onboarding_completed_at === null && !activeCompany.is_master) {
@@ -373,7 +421,7 @@ function App() {
         session={session}
         company={activeCompany}
         onCompanyChange={handleOnboardingResult}
-        onFinish={(destination) => handleNavigate(destination ?? 'dashboard')}
+        onFinish={(destination) => handleNavigate(pendingPlan ? 'subscription' : (destination ?? 'dashboard'))}
         onLogout={handleLogout}
       />
     )
@@ -818,6 +866,26 @@ function App() {
       pageContent = <SaleTokensPage session={session} company={activeCompany} />
     } else if (page === 'app-releases') {
       pageContent = <AppReleasesPage session={session} />
+    } else if (page === 'subscription') {
+      pageContent = (
+        <SubscriptionPage
+          session={session}
+          company={activeCompany}
+          initialPlan={pendingPlan}
+          onPlanConsumed={() => {
+            takePendingPlan()
+            setPendingPlan(null)
+          }}
+          onActivated={handleSubscriptionActivated}
+        />
+      )
+    } else if (page === 'plans') {
+      pageContent =
+        plansView.view.mode === 'form' ? (
+          <PlanFormPage session={session} planId={plansView.view.id} onBack={plansView.reset} onSaved={plansView.reset} />
+        ) : (
+          <PlansPage session={session} onCreate={plansView.create} onEdit={(plan) => plansView.edit(plan.id)} />
+        )
     } else if (page === 'blog-posts') {
       pageContent =
         blogPostsView.view.mode === 'form' ? (
@@ -1149,8 +1217,9 @@ function App() {
         nfseModuleEnabled={nfseModuleEnabled}
         timeClockEnabled={timeClockEnabled}
       >
-        <TrialBanner company={activeCompany} />
+        <TrialBanner company={activeCompany} onOpenPlans={() => handleNavigate('subscription')} />
         <LicenseNotice session={session} company={activeCompany} />
+        {page === 'dashboard' && <SetupChecklist session={session} company={activeCompany} onNavigate={handleNavigate} />}
         {pageContent}
       </AppShell>
     )
@@ -1182,6 +1251,7 @@ function App() {
   return (
     <>
       {content}
+      {session && activeCompany && <UpgradeModal onSeePlans={() => handleNavigate('subscription')} />}
       {showFloatingThemeToggle && <ThemeToggle />}
     </>
   )

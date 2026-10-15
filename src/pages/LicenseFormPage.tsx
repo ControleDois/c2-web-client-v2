@@ -17,6 +17,7 @@ import { TextField } from '../components/form/TextField'
 import { SearchSelectField } from '../components/form/SearchSelectField'
 import { SectionCard } from '../components/SectionCard'
 import { ChevronLeftIcon, ClockIcon, KeyIcon, DollarSignIcon } from '../components/icons'
+import { fetchPlans, type PlanRecord } from '../lib/plans'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
 interface LicenseFormPageProps {
@@ -59,6 +60,9 @@ export function LicenseFormPage({ session, licenseId, onBack }: LicenseFormPageP
   const [detail, setDetail] = useState<LicenseCompanyDetail | null>(null)
 
   const [expiresAt, setExpiresAt] = useState('')
+  const [plans, setPlans] = useState<PlanRecord[]>([])
+  const [planId, setPlanId] = useState('')
+  const [planCycle, setPlanCycle] = useState<'monthly' | 'yearly'>('monthly')
   const [savingSubscription, setSavingSubscription] = useState(false)
   const [subscriptionError, setSubscriptionError] = useState<string | null>(null)
   const [subscriptionMessage, setSubscriptionMessage] = useState<string | null>(null)
@@ -86,6 +90,8 @@ export function LicenseFormPage({ session, licenseId, onBack }: LicenseFormPageP
         if (cancelled) return
         setDetail(data)
         setExpiresAt(toDateInputValue(data.license_expires_at) || plusDays(30))
+        setPlanId(data.plan_id ?? '')
+        setPlanCycle(data.plan_cycle === 'yearly' ? 'yearly' : 'monthly')
         setMonthlyFee(data.monthly_fee != null ? String(data.monthly_fee) : '')
         setCommissionPercent(data.commission_percent != null ? String(data.commission_percent) : '')
         setRepresentativeId(data.representative_user_id ?? null)
@@ -104,6 +110,12 @@ export function LicenseFormPage({ session, licenseId, onBack }: LicenseFormPageP
     }
   }, [licenseId, session.token.token, reloadKey])
 
+  useEffect(() => {
+    fetchPlans(session.token.token)
+      .then(setPlans)
+      .catch(() => setPlans([]))
+  }, [session.token.token])
+
   async function handleSaveSubscription() {
     setSavingSubscription(true)
     setSubscriptionError(null)
@@ -112,6 +124,8 @@ export function LicenseFormPage({ session, licenseId, onBack }: LicenseFormPageP
       const updated = await updateLicenseCompany(session.token.token, licenseId, {
         license_status: 'active',
         license_expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
+        plan_id: planId || null,
+        plan_cycle: planCycle,
       })
       setDetail(updated)
       setSubscriptionMessage('Validade atualizada.')
@@ -249,6 +263,34 @@ export function LicenseFormPage({ session, licenseId, onBack }: LicenseFormPageP
                   value={expiresAt}
                   onChange={(event) => setExpiresAt(event.target.value)}
                 />
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Plano</span>
+                  <select
+                    value={planId}
+                    onChange={(event) => setPlanId(event.target.value)}
+                    className="rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--blue-300)]"
+                  >
+                    <option value="">Sem plano (cliente combinado direto)</option>
+                    {plans.map((plan) => (
+                      <option key={plan.id} value={plan.id}>
+                        {plan.name}
+                        {plan.active ? '' : ' (inativo)'}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Ciclo</span>
+                  <select
+                    value={planCycle}
+                    onChange={(event) => setPlanCycle(event.target.value === 'yearly' ? 'yearly' : 'monthly')}
+                    disabled={!planId}
+                    className="rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] disabled:opacity-50 focus:outline-none focus:ring-1 focus:ring-[var(--blue-300)]"
+                  >
+                    <option value="monthly">Mensal</option>
+                    <option value="yearly">Anual</option>
+                  </select>
+                </label>
                 <div className="flex items-end">
                   <button
                     type="button"
@@ -263,6 +305,10 @@ export function LicenseFormPage({ session, licenseId, onBack }: LicenseFormPageP
               {subscriptionError && <p className="text-[13px] font-medium text-[var(--red-500)]">{subscriptionError}</p>}
               {subscriptionMessage && <p className="text-[13px] font-medium text-[var(--green-600)]">{subscriptionMessage}</p>}
 
+              <p className="text-[12px] text-[var(--muted)]">
+                Escolher um plano aplica os recursos e limites dele a esta empresa. Deixe "Sem plano" para clientes antigos, que seguem sem limites.
+              </p>
+
               <div className="flex items-center gap-3">
                 <button
                   type="button"
@@ -270,7 +316,7 @@ export function LicenseFormPage({ session, licenseId, onBack }: LicenseFormPageP
                   disabled={savingSubscription || !expiresAt}
                   className="rounded-xl bg-[var(--blue-500)] px-4 py-2.5 text-[13.5px] font-bold text-white transition hover:bg-[var(--blue-700)] disabled:opacity-60"
                 >
-                  {savingSubscription ? 'Salvando…' : 'Salvar validade'}
+                  {savingSubscription ? 'Salvando…' : 'Salvar validade e plano'}
                 </button>
                 <button
                   type="button"

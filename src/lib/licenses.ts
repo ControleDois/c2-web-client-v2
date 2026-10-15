@@ -31,6 +31,9 @@ export interface LicenseCompanyRecord {
   commission_percent: number | null
   representative_user_id: string | null
   representative: LicenseRepresentative | null
+  // Plano vinculado (a compra online preenche; a matriz também pode escolher).
+  plan_id?: string | null
+  plan_cycle?: string | null
   people: LicenseCompanyPeople | null
   createdAt?: string
 }
@@ -103,6 +106,8 @@ export interface UpdateLicenseCompanyPayload {
   commission_percent?: number | null
   representative_user_id?: string | null
   license_bill_id?: string | null
+  plan_id?: string | null
+  plan_cycle?: 'monthly' | 'yearly'
 }
 
 export function updateLicenseCompany(token: string, id: string, payload: UpdateLicenseCompanyPayload) {

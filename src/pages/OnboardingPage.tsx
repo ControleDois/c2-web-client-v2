@@ -77,6 +77,12 @@ function firstSteps(systemType: number): FirstStep[] {
   return [people, products]
 }
 
+const plansStep: FirstStep = {
+  title: 'Conhecer os planos',
+  text: 'Libera notas fiscais, assinatura digital e WhatsApp, e continua depois do teste.',
+  to: { page: 'subscription' },
+}
+
 const nicheName = (type: number) => NICHE_OPTIONS.find((item) => item.type === type)?.name ?? 'Outro segmento'
 
 export function OnboardingPage({ session, company, onCompanyChange, onFinish, onLogout }: OnboardingPageProps) {
@@ -385,7 +391,7 @@ export function OnboardingPage({ session, company, onCompanyChange, onFinish, on
 
               <p className="mt-5 text-[13px] font-bold text-[var(--ink)]">Por onde começar?</p>
               <div className="mt-2.5 flex flex-col gap-2.5">
-                {firstSteps(chosenType).map((item) => (
+                {[...firstSteps(chosenType), plansStep].map((item) => (
                   <button
                     key={item.title}
                     type="button"

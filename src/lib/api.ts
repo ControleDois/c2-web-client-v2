@@ -111,6 +111,11 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   const data = await response.json().catch(() => null)
 
   if (!response.ok) {
+    // Recurso fora do plano / limite do plano: o App abre o convite para escolher um plano.
+    const code = (data as { code?: string } | null)?.code
+    if (response.status === 403 && (code === 'E_PLAN_FEATURE' || code === 'E_PLAN_LIMIT')) {
+      window.dispatchEvent(new CustomEvent('c2:plan-required', { detail: { message: extractMessage(data), code } }))
+    }
     throw new ApiError(resolveErrorMessage(response.status, data), response.status, data)
   }
 
