@@ -36,6 +36,8 @@ import {
   isGaragemInvestidor,
   isDistribuidoraBebidas,
   isVidracaria,
+  isLojaOnline,
+  isMercearia,
 } from '../../lib/systemTypes'
 
 export type AppPage =
@@ -83,6 +85,7 @@ export type AppPage =
   | 'tasks'
   | 'investments'
   | 'delivery-couriers'
+  | 'catalog'
   | 'delivery-neighborhoods'
   | 'printers'
   | 'sale-tokens'
@@ -225,8 +228,17 @@ function buildNavGroups(
       title: 'Delivery',
       items: [
         { href: DELIVERY_BOARD_URL, label: 'Pedidos de Delivery', icon: TruckIcon },
+        { page: 'catalog' as const, label: 'Catálogo por canal', icon: TagIcon },
         { page: 'delivery-couriers' as const, label: 'Entregadores', icon: UserIcon },
         { page: 'delivery-neighborhoods' as const, label: 'Bairros e taxas', icon: RouteIcon },
+      ],
+    })
+  } else if (isLojaOnline(systemType) || isMercearia(systemType)) {
+    groups.splice(1, 0, {
+      title: 'Delivery',
+      items: [
+        { href: DELIVERY_BOARD_URL, label: 'Pedidos de Delivery', icon: TruckIcon },
+        { page: 'catalog' as const, label: 'Catálogo por canal', icon: TagIcon },
       ],
     })
   }
