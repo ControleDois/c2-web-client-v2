@@ -43,6 +43,7 @@ interface HeaderProps {
       | 'audit-logs'
       | 'licenses'
       | 'app-releases'
+      | 'blog-posts'
   ) => void
   onGoToMatrixCompany: () => void
   onOpenMobileNav: () => void
@@ -380,6 +381,17 @@ export function Header({
                 >
                   <PrinterIcon className="h-4 w-4 flex-none text-[var(--muted)]" />
                   Aplicativos
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUserMenuOpen(false)
+                    onNavigate('blog-posts')
+                  }}
+                  className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-[13px] font-semibold text-[var(--ink)] hover:bg-[var(--page)]"
+                >
+                  <FileTextIcon className="h-4 w-4 flex-none text-[var(--muted)]" />
+                  Blog
                 </button>
               </>
             )}

@@ -87,6 +87,7 @@ export type AppPage =
   | 'printers'
   | 'sale-tokens'
   | 'app-releases'
+  | 'blog-posts'
   | 'glass-orders'
   | 'glass-types'
   | 'glass-models'

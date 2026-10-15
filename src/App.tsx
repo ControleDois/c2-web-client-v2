@@ -59,6 +59,8 @@ import { GlassDashboardPage } from './pages/glass/GlassDashboardPage'
 import { MerceariaDashboardPage } from './pages/MerceariaDashboardPage'
 import { PrintersPage } from './pages/PrintersPage'
 import { AppReleasesPage } from './pages/AppReleasesPage'
+import { BlogPostsPage } from './pages/BlogPostsPage'
+import { BlogPostFormPage } from './pages/BlogPostFormPage'
 import { SaleTokensPage } from './pages/SaleTokensPage'
 import { PrinterFormPage } from './pages/PrinterFormPage'
 import { GlassSchedulePage } from './pages/glass/GlassSchedulePage'
@@ -193,6 +195,7 @@ function App() {
   const supportVisitsView = useEntityView()
   const investmentsView = useEntityView()
   const printersView = useEntityView()
+  const blogPostsView = useEntityView()
   const glassTypesView = useEntityView()
   const glassModelsView = useEntityView()
   const glassProfilesView = useEntityView()
@@ -230,6 +233,7 @@ function App() {
     'support-visits': supportVisitsView,
     investments: investmentsView,
     printers: printersView,
+    'blog-posts': blogPostsView,
     'glass-types': glassTypesView,
     'glass-models': glassModelsView,
     'glass-profiles': glassProfilesView,
@@ -764,6 +768,18 @@ function App() {
       pageContent = <SaleTokensPage session={session} company={activeCompany} />
     } else if (page === 'app-releases') {
       pageContent = <AppReleasesPage session={session} />
+    } else if (page === 'blog-posts') {
+      pageContent =
+        blogPostsView.view.mode === 'form' ? (
+          <BlogPostFormPage
+            session={session}
+            postId={blogPostsView.view.id}
+            onBack={blogPostsView.reset}
+            onSaved={blogPostsView.reset}
+          />
+        ) : (
+          <BlogPostsPage session={session} onCreate={blogPostsView.create} onEdit={(item) => blogPostsView.edit(item.id)} />
+        )
     } else if (page === 'printers') {
       pageContent =
         printersView.view.mode === 'form' ? (
