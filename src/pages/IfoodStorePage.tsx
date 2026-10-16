@@ -15,6 +15,7 @@ import {
   type IfoodOpeningDay,
 } from '../lib/ifood'
 import { PlusIcon, RefreshIcon, TrashIcon } from '../components/icons'
+import { OpeningHoursCalendar } from '../components/ifood/OpeningHoursCalendar'
 import {
   PageHeader,
   Panel,
@@ -33,13 +34,13 @@ interface IfoodStorePageProps {
 }
 
 const DAY_LABELS: Record<string, string> = {
+  SUNDAY: 'Domingo',
   MONDAY: 'Segunda-feira',
   TUESDAY: 'Terça-feira',
   WEDNESDAY: 'Quarta-feira',
   THURSDAY: 'Quinta-feira',
   FRIDAY: 'Sexta-feira',
   SATURDAY: 'Sábado',
-  SUNDAY: 'Domingo',
 }
 const DAY_ORDER = Object.keys(DAY_LABELS)
 const EMPTY_DAYS: IfoodOpeningDay[] = DAY_ORDER.map((day) => ({ day, periods: [] }))
@@ -515,35 +516,61 @@ export function IfoodStorePage({ session, company }: IfoodStorePageProps) {
               )}
             </Panel>
 
+            {/* Dados da loja */}
+          <Panel
+            title="Dados da loja no iFood"
+            help="É o cadastro que o iFood tem da sua loja. Se algo estiver errado aqui, o ajuste é feito no Portal do Parceiro do iFood."
+            action={
+              <button type="button" onClick={() => setShowDetails((current) => !current)} className={buttonSecondary}>
+                {showDetails ? 'Esconder dados' : 'Ver dados da loja'}
+              </button>
+            }
+          >
+            {!showDetails && <p className="text-[13.5px] text-[var(--muted)]">Toque em "Ver dados da loja" para conferir o cadastro.</p>}
+            {showDetails && !details && <p className="text-[13.5px] text-[var(--muted)]">Consultando o iFood…</p>}
+            {showDetails && details && (
+              <div className="flex flex-col gap-3">
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <DetailRow label="Nome da loja">{details.name || '—'}</DetailRow>
+                  <DetailRow label="Razão social">{details.corporateName || '—'}</DetailRow>
+                  <DetailRow label="Endereço">{addressLine(details.address) || '—'}</DetailRow>
+                  <DetailRow label="CEP">{details.address?.postalCode || '—'}</DetailRow>
+                  <DetailRow label="Ticket médio">{details.averageTicket ? `R$ ${details.averageTicket}` : '—'}</DetailRow>
+                  <DetailRow label="Código da loja no iFood">{details.id || '—'}</DetailRow>
+                  <DetailRow label="Situação do cadastro">
+                    <Pill tone={String(details.status).toUpperCase() === 'ENABLED' ? 'good' : 'neutral'}>{String(details.status || '—')}</Pill>
+                  </DetailRow>
+                  <DetailRow label="Loja de teste">{details.test ? 'Sim' : 'Não'}</DetailRow>
+                </div>
+                <button type="button" onClick={() => setShowAllDetails((current) => !current)} className="self-start text-[13px] font-bold text-[var(--blue-700)] hover:underline">
+                  {showAllDetails ? 'Esconder os detalhes completos' : 'Ver detalhes completos da loja'}
+                </button>
+                {showAllDetails && (
+                  <div className="rounded-xl bg-[var(--page)] p-4">
+                    <Fields value={details} />
+                  </div>
+                )}
+              </div>
+            )}
+          </Panel>
+
             {/* Horário */}
-            <div className={editingHours ? 'lg:col-span-2' : ''}>
+            <div className="lg:col-span-2">
             <Panel
               title="Horário de funcionamento"
               help="É o horário em que o iFood mostra a sua loja aberta para os clientes."
               action={
                 !editingHours && hours ? (
-                  <button type="button" onClick={openHoursEditor} className={buttonSecondary}>
-                    Alterar horário
+                  <button type="button" onClick={openHoursEditor} className={buttonPrimary}>
+                    <PlusIcon className="h-4 w-4" />
+                    Editar todos os horários
                   </button>
                 ) : undefined
               }
             >
               {!hours && <p className="text-[13.5px] text-[var(--muted)]">Consultando o horário no iFood…</p>}
 
-              {hours && !editingHours && (
-                <ul className="flex flex-col divide-y divide-[var(--border)]">
-                  {hours.map((entry) => (
-                    <li key={entry.day} className="flex items-start justify-between gap-3 py-2.5 text-[14px]">
-                      <span className="font-semibold text-[var(--ink)]">{DAY_LABELS[entry.day]}</span>
-                      <span className="text-right text-[var(--ink-soft)]">
-                        {entry.periods.length === 0
-                          ? 'Fechado'
-                          : entry.periods.map((period) => `${period.start} às ${period.end}`).join(' · ')}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
+              {hours && !editingHours && <OpeningHoursCalendar days={hours} labels={DAY_LABELS} order={DAY_ORDER} />}
 
               {hours && editingHours && (
                 <div className="flex flex-col gap-3">
@@ -617,43 +644,6 @@ export function IfoodStorePage({ session, company }: IfoodStorePageProps) {
             </div>
           </div>
 
-          {/* Dados da loja */}
-          <Panel
-            title="Dados da loja no iFood"
-            help="É o cadastro que o iFood tem da sua loja. Se algo estiver errado aqui, o ajuste é feito no Portal do Parceiro do iFood."
-            action={
-              <button type="button" onClick={() => setShowDetails((current) => !current)} className={buttonSecondary}>
-                {showDetails ? 'Esconder dados' : 'Ver dados da loja'}
-              </button>
-            }
-          >
-            {!showDetails && <p className="text-[13.5px] text-[var(--muted)]">Toque em "Ver dados da loja" para conferir o cadastro.</p>}
-            {showDetails && !details && <p className="text-[13.5px] text-[var(--muted)]">Consultando o iFood…</p>}
-            {showDetails && details && (
-              <div className="flex flex-col gap-3">
-                <div className="grid gap-2 sm:grid-cols-2">
-                  <DetailRow label="Nome da loja">{details.name || '—'}</DetailRow>
-                  <DetailRow label="Razão social">{details.corporateName || '—'}</DetailRow>
-                  <DetailRow label="Endereço">{addressLine(details.address) || '—'}</DetailRow>
-                  <DetailRow label="CEP">{details.address?.postalCode || '—'}</DetailRow>
-                  <DetailRow label="Ticket médio">{details.averageTicket ? `R$ ${details.averageTicket}` : '—'}</DetailRow>
-                  <DetailRow label="Código da loja no iFood">{details.id || '—'}</DetailRow>
-                  <DetailRow label="Situação do cadastro">
-                    <Pill tone={String(details.status).toUpperCase() === 'ENABLED' ? 'good' : 'neutral'}>{String(details.status || '—')}</Pill>
-                  </DetailRow>
-                  <DetailRow label="Loja de teste">{details.test ? 'Sim' : 'Não'}</DetailRow>
-                </div>
-                <button type="button" onClick={() => setShowAllDetails((current) => !current)} className="self-start text-[13px] font-bold text-[var(--blue-700)] hover:underline">
-                  {showAllDetails ? 'Esconder os detalhes completos' : 'Ver detalhes completos da loja'}
-                </button>
-                {showAllDetails && (
-                  <div className="rounded-xl bg-[var(--page)] p-4">
-                    <Fields value={details} />
-                  </div>
-                )}
-              </div>
-            )}
-          </Panel>
         </>
       )}
     </div>
