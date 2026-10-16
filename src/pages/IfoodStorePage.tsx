@@ -372,27 +372,30 @@ export function IfoodStorePage({ session, company }: IfoodStorePageProps) {
         </Panel>
       ) : (
         <>
-          {merchants.length > 1 && (
-            <div>
-              <p className="mb-2 text-[13px] font-semibold text-[var(--ink-soft)]">Escolha a loja</p>
-              <div className="flex flex-wrap gap-2">
-                {merchants.map((entry) => (
-                  <button
-                    key={entry.id}
-                    type="button"
-                    onClick={() => setMerchantId(entry.id)}
-                    className={`rounded-xl px-4 py-2.5 text-[14px] font-bold ${
-                      entry.id === merchantId
-                        ? 'bg-[var(--blue-500)] text-white'
-                        : 'bg-[var(--surface)] text-[var(--ink-soft)] ring-1 ring-[var(--border)]'
-                    }`}
-                  >
-                    {entry.merchant_name || entry.merchant_id}
-                  </button>
-                ))}
-              </div>
+          <div>
+            <p className="mb-2 text-[13px] font-semibold text-[var(--ink-soft)]">
+              {merchants.length > 1 ? 'Lojas do iFood ligadas ao sistema (escolha uma)' : 'Loja do iFood ligada ao sistema'}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {merchants.map((entry) => (
+                <button
+                  key={entry.id}
+                  type="button"
+                  onClick={() => setMerchantId(entry.id)}
+                  className={`rounded-xl px-4 py-2.5 text-left transition ${
+                    entry.id === merchantId
+                      ? 'bg-[var(--blue-500)] text-white'
+                      : 'bg-[var(--surface)] text-[var(--ink-soft)] ring-1 ring-[var(--border)]'
+                  }`}
+                >
+                  <span className="block text-[14px] font-bold">{entry.merchant_name || entry.merchant_id}</span>
+                  <span className={`block text-[11.5px] ${entry.id === merchantId ? 'text-white/80' : 'text-[var(--muted)]'}`}>
+                    Código no iFood: {entry.merchant_id}
+                  </span>
+                </button>
+              ))}
             </div>
-          )}
+          </div>
 
           {error && <Tip tone="bad" title="Não deu certo">{error}</Tip>}
           {message && <Tip tone="good">{message}</Tip>}
