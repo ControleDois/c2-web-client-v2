@@ -1,4 +1,7 @@
+import { useState } from 'react'
 import type { ConfigPayload } from '../../lib/config'
+import { ApiError } from '../../lib/api'
+import { testIfoodCredentials, type IfoodCredentialsCheck } from '../../lib/ifood'
 import { SectionCard } from '../../components/SectionCard'
 import { TextField } from '../../components/form/TextField'
 import { KeyIcon } from '../../components/icons'
@@ -15,7 +18,24 @@ interface IntegracoesApisSectionProps {
 // únicos pra toda a plataforma, não por empresa cliente. Cada restaurante
 // que usa o Controle Dois autoriza esse MESMO app do iFood (fluxo próprio,
 // em "Integrações" dentro de cada empresa).
-export function IntegracoesApisSection({ value, onChange }: IntegracoesApisSectionProps) {
+export function IntegracoesApisSection({ value, onChange, session, company }: IntegracoesApisSectionProps) {
+  const [checking, setChecking] = useState(false)
+  const [check, setCheck] = useState<IfoodCredentialsCheck | null>(null)
+  const [checkError, setCheckError] = useState<string | null>(null)
+
+  async function handleCheck() {
+    setChecking(true)
+    setCheck(null)
+    setCheckError(null)
+    try {
+      setCheck(await testIfoodCredentials(session.token.token, company.id))
+    } catch (err) {
+      setCheckError(err instanceof ApiError ? err.message : 'Não foi possível testar as credenciais.')
+    } finally {
+      setChecking(false)
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <SectionCard title="iFood" subtitle="Credenciais do app centralizado da Controle Dois">
@@ -30,15 +50,47 @@ export function IntegracoesApisSection({ value, onChange }: IntegracoesApisSecti
               label="Client ID"
               icon={<KeyIcon className="h-4 w-4" />}
               value={value.ifood_client_id ?? ''}
-              onChange={(event) => onChange({ ifood_client_id: event.target.value })}
+              autoComplete="off"
+              spellCheck={false}
+              onChange={(event) => onChange({ ifood_client_id: event.target.value.trim() })}
             />
             <TextField
               label="Client Secret"
               icon={<KeyIcon className="h-4 w-4" />}
               type="password"
               value={value.ifood_client_secret ?? ''}
-              onChange={(event) => onChange({ ifood_client_secret: event.target.value })}
+              autoComplete="new-password"
+              spellCheck={false}
+              onChange={(event) => onChange({ ifood_client_secret: event.target.value.trim() })}
             />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={handleCheck}
+                disabled={checking}
+                className="rounded-xl px-4 py-2 text-[13px] font-bold text-[var(--blue-500)] ring-1 ring-[var(--blue-300)] hover:bg-[var(--page)] disabled:opacity-60"
+              >
+                {checking ? 'Testando…' : 'Testar credenciais salvas'}
+              </button>
+              <span className="text-[12px] text-[var(--muted)]">Confere o que está salvo (não o que está digitado). Salve antes de testar.</span>
+            </div>
+            {checkError && <p className="text-[13px] font-medium text-[var(--red-500)]">{checkError}</p>}
+            {check && !check.configured && (
+              <p className="text-[13px] font-medium text-[var(--red-500)]">Nenhuma credencial salva ainda.</p>
+            )}
+            {check?.configured && (
+              <p className={`text-[13px] font-medium ${check.accepted ? 'text-[var(--green-600)]' : 'text-[var(--red-500)]'}`}>
+                Client ID salvo começa com <strong>{check.clientIdStart}</strong>.{' '}
+                {check.accepted
+                  ? check.merchants.length
+                    ? `O iFood aceitou. Lojas que já autorizaram: ${check.merchants.map((merchant) => merchant.name || merchant.id).join(', ')}.`
+                    : 'O iFood aceitou as credenciais, mas nenhuma loja autorizou este aplicativo ainda.'
+                  : check.error}
+              </p>
+            )}
           </div>
 
           <label className="flex items-center gap-2.5">

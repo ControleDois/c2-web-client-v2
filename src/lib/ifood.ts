@@ -94,3 +94,15 @@ export function previewIfoodCatalogImport(token: string, id: string) {
 export function importIfoodCatalog(token: string, id: string, createMissing: boolean) {
   return apiPost<IfoodImportResult>(`/ifood/merchants/${id}/import-catalog`, { createMissing }, token)
 }
+
+export interface IfoodCredentialsCheck {
+  configured: boolean
+  clientIdStart: string | null
+  accepted: boolean
+  merchants: { id: string; name: string }[]
+  error: string | null
+}
+
+export function testIfoodCredentials(token: string, companyId: string) {
+  return apiPost<IfoodCredentialsCheck>('/ifood/credentials/test', { company_id: companyId }, token)
+}
