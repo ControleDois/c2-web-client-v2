@@ -21,6 +21,7 @@ import { formatCurrency, formatDate } from '../lib/format'
 import { contactLink } from '../lib/licenseState'
 import { ApiError } from '../lib/api'
 import type { AuthCompany, AuthSession } from '../lib/auth'
+import { SelectField } from '../components/form/SelectField'
 
 interface CheckoutModalProps {
   session: AuthSession
@@ -306,21 +307,14 @@ export function CheckoutModal({ session, company, plan, cycle, onClose, onActiva
               </div>
               <TextField label="Bairro" icon={<FileTextIcon className="h-4 w-4" />} value={district} onChange={(event) => setDistrict(event.target.value)} />
               <TextField label="Cidade" icon={<FileTextIcon className="h-4 w-4" />} value={city} onChange={(event) => setCity(event.target.value)} />
-              <label className="flex flex-col gap-1.5">
-                <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Estado</span>
-                <select
-                  value={state}
-                  onChange={(event) => setState(event.target.value)}
-                  className="rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--blue-300)]"
-                >
+              <SelectField label="Estado" value={state} onChange={(event) => setState(event.target.value)}>
                   <option value="">Selecione</option>
                   {BRAZIL_STATES.map((uf) => (
                     <option key={uf} value={uf}>
                       {uf}
                     </option>
                   ))}
-                </select>
-              </label>
+                </SelectField>
             </div>
             {error && <p className="mt-4 rounded-lg bg-[var(--red-100)] px-3 py-2 text-[13px] font-medium text-[var(--red-500)]">{error}</p>}
             <button

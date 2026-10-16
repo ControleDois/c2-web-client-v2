@@ -12,6 +12,7 @@ import { SectionCard } from '../components/SectionCard'
 import { ChevronLeftIcon, WalletIcon } from '../components/icons'
 import { MODALITY_LABELS, MODALITY_ORDER, parseModalityFromNote, type Modality } from '../lib/loanModalities'
 import type { AuthSession, AuthCompany } from '../lib/auth'
+import { SelectField } from '../components/form/SelectField'
 
 interface FinancingFormPageProps {
   session: AuthSession
@@ -1098,23 +1099,20 @@ export function FinancingFormPage({ session, company, saleId, initialModality, o
                 )}
 
                 <div className="grid grid-cols-2 gap-4">
-                  <label className="flex flex-col gap-1.5">
-                    <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Frequência</span>
-                    <select
-                      value={frequency}
-                      onChange={(event) => {
-                        setFrequency(event.target.value)
-                        applyFullCalculation({ frequency: event.target.value })
-                      }}
-                      className="min-w-0 w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
-                    >
-                      {FREQUENCIES.map((freq) => (
+                  <SelectField
+                    label="Frequência"
+                    value={frequency}
+                    onChange={(event) => {
+                      setFrequency(event.target.value)
+                      applyFullCalculation({ frequency: event.target.value })
+                    }}
+                  >
+                    {FREQUENCIES.map((freq) => (
                         <option key={freq.id} value={freq.id}>
                           {freq.label}
                         </option>
                       ))}
-                    </select>
-                  </label>
+                  </SelectField>
                   <label className="flex flex-col gap-1.5">
                     <span className="text-[12px] font-semibold text-[var(--ink-soft)]">1º Vencimento</span>
                     <input

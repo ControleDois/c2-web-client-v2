@@ -16,6 +16,7 @@ import { ApiError } from '../lib/api'
 import { formatCurrency, formatDate } from '../lib/format'
 import { ChevronLeftIcon, TrashIcon } from '../components/icons'
 import type { AuthSession, AuthCompany } from '../lib/auth'
+import { SelectField } from '../components/form/SelectField'
 
 interface InvestmentFormPageProps {
   session: AuthSession
@@ -340,31 +341,17 @@ export function InvestmentFormPage({ session, company, investmentId, onBack, onS
                     className="w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
                   />
                 </label>
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Tipo</span>
-                  <select
-                    value={type}
-                    onChange={(event) => setType(event.target.value)}
-                    className="w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
-                  >
+                <SelectField label="Tipo" value={type} onChange={(event) => setType(event.target.value)}>
                     {Object.entries(INVESTMENT_TYPE_LABELS).map(([value, label]) => (
                       <option key={value} value={value}>
                         {label}
                       </option>
                     ))}
-                  </select>
-                </label>
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Situação</span>
-                  <select
-                    value={status}
-                    onChange={(event) => setStatus(event.target.value as 'ativo' | 'encerrado')}
-                    className="w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
-                  >
+                  </SelectField>
+                <SelectField label="Situação" value={status} onChange={(event) => setStatus(event.target.value as 'ativo' | 'encerrado')}>
                     <option value="ativo">Ativo</option>
                     <option value="encerrado">Encerrado</option>
-                  </select>
-                </label>
+                  </SelectField>
                 <label className="flex flex-col gap-1.5">
                   <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Data do investimento</span>
                   <input
@@ -560,28 +547,14 @@ export function InvestmentFormPage({ session, company, investmentId, onBack, onS
                         className="w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
                       />
                     </label>
-                    <label className="flex flex-col gap-1.5">
-                      <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Período da taxa</span>
-                      <select
-                        value={interestPeriod}
-                        onChange={(event) => setInterestPeriod(event.target.value as 'mes' | 'ano')}
-                        className="w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
-                      >
+                    <SelectField label="Período da taxa" value={interestPeriod} onChange={(event) => setInterestPeriod(event.target.value as 'mes' | 'ano')}>
                         <option value="mes">ao mês</option>
                         <option value="ano">ao ano</option>
-                      </select>
-                    </label>
-                    <label className="flex flex-col gap-1.5">
-                      <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Cálculo</span>
-                      <select
-                        value={interestSystem}
-                        onChange={(event) => setInterestSystem(event.target.value as 'price' | 'simples')}
-                        className="w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
-                      >
+                      </SelectField>
+                    <SelectField label="Cálculo" value={interestSystem} onChange={(event) => setInterestSystem(event.target.value as 'price' | 'simples')}>
                         <option value="price">Juros compostos (Price)</option>
                         <option value="simples">Juros simples</option>
-                      </select>
-                    </label>
+                      </SelectField>
                     <label className="flex flex-col gap-1.5">
                       <span className="text-[12px] font-semibold text-[var(--ink-soft)]">1º vencimento</span>
                       <input
@@ -754,20 +727,13 @@ export function InvestmentFormPage({ session, company, investmentId, onBack, onS
                     className="w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
                   />
                 </label>
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Tipo</span>
-                  <select
-                    value={entryType}
-                    onChange={(event) => setEntryType(event.target.value)}
-                    className="w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
-                  >
+                <SelectField label="Tipo" value={entryType} onChange={(event) => setEntryType(event.target.value)}>
                     {Object.entries(ENTRY_TYPE_LABELS).map(([value, label]) => (
                       <option key={value} value={value}>
                         {label}
                       </option>
                     ))}
-                  </select>
-                </label>
+                  </SelectField>
                 <label className="flex flex-col gap-1.5">
                   <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Descrição</span>
                   <input

@@ -22,6 +22,7 @@ import {
 import { formatCurrency, formatDateTime } from '../lib/format'
 import { parseMoney } from '../lib/money'
 import { MoneyField } from '../components/form/MoneyField'
+import { Select } from '../components/form/Select'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { GuideSteps, type GuideStep } from '../components/GuideSteps'
 import { OwnMenuTab } from './catalog/OwnMenuTab'
@@ -430,22 +431,17 @@ export function CatalogPage({ session, company }: CatalogPageProps) {
               help='No aplicativo do iFood, os produtos ficam dentro de categorias, como "Bebidas" ou "Pizzas". Escolha em qual categoria os produtos novos vão aparecer.'
             >
               <div className="grid gap-4 lg:grid-cols-2">
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-[13px] font-semibold text-[var(--ink-soft)]">Categoria dos produtos novos</span>
-                  <select
-                    value={defaultCategoryId ?? ''}
-                    onChange={(event) => handleDefaultCategory(event.target.value)}
-                    disabled={busy}
-                    className={inputClass}
-                  >
+                <div className="flex flex-col gap-1.5">
+<span className="text-[13px] font-semibold text-[var(--ink-soft)]">Categoria dos produtos novos</span>
+<Select variant="page" value={defaultCategoryId ?? ''} onChange={(value) => handleDefaultCategory(value)} disabled={busy}>
                     <option value="">Criar sozinho (Cardápio Controle Dois)</option>
                     {categories.map((category) => (
                       <option key={category.id} value={category.id}>
                         {category.name}
                       </option>
                     ))}
-                  </select>
-                </label>
+                  </Select>
+</div>
                 <div className="flex flex-col gap-1.5">
                   <span className="text-[13px] font-semibold text-[var(--ink-soft)]">Ou crie uma categoria nova</span>
                   <div className="flex gap-2">
@@ -485,20 +481,16 @@ export function CatalogPage({ session, company }: CatalogPageProps) {
                     onChange={(event) => setRule({ ...rule, percent: event.target.value })}
                     placeholder="0,00"
                   />
-                  <label className="flex flex-col gap-1.5">
-                    <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Arredondar o preço</span>
-                    <select
-                      value={rule.rounding}
-                      onChange={(event) => setRule({ ...rule, rounding: event.target.value as PriceRounding })}
-                      className={inputClass}
-                    >
+                  <div className="flex flex-col gap-1.5">
+<span className="text-[12px] font-semibold text-[var(--ink-soft)]">Arredondar o preço</span>
+<Select variant="page" value={rule.rounding} onChange={(value) => setRule({ ...rule, rounding: value as PriceRounding })}>
                       {Object.entries(PRICE_ROUNDING_LABELS).map(([value, label]) => (
                         <option key={value} value={value}>
                           {label}
                         </option>
                       ))}
-                    </select>
-                  </label>
+                    </Select>
+</div>
                 </div>
                 <Tip>
                   Exemplo: um produto de <strong>R$ 10,00</strong> no cardápio vai custar <strong>{formatCurrency(exampleNow)}</strong> no
@@ -617,31 +609,27 @@ export function CatalogPage({ session, company }: CatalogPageProps) {
             </p>
 
             <div className="mt-5 flex flex-col gap-5">
-              <label className="flex flex-col gap-1.5">
-                <span className="text-[14px] font-bold text-[var(--ink)]">O produto aparece para venda?</span>
-                <select
-                  value={form.active}
-                  onChange={(event) => setForm({ ...form, active: event.target.value as EditForm['active'] })}
-                  className={inputClass}
-                >
+              <div className="flex flex-col gap-1.5">
+<span className="text-[14px] font-bold text-[var(--ink)]">O produto aparece para venda?</span>
+<Select variant="page" value={form.active} onChange={(value) => setForm({ ...form, active: value as EditForm['active'] })}>
                   <option value="inherit">Seguir o cardápio ({form.item.own.active ? 'está disponível' : 'está pausado'})</option>
                   <option value="on">Sim, vender neste canal</option>
                   <option value="off">Não, pausar só neste canal</option>
-                </select>
-              </label>
+                </Select>
+</div>
 
               {channel.type === 'ifood' && (
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-[14px] font-bold text-[var(--ink)]">Em qual categoria do iFood?</span>
-                  <select value={form.categoryId} onChange={(event) => setForm({ ...form, categoryId: event.target.value })} className={inputClass}>
+                <div className="flex flex-col gap-1.5">
+<span className="text-[14px] font-bold text-[var(--ink)]">Em qual categoria do iFood?</span>
+<Select variant="page" value={form.categoryId} onChange={(value) => setForm({ ...form, categoryId: value })}>
                     <option value="">A categoria padrão da loja</option>
                     {categories.map((category) => (
                       <option key={category.id} value={category.id}>
                         {category.name}
                       </option>
                     ))}
-                  </select>
-                </label>
+                  </Select>
+</div>
               )}
 
               <label className="flex flex-col gap-1.5">

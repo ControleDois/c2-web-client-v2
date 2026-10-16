@@ -35,6 +35,7 @@ import {
 } from '../components/icons'
 import { isEmprestimo, isSoftwareHouse } from '../lib/systemTypes'
 import type { AuthSession, AuthCompany } from '../lib/auth'
+import { Select } from '../components/form/Select'
 
 interface PeopleFormPageProps {
   session: AuthSession
@@ -827,17 +828,17 @@ export function PeopleFormPage({
                     return (
                       <div key={index} className="flex flex-col gap-3 rounded-xl bg-[var(--page)] p-4">
                         <div className="grid gap-3 sm:grid-cols-[9rem_1fr]">
-                          <select
+                          <Select
+                            variant="surface"
                             value={item.role}
-                            onChange={(event) => updateRemote(index, { role: Number(event.target.value) })}
-                            className={inputClass}
+                            onChange={(value) => updateRemote(index, { role: Number(value) })}
                           >
                             {Object.entries(REMOTE_ACCESS_LABELS).map(([value, label]) => (
                               <option key={value} value={value}>
                                 {label}
                               </option>
                             ))}
-                          </select>
+                          </Select>
                           <input
                             type="text"
                             placeholder="Nome da máquina (ex: Servidor, Caixa 1)"

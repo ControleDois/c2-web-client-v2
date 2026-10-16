@@ -12,18 +12,11 @@ import { GlassCutListModal } from './GlassCutListModal'
 import { GlassStatusBadge } from './GlassOrdersPage'
 import { SearchIcon, ClipboardCheckIcon } from '../../components/icons'
 import type { AuthCompany, AuthSession } from '../../lib/auth'
+import { Select } from '../../components/form/Select'
 
 interface GlassProductionPageProps {
   session: AuthSession
   company: AuthCompany
-}
-
-const STAGE_TONES: Record<number, string> = {
-  0: 'bg-[var(--page)] text-[var(--ink-soft)]',
-  1: 'bg-[var(--amber-100)] text-[var(--amber-500)]',
-  2: 'bg-[var(--amber-100)] text-[var(--amber-500)]',
-  3: 'bg-[var(--blue-100)] text-[var(--blue-700)]',
-  4: 'bg-[var(--green-100)] text-[var(--green-600)]',
 }
 
 export function GlassProductionPage({ session, company }: GlassProductionPageProps) {
@@ -269,20 +262,19 @@ export function GlassProductionPage({ session, company }: GlassProductionPagePro
                       </td>
                       <td className="py-2 text-right">{item.quantity}</td>
                       <td className="py-2 pl-3">
-                        <select
+                        <Select
+                          variant="surface"
+                          className="min-w-[170px]"
                           value={item.production_stage}
                           disabled={saving}
-                          onChange={(event) => applyStage([item.id], Number(event.target.value))}
-                          className={`rounded-full px-2.5 py-1 text-[12px] font-bold focus:outline-none ${
-                            STAGE_TONES[item.production_stage] ?? STAGE_TONES[0]
-                          }`}
+                          onChange={(value) => applyStage([item.id], Number(value))}
                         >
                           {Object.entries(GLASS_STAGE_LABELS).map(([value, label]) => (
                             <option key={value} value={value}>
                               {label}
                             </option>
                           ))}
-                        </select>
+                        </Select>
                       </td>
                     </tr>
                   ))}

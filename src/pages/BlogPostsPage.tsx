@@ -11,6 +11,7 @@ import { formatDate } from '../lib/format'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { SearchIcon, PencilIcon, PlusIcon, TrashIcon, EyeIcon } from '../components/icons'
 import type { AuthSession } from '../lib/auth'
+import { Select } from '../components/form/Select'
 
 interface BlogPostsPageProps {
   session: AuthSession
@@ -101,18 +102,19 @@ export function BlogPostsPage({ session, onCreate, onEdit }: BlogPostsPageProps)
             className="w-full bg-transparent text-[13.5px] text-[var(--ink)] placeholder:text-[var(--muted)] focus:outline-none"
           />
         </div>
-        <select
+        <Select
+          variant="surface"
+          className="min-w-[170px]"
           value={status}
-          onChange={(event) => {
+          onChange={(value) => {
             setPage(1)
-            setStatus(event.target.value)
+            setStatus(value)
           }}
-          className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2.5 text-[13.5px] text-[var(--ink)] focus:outline-none"
         >
           <option value="">Todos</option>
           <option value="1">Publicados</option>
           <option value="0">Rascunhos</option>
-        </select>
+        </Select>
       </div>
 
       {error && <div className="rounded-2xl bg-[var(--red-100)] p-4 text-[13.5px] font-medium text-[var(--red-500)]">{error}</div>}

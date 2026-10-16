@@ -19,6 +19,7 @@ import { SectionCard } from '../components/SectionCard'
 import { ChevronLeftIcon, ClockIcon, KeyIcon, DollarSignIcon } from '../components/icons'
 import { fetchPlans, type PlanRecord } from '../lib/plans'
 import type { AuthSession, AuthCompany } from '../lib/auth'
+import { SelectField } from '../components/form/SelectField'
 
 interface LicenseFormPageProps {
   session: AuthSession
@@ -263,13 +264,7 @@ export function LicenseFormPage({ session, licenseId, onBack }: LicenseFormPageP
                   value={expiresAt}
                   onChange={(event) => setExpiresAt(event.target.value)}
                 />
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Plano</span>
-                  <select
-                    value={planId}
-                    onChange={(event) => setPlanId(event.target.value)}
-                    className="rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] focus:outline-none focus:ring-1 focus:ring-[var(--blue-300)]"
-                  >
+                <SelectField label="Plano" value={planId} onChange={(event) => setPlanId(event.target.value)}>
                     <option value="">Sem plano (cliente combinado direto)</option>
                     {plans.map((plan) => (
                       <option key={plan.id} value={plan.id}>
@@ -277,20 +272,11 @@ export function LicenseFormPage({ session, licenseId, onBack }: LicenseFormPageP
                         {plan.active ? '' : ' (inativo)'}
                       </option>
                     ))}
-                  </select>
-                </label>
-                <label className="flex flex-col gap-1.5">
-                  <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Ciclo</span>
-                  <select
-                    value={planCycle}
-                    onChange={(event) => setPlanCycle(event.target.value === 'yearly' ? 'yearly' : 'monthly')}
-                    disabled={!planId}
-                    className="rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] disabled:opacity-50 focus:outline-none focus:ring-1 focus:ring-[var(--blue-300)]"
-                  >
+                  </SelectField>
+                <SelectField label="Ciclo" value={planCycle} onChange={(event) => setPlanCycle(event.target.value === 'yearly' ? 'yearly' : 'monthly')} disabled={!planId}>
                     <option value="monthly">Mensal</option>
                     <option value="yearly">Anual</option>
-                  </select>
-                </label>
+                  </SelectField>
                 <div className="flex items-end">
                   <button
                     type="button"
