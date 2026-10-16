@@ -304,6 +304,23 @@ export function IfoodStorePage({ session, company }: IfoodStorePageProps) {
       return 'Pronto! O novo horário já está salvo no iFood.'
     })
 
+  // Usada pela grade: salva a semana toda e devolve null se deu certo, ou a mensagem de erro para a janelinha.
+  async function saveHoursFromGrid(days: IfoodOpeningDay[]): Promise<string | null> {
+    if (!merchantId) return 'Escolha uma loja.'
+    setBusy(true)
+    setError(null)
+    try {
+      await saveIfoodOpeningHours(token, merchantId, days)
+      setHours(days)
+      setMessage('Pronto! O horário já está salvo no iFood.')
+      return null
+    } catch (err) {
+      return err instanceof ApiError ? friendlyIfoodMessage(err.message) : 'Não foi possível salvar. Tente de novo.'
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const updatePeriod = (day: string, index: number, patch: Partial<{ start: string; end: string }>) =>
     setDraft((current) =>
       current.map((entry) =>
@@ -570,7 +587,7 @@ export function IfoodStorePage({ session, company }: IfoodStorePageProps) {
             >
               {!hours && <p className="text-[13.5px] text-[var(--muted)]">Consultando o horário no iFood…</p>}
 
-              {hours && !editingHours && <OpeningHoursCalendar days={hours} labels={DAY_LABELS} order={DAY_ORDER} />}
+              {hours && !editingHours && <OpeningHoursCalendar days={hours} labels={DAY_LABELS} order={DAY_ORDER} onSave={saveHoursFromGrid} busy={busy} />}
 
               {hours && editingHours && (
                 <div className="flex flex-col gap-3">
