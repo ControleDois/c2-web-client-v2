@@ -340,7 +340,7 @@ export function IfoodStorePage({ session, company }: IfoodStorePageProps) {
   const merchant = merchants.find((entry) => entry.id === merchantId)
 
   return (
-    <div className="mx-auto flex w-full max-w-[1000px] flex-col gap-5 p-4 sm:p-6 lg:p-8">
+    <div className="flex w-full flex-col gap-5 p-4 sm:p-6 lg:p-8">
       <PageHeader eyebrow="Delivery" title="Loja no iFood">
         Aqui você vê se a sua loja está aberta no iFood, pausa as vendas quando precisar e muda o horário de funcionamento.
         O que você fizer aqui vale na hora no aplicativo do iFood.

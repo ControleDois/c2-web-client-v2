@@ -20,7 +20,7 @@ export function PageHeader({ eyebrow, title, children }: { eyebrow: string; titl
     <div>
       <p className="text-[12px] font-semibold tracking-wide text-[var(--blue-500)] uppercase">{eyebrow}</p>
       <h1 className="mt-0.5 text-[24px] font-bold tracking-tight text-[var(--ink)]">{title}</h1>
-      {children && <div className="mt-1.5 max-w-[680px] text-[14px] leading-relaxed text-[var(--ink-soft)]">{children}</div>}
+      {children && <div className="mt-1.5 max-w-[860px] text-[14px] leading-relaxed text-[var(--ink-soft)]">{children}</div>}
     </div>
   )
 }

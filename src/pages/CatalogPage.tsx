@@ -352,7 +352,7 @@ export function CatalogPage({ session, company }: CatalogPageProps) {
   const tabs = [{ id: 'own', name: 'Cardápio próprio', hint: 'A sua loja online' }, ...(overview?.channels ?? []).map((entry) => ({ id: entry.id, name: entry.name, hint: 'Vendas pelo iFood' }))]
 
   return (
-    <div className="mx-auto flex w-full max-w-[1000px] flex-col gap-5 p-4 sm:p-6 lg:p-8">
+    <div className="flex w-full flex-col gap-5 p-4 sm:p-6 lg:p-8">
       <PageHeader eyebrow="Delivery" title="Cardápio nos canais de venda">
         Aqui você escolhe o que aparece, e por quanto, em cada lugar onde vende: o seu cardápio online e o iFood. O produto
         e o estoque são um só: vendeu em qualquer lugar, o estoque baixa sozinho.
@@ -402,6 +402,7 @@ export function CatalogPage({ session, company }: CatalogPageProps) {
             {error && <Tip tone="bad" title="Não deu certo">{error}</Tip>}
             {message && <Tip tone="good">{message}</Tip>}
 
+            <div className="grid gap-5 xl:grid-cols-2">
             <Panel
               title="Enviar para o iFood"
               help="O que você muda aqui só chega ao iFood quando você toca no botão azul abaixo."
@@ -462,6 +463,7 @@ export function CatalogPage({ session, company }: CatalogPageProps) {
                 </div>
               </div>
             </Panel>
+            </div>
 
             <details className="group rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)] sm:p-6">
               <summary className="flex cursor-pointer list-none items-start justify-between gap-3">
@@ -530,7 +532,7 @@ export function CatalogPage({ session, company }: CatalogPageProps) {
                   </Tip>
                 </Panel>
               ) : (
-                <ul className="flex flex-col gap-3">
+                <ul className="grid gap-3 xl:grid-cols-2">
                   {items.map((item) => {
                     const cover = item.effective.images[0]?.url
                     return (
