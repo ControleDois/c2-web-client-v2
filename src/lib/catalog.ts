@@ -45,6 +45,8 @@ export interface CatalogItem {
     price: number | null
   }
   images: CatalogChannelImage[]
+  category_id?: string | null
+  complement_groups?: number
   effective: {
     active: boolean
     name: string
@@ -92,7 +94,13 @@ export function saveCatalogItem(
   token: string,
   channelId: string,
   productId: string,
-  data: { active: boolean | null; name: string | null; description: string | null; price: number | null }
+  data: {
+    active: boolean | null
+    name: string | null
+    description: string | null
+    price: number | null
+    category_id?: string | null
+  }
 ) {
   return apiPut<{ ok: true }>(`/catalog/channels/${channelId}/items/${productId}`, data, token)
 }
@@ -153,6 +161,31 @@ export function uploadOwnMenuImage(token: string, companyId: string, productId: 
 export function deleteOwnMenuImage(token: string, companyId: string, productId: string, imageId: string) {
   return apiDelete<{ ok: true }>(
     `/catalog/own/items/${productId}/images/${imageId}?companyId=${encodeURIComponent(companyId)}`,
+    token
+  )
+}
+
+export interface IfoodCategory {
+  id: string
+  name: string
+}
+
+export function fetchIfoodCategories(token: string, channelId: string) {
+  return apiGet<{ default_category_id: string | null; categories: IfoodCategory[] }>(
+    `/catalog/channels/${channelId}/categories`,
+    undefined,
+    token
+  )
+}
+
+export function createIfoodCategory(token: string, channelId: string, name: string, makeDefault: boolean) {
+  return apiPost<IfoodCategory>(`/catalog/channels/${channelId}/categories`, { name, make_default: makeDefault }, token)
+}
+
+export function setIfoodDefaultCategory(token: string, channelId: string, categoryId: string | null) {
+  return apiPut<{ default_category_id: string | null }>(
+    `/catalog/channels/${channelId}/default-category`,
+    { category_id: categoryId },
     token
   )
 }

@@ -3,8 +3,11 @@ import { ApiError } from '../lib/api'
 import type { AuthCompany, AuthSession } from '../lib/auth'
 import {
   PRICE_ROUNDING_LABELS,
+  createIfoodCategory,
   deleteCatalogImage,
   fetchCatalogChannels,
+  fetchIfoodCategories,
+  setIfoodDefaultCategory,
   fetchCatalogItems,
   saveCatalogChannel,
   saveCatalogItem,
@@ -13,6 +16,7 @@ import {
   type CatalogChannel,
   type CatalogChannelsResponse,
   type CatalogItem,
+  type IfoodCategory,
   type PriceRounding,
 } from '../lib/catalog'
 import { formatCurrency, formatDateTime } from '../lib/format'
@@ -33,6 +37,7 @@ interface EditForm {
   name: string
   description: string
   price: string
+  categoryId: string
 }
 
 const PRICE_SOURCE_LABELS = { override: 'Preço próprio', rule: 'Pela regra do canal', same: 'Igual ao cardápio' } as const
@@ -81,6 +86,9 @@ export function CatalogPage({ session, company }: CatalogPageProps) {
   const [search, setSearch] = useState('')
   const [busy, setBusy] = useState(false)
   const [rule, setRule] = useState<{ percent: string; rounding: PriceRounding }>({ percent: '0', rounding: 'none' })
+  const [categories, setCategories] = useState<IfoodCategory[]>([])
+  const [defaultCategoryId, setDefaultCategoryId] = useState<string | null>(null)
+  const [newCategory, setNewCategory] = useState('')
   const [form, setForm] = useState<EditForm | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -121,6 +129,24 @@ export function CatalogPage({ session, company }: CatalogPageProps) {
     if (channel) setRule({ percent: String(channel.price_percent), rounding: channel.price_rounding })
   }, [channel?.id, channel?.price_percent, channel?.price_rounding]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const loadCategories = useCallback(async () => {
+    if (!channelId || channelId === 'own') return
+    try {
+      const data = await fetchIfoodCategories(token, channelId)
+      setCategories(data.categories)
+      setDefaultCategoryId(data.default_category_id)
+    } catch (err) {
+      setCategories([])
+      setError(err instanceof ApiError ? err.message : 'Não foi possível carregar as categorias do iFood.')
+    }
+  }, [token, channelId])
+
+  useEffect(() => {
+    setCategories([])
+    setDefaultCategoryId(null)
+    loadCategories()
+  }, [loadCategories])
+
   useEffect(() => {
     const timer = setTimeout(loadItems, search ? 300 : 0)
     return () => clearTimeout(timer)
@@ -140,6 +166,25 @@ export function CatalogPage({ session, company }: CatalogPageProps) {
     } finally {
       setBusy(false)
     }
+  }
+
+  async function handleCreateCategory() {
+    if (!channel || !newCategory.trim()) return
+    await run(async () => {
+      const created = await createIfoodCategory(token, channel.id, newCategory.trim(), true)
+      setNewCategory('')
+      await loadCategories()
+      return `Categoria "${created.name}" criada no iFood e definida como padrão.`
+    })
+  }
+
+  async function handleDefaultCategory(categoryId: string) {
+    if (!channel) return
+    await run(async () => {
+      await setIfoodDefaultCategory(token, channel.id, categoryId || null)
+      setDefaultCategoryId(categoryId || null)
+      return 'Categoria padrão atualizada. Os produtos novos vão para ela.'
+    })
   }
 
   function describeSync(result: Awaited<ReturnType<typeof syncCatalogChannel>>) {
@@ -183,6 +228,7 @@ export function CatalogPage({ session, company }: CatalogPageProps) {
       name: item.override.name ?? '',
       description: item.override.description ?? '',
       price: item.override.price !== null ? String(item.override.price) : '',
+      categoryId: item.category_id ?? '',
     })
   }
 
@@ -194,6 +240,7 @@ export function CatalogPage({ session, company }: CatalogPageProps) {
       name: current.name.trim() || null,
       description: current.description.trim() || null,
       price: price !== null && price > 0 ? price : null,
+      category_id: current.categoryId || null,
     })
   }
 
@@ -342,6 +389,47 @@ export function CatalogPage({ session, company }: CatalogPageProps) {
             </div>
           )}
 
+          {channel && (
+            <div className="grid gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 lg:grid-cols-[1fr_1fr] lg:items-end">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[12px] font-semibold text-[var(--ink-soft)]">Categoria padrão no iFood</label>
+                <select
+                  value={defaultCategoryId ?? ''}
+                  onChange={(event) => handleDefaultCategory(event.target.value)}
+                  disabled={busy}
+                  className="rounded-xl bg-[var(--page)] px-3.5 py-3 text-[14px] text-[var(--ink)] focus:outline-none"
+                >
+                  <option value="">Criar automaticamente (Cardápio Controle Dois)</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-end gap-2">
+                <div className="flex-1">
+                  <TextField
+                    label="Nova categoria no iFood"
+                    icon={<TagIcon className="h-4 w-4" />}
+                    value={newCategory}
+                    maxLength={100}
+                    onChange={(event) => setNewCategory(event.target.value)}
+                    placeholder="Ex.: Bebidas"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCreateCategory}
+                  disabled={busy || !newCategory.trim()}
+                  className="rounded-xl bg-[var(--blue-500)] px-4 py-3 text-[13.5px] font-bold text-white transition hover:bg-[var(--blue-700)] disabled:opacity-60"
+                >
+                  Criar categoria
+                </button>
+              </div>
+            </div>
+          )}
+
           {error && <Notice tone="error">{error}</Notice>}
           {message && <Notice tone="ok">{message}</Notice>}
 
@@ -397,6 +485,7 @@ export function CatalogPage({ session, company }: CatalogPageProps) {
                         <p className="truncate text-[14px] font-bold text-[var(--ink)]">{item.effective.name}</p>
                         <p className="mt-0.5 text-[12px] text-[var(--ink-soft)]">
                           {item.effective.name !== item.own.name && <>Cardápio: {item.own.name} · </>}
+                          {item.complement_groups ? `${item.complement_groups} grupo(s) de complemento · ` : ''}
                           Estoque: {item.stock.toLocaleString('pt-BR')}
                           {item.stock <= 0 && <span className="font-bold text-[var(--red-500)]"> (zerado)</span>}
                         </p>
@@ -462,6 +551,23 @@ export function CatalogPage({ session, company }: CatalogPageProps) {
                   <option value="off">Pausado neste canal</option>
                 </select>
               </div>
+              {channel.type === 'ifood' && (
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[12px] font-semibold text-[var(--ink-soft)]">Categoria no iFood</label>
+                  <select
+                    value={form.categoryId}
+                    onChange={(event) => setForm({ ...form, categoryId: event.target.value })}
+                    className="rounded-xl bg-[var(--page)] px-3.5 py-3 text-[14px] text-[var(--ink)] focus:outline-none"
+                  >
+                    <option value="">Categoria padrão da loja</option>
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <TextField
                 label="Nome neste canal"
                 icon={<TagIcon className="h-4 w-4" />}

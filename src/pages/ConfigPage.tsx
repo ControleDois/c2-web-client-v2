@@ -214,6 +214,9 @@ function buildConfigPayload(companyId: string, config: ConfigRecord | null): Con
     ifood_client_id: config?.ifood_client_id ?? undefined,
     ifood_client_secret: config?.ifood_client_secret ?? undefined,
     ifood_webhook_enabled: config?.ifood_webhook_enabled ?? false,
+    ifood_test_client_id: config?.ifood_test_client_id ?? undefined,
+    ifood_test_client_secret: config?.ifood_test_client_secret ?? undefined,
+    ifood_use_test: config?.ifood_use_test ?? false,
 
     time_clock_enabled: config?.time_clock_enabled ?? false,
     time_clock_default_work_days: config?.time_clock_default_work_days ?? '1,2,3,4,5',

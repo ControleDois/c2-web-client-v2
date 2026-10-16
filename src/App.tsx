@@ -30,6 +30,7 @@ import { CostCentersPage } from './pages/CostCentersPage'
 import { CostCenterFormPage } from './pages/CostCenterFormPage'
 import { DeliveryCouriersPage } from './pages/DeliveryCouriersPage'
 import { CatalogPage } from './pages/CatalogPage'
+import { IfoodStorePage } from './pages/IfoodStorePage'
 import { DeliveryNeighborhoodsPage } from './pages/DeliveryNeighborhoodsPage'
 import { BillsPage } from './pages/BillsPage'
 import { BillFormPage } from './pages/BillFormPage'
@@ -610,6 +611,8 @@ function App() {
             onEdit={(category) => categoriesView.edit(category.id)}
           />
         )
+    } else if (page === 'ifood-store') {
+      pageContent = <IfoodStorePage session={session} company={activeCompany} />
     } else if (page === 'catalog') {
       pageContent = <CatalogPage session={session} company={activeCompany} />
     } else if (page === 'delivery-couriers') {

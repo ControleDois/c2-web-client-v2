@@ -257,6 +257,9 @@ export interface ConfigRecord {
   ifood_client_id?: string | null
   ifood_client_secret?: string | null
   ifood_webhook_enabled?: boolean | null
+  ifood_test_client_id?: string | null
+  ifood_test_client_secret?: string | null
+  ifood_use_test?: boolean | null
 
   // Controle de Ponto - disponível pra qualquer nicho
   time_clock_enabled?: boolean
@@ -541,6 +544,9 @@ export interface ConfigPayload {
   ifood_client_id?: string
   ifood_client_secret?: string
   ifood_webhook_enabled?: boolean
+  ifood_test_client_id?: string
+  ifood_test_client_secret?: string
+  ifood_use_test?: boolean
 
   time_clock_enabled?: boolean
   time_clock_default_work_days?: string

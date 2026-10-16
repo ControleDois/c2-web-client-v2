@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiDelete } from './api'
+import { apiGet, apiPost, apiDelete, apiPut } from './api'
 
 export type IfoodMerchantStatus = 'pending' | 'authorized' | 'revoked'
 
@@ -96,6 +96,7 @@ export function importIfoodCatalog(token: string, id: string, createMissing: boo
 }
 
 export interface IfoodCredentialsCheck {
+  mode: 'production' | 'test'
   configured: boolean
   clientIdStart: string | null
   accepted: boolean
@@ -105,4 +106,50 @@ export interface IfoodCredentialsCheck {
 
 export function testIfoodCredentials(token: string, companyId: string) {
   return apiPost<IfoodCredentialsCheck>('/ifood/credentials/test', { company_id: companyId }, token)
+}
+
+// ---- Módulo Merchant: loja, disponibilidade, pausas e horário ----
+
+export interface IfoodInterruption {
+  id: string
+  description?: string
+  start: string
+  end: string
+}
+
+export interface IfoodOpeningDay {
+  day: string
+  periods: { start: string; end: string }[]
+}
+
+export function fetchIfoodMerchantDetails(token: string, id: string) {
+  return apiGet<Record<string, unknown>>(`/ifood/merchants/${id}/details`, undefined, token)
+}
+
+export function fetchIfoodMerchantAvailability(token: string, id: string) {
+  return apiGet<unknown>(`/ifood/merchants/${id}/availability`, undefined, token)
+}
+
+export function fetchIfoodInterruptions(token: string, id: string) {
+  return apiGet<IfoodInterruption[]>(`/ifood/merchants/${id}/interruptions`, undefined, token)
+}
+
+export function createIfoodInterruption(
+  token: string,
+  id: string,
+  data: { description: string; start: string; end: string }
+) {
+  return apiPost<unknown>(`/ifood/merchants/${id}/interruptions`, data, token)
+}
+
+export function deleteIfoodInterruption(token: string, id: string, interruptionId: string) {
+  return apiDelete<{ ok: true }>(`/ifood/merchants/${id}/interruptions/${interruptionId}`, token)
+}
+
+export function fetchIfoodOpeningHours(token: string, id: string) {
+  return apiGet<{ days: IfoodOpeningDay[] }>(`/ifood/merchants/${id}/opening-hours`, undefined, token)
+}
+
+export function saveIfoodOpeningHours(token: string, id: string, days: IfoodOpeningDay[]) {
+  return apiPut<{ ok: true; shifts: number }>(`/ifood/merchants/${id}/opening-hours`, { days }, token)
 }

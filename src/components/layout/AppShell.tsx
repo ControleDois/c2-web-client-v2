@@ -86,6 +86,7 @@ export type AppPage =
   | 'investments'
   | 'delivery-couriers'
   | 'catalog'
+  | 'ifood-store'
   | 'delivery-neighborhoods'
   | 'printers'
   | 'sale-tokens'
@@ -229,6 +230,7 @@ function buildNavGroups(
       items: [
         { href: DELIVERY_BOARD_URL, label: 'Pedidos de Delivery', icon: TruckIcon },
         { page: 'catalog' as const, label: 'Catálogo por canal', icon: TagIcon },
+        { page: 'ifood-store' as const, label: 'Loja no iFood', icon: ClockIcon },
         { page: 'delivery-couriers' as const, label: 'Entregadores', icon: UserIcon },
         { page: 'delivery-neighborhoods' as const, label: 'Bairros e taxas', icon: RouteIcon },
       ],
@@ -239,6 +241,7 @@ function buildNavGroups(
       items: [
         { href: DELIVERY_BOARD_URL, label: 'Pedidos de Delivery', icon: TruckIcon },
         { page: 'catalog' as const, label: 'Catálogo por canal', icon: TagIcon },
+        { page: 'ifood-store' as const, label: 'Loja no iFood', icon: ClockIcon },
       ],
     })
   }
