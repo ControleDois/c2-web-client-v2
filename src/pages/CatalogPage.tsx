@@ -22,9 +22,20 @@ import {
 import { formatCurrency, formatDateTime } from '../lib/format'
 import { parseMoney } from '../lib/money'
 import { MoneyField } from '../components/form/MoneyField'
-import { TextField } from '../components/form/TextField'
+import { ConfirmDialog } from '../components/ConfirmDialog'
+import { GuideSteps, type GuideStep } from '../components/GuideSteps'
 import { OwnMenuTab } from './catalog/OwnMenuTab'
-import { BoxIcon, CameraIcon, CloseIcon, DollarSignIcon, PencilIcon, RefreshIcon, SearchIcon, TagIcon, TrashIcon } from '../components/icons'
+import { BoxIcon, CameraIcon, CloseIcon, DollarSignIcon, SearchIcon, TrashIcon } from '../components/icons'
+import {
+  PageHeader,
+  Panel,
+  Pill,
+  Tip,
+  buttonPrimary,
+  buttonSecondary,
+  friendlyIfoodMessage,
+  inputClass,
+} from '../components/ifood/ui'
 
 interface CatalogPageProps {
   session: AuthSession
@@ -40,38 +51,35 @@ interface EditForm {
   categoryId: string
 }
 
-const PRICE_SOURCE_LABELS = { override: 'Preço próprio', rule: 'Pela regra do canal', same: 'Igual ao cardápio' } as const
+const PRICE_SOURCE_TEXT = {
+  override: 'Preço definido por você para este canal',
+  rule: 'Preço do cardápio com a regra do canal',
+  same: 'Mesmo preço do cardápio',
+} as const
 
-function Notice({ tone, children }: { tone: 'error' | 'ok'; children: React.ReactNode }) {
-  const style =
-    tone === 'error'
-      ? 'bg-[var(--red-100)] text-[var(--red-500)]'
-      : 'bg-[var(--green-100)] text-[var(--green-600)]'
-  return <p className={`rounded-xl px-4 py-3 text-[13px] font-medium ${style}`}>{children}</p>
+// Mesma conta que o servidor faz para o preço do canal (só para mostrar o exemplo na tela).
+function exampleChannelPrice(base: number, percent: number, rounding: PriceRounding) {
+  const raised = Math.round(base * (1 + percent / 100) * 100) / 100
+  if (raised <= 0) return 0
+  if (rounding === 'ceil_int') return Math.ceil(raised - 1e-9)
+  if (rounding === 'ceil_90' || rounding === 'ceil_99') {
+    const cents = rounding === 'ceil_90' ? 0.9 : 0.99
+    const whole = Math.floor(raised + 1e-9)
+    const candidate = whole + cents
+    return Math.round((candidate < raised - 1e-9 ? whole + 1 + cents : candidate) * 100) / 100
+  }
+  return raised
 }
 
-function SyncChip({ item }: { item: CatalogItem }) {
-  if (item.sync.status === 'error') {
-    return (
-      <span title={item.sync.error ?? ''} className="rounded-full bg-[var(--red-100)] px-2.5 py-1 text-[11px] font-bold text-[var(--red-500)]">
-        Erro no envio
-      </span>
-    )
-  }
+function SyncPill({ item }: { item: CatalogItem }) {
+  if (item.sync.status === 'error') return <Pill tone="bad">Não deu certo</Pill>
   if (item.sync.pending) {
-    return (
-      <span className="rounded-full bg-[var(--amber-100,#fef3c7)] px-2.5 py-1 text-[11px] font-bold text-[var(--amber-700,#b45309)]">
-        {item.external ? 'Alteração a enviar' : 'Não enviado'}
-      </span>
-    )
+    return <Pill tone="warn">{item.external ? 'Mudou: falta enviar' : 'Ainda não está no iFood'}</Pill>
   }
   return (
-    <span
-      title={item.sync.at ? `Enviado em ${formatDateTime(item.sync.at)}` : ''}
-      className="rounded-full bg-[var(--green-100)] px-2.5 py-1 text-[11px] font-bold text-[var(--green-600)]"
-    >
-      Em dia
-    </span>
+    <Pill tone="good" title={item.sync.at ? `Enviado em ${formatDateTime(item.sync.at)}` : undefined}>
+      Já está no iFood
+    </Pill>
   )
 }
 
@@ -92,6 +100,7 @@ export function CatalogPage({ session, company }: CatalogPageProps) {
   const [form, setForm] = useState<EditForm | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [confirmSync, setConfirmSync] = useState<null | 'pending' | 'all'>(null)
   const fileInput = useRef<HTMLInputElement>(null)
 
   const channel: CatalogChannel | null = useMemo(
@@ -104,7 +113,7 @@ export function CatalogPage({ session, company }: CatalogPageProps) {
       const data = await fetchCatalogChannels(token, company.id)
       setOverview(data)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Não foi possível carregar os canais.')
+      setError(err instanceof ApiError ? friendlyIfoodMessage(err.message) : 'Não foi possível carregar os canais.')
     } finally {
       setLoading(false)
     }
@@ -116,7 +125,7 @@ export function CatalogPage({ session, company }: CatalogPageProps) {
       setItems(await fetchCatalogItems(token, channelId, search.trim()))
       setError(null)
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Não foi possível carregar o catálogo.')
+      setError(err instanceof ApiError ? friendlyIfoodMessage(err.message) : 'Não foi possível carregar os produtos.')
     }
   }, [token, channelId, search])
 
@@ -137,7 +146,7 @@ export function CatalogPage({ session, company }: CatalogPageProps) {
       setDefaultCategoryId(data.default_category_id)
     } catch (err) {
       setCategories([])
-      setError(err instanceof ApiError ? err.message : 'Não foi possível carregar as categorias do iFood.')
+      setError(err instanceof ApiError ? friendlyIfoodMessage(err.message) : 'Não foi possível carregar as categorias do iFood.')
     }
   }, [token, channelId])
 
@@ -162,7 +171,7 @@ export function CatalogPage({ session, company }: CatalogPageProps) {
       setMessage(await action())
       await loadItems()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Não foi possível concluir a ação.')
+      setError(err instanceof ApiError ? friendlyIfoodMessage(err.message) : 'Não foi possível concluir. Tente de novo.')
     } finally {
       setBusy(false)
     }
@@ -174,7 +183,7 @@ export function CatalogPage({ session, company }: CatalogPageProps) {
       const created = await createIfoodCategory(token, channel.id, newCategory.trim(), true)
       setNewCategory('')
       await loadCategories()
-      return `Categoria "${created.name}" criada no iFood e definida como padrão.`
+      return `Pronto! A categoria "${created.name}" foi criada no iFood. Os produtos novos vão para ela.`
     })
   }
 
@@ -183,16 +192,20 @@ export function CatalogPage({ session, company }: CatalogPageProps) {
     await run(async () => {
       await setIfoodDefaultCategory(token, channel.id, categoryId || null)
       setDefaultCategoryId(categoryId || null)
-      return 'Categoria padrão atualizada. Os produtos novos vão para ela.'
+      return 'Pronto! Os produtos novos vão para essa categoria no iFood.'
     })
   }
 
   function describeSync(result: Awaited<ReturnType<typeof syncCatalogChannel>>) {
-    const parts = [`${result.synced} enviado(s)`, `${result.unchanged} já estavam em dia`]
+    const sent = result.synced === 1 ? '1 produto foi enviado' : `${result.synced} produtos foram enviados`
+    const parts = [result.synced > 0 ? `Pronto! ${sent} ao iFood.` : 'Nada novo para enviar: tudo já estava em dia.']
     if (result.failed.length) {
-      parts.push(`${result.failed.length} com erro (${result.failed[0].name}: ${result.failed[0].error})`)
+      const first = result.failed[0]
+      parts.push(
+        `${result.failed.length === 1 ? '1 produto não foi enviado' : `${result.failed.length} produtos não foram enviados`}: ${first.name} (${friendlyIfoodMessage(first.error)})`
+      )
     }
-    return parts.join(', ') + '.'
+    return parts.join(' ')
   }
 
   async function handleSaveRule() {
@@ -210,14 +223,19 @@ export function CatalogPage({ session, company }: CatalogPageProps) {
       setOverview((current) =>
         current ? { ...current, channels: current.channels.map((entry) => (entry.id === updated.id ? updated : entry)) } : current
       )
-      return 'Regra de preço salva. Os preços novos aparecem como "Alteração a enviar".'
+      return 'Pronto! A regra de preço foi salva. Agora toque em "Enviar" para os preços novos irem ao iFood.'
     })
   }
 
   function handleSync(force: boolean) {
     if (!channel) return
-    if (!window.confirm(force ? 'Reenviar todo o catálogo ao canal?' : 'Enviar as alterações pendentes ao canal?')) return
+    setConfirmSync(null)
     run(async () => describeSync(await syncCatalogChannel(token, channel.id, { force })))
+  }
+
+  function retryItem(item: CatalogItem) {
+    if (!channel) return
+    run(async () => describeSync(await syncCatalogChannel(token, channel.id, { product_id: item.product_id, force: true })))
   }
 
   function openEdit(item: CatalogItem) {
@@ -257,7 +275,7 @@ export function CatalogPage({ session, company }: CatalogPageProps) {
       setForm(null)
       await loadItems()
     } catch (err) {
-      setFormError(err instanceof ApiError ? err.message : 'Não foi possível salvar o produto.')
+      setFormError(err instanceof ApiError ? friendlyIfoodMessage(err.message) : 'Não foi possível salvar o produto.')
     } finally {
       setSaving(false)
     }
@@ -281,7 +299,7 @@ export function CatalogPage({ session, company }: CatalogPageProps) {
       }
       await refreshFormItem(form.item.product_id)
     } catch (err) {
-      setFormError(err instanceof ApiError ? err.message : 'Não foi possível enviar a foto.')
+      setFormError(err instanceof ApiError ? friendlyIfoodMessage(err.message) : 'Não foi possível enviar a foto. Use JPG ou PNG de até 5 MB.')
     } finally {
       setSaving(false)
       if (fileInput.current) fileInput.current.value = ''
@@ -301,385 +319,419 @@ export function CatalogPage({ session, company }: CatalogPageProps) {
     }
   }
 
+  const ifoodTab = channel !== null
+  const sentCount = Math.max(items.length - pendingCount, 0)
+  const exampleNow = exampleChannelPrice(10, parseMoney(rule.percent) ?? 0, rule.rounding)
+
+  const steps: GuideStep[] = [
+    {
+      key: 'channel',
+      title: 'Escolha onde vender',
+      description: 'Aqui em cima você escolhe o cardápio próprio ou a sua loja do iFood.',
+      status: 'done',
+    },
+    {
+      key: 'products',
+      title: 'Confira os seus produtos',
+      description: 'Veja o preço, a foto e se cada produto está disponível. Toque em "Editar" para mudar.',
+      status: items.length > 0 ? 'info' : 'current',
+      details: 'O produto é um só, e o estoque também. O que você deixar em branco usa o mesmo do cardápio próprio.',
+    },
+    {
+      key: 'send',
+      title: 'Envie para o iFood',
+      description: 'Quando aparecer "falta enviar", toque no botão azul "Enviar para o iFood".',
+      status: pendingCount > 0 ? 'current' : items.length > 0 ? 'done' : 'pending',
+    },
+  ]
+
   if (loading) {
-    return <p className="p-8 text-[13.5px] text-[var(--muted)]">Carregando…</p>
+    return <p className="p-8 text-[14px] text-[var(--muted)]">Carregando…</p>
   }
 
-  return (
-    <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8">
-      <div>
-        <p className="text-[12px] font-semibold tracking-wide text-[var(--blue-500)] uppercase">Delivery</p>
-        <h1 className="mt-0.5 text-[22px] font-bold tracking-tight text-[var(--ink)]">Catálogo por canal</h1>
-        <p className="mt-1 max-w-[720px] text-[13px] text-[var(--ink-soft)]">
-          O produto é um só, com um estoque só. Aqui você define como ele aparece em cada canal: nome, descrição, preço
-          e fotos. O que ficar em branco usa o que está no cardápio próprio. Vendeu em qualquer canal, o estoque baixa.
-        </p>
-      </div>
+  const tabs = [{ id: 'own', name: 'Cardápio próprio', hint: 'A sua loja online' }, ...(overview?.channels ?? []).map((entry) => ({ id: entry.id, name: entry.name, hint: 'Vendas pelo iFood' }))]
 
-      <div className="flex flex-wrap gap-2">
-        {[{ id: 'own', name: 'Cardápio próprio' }, ...(overview?.channels ?? [])].map((entry) => (
-          <button
-            key={entry.id}
-            type="button"
-            onClick={() => {
-              setChannelId(entry.id)
-              setItems([])
-              setMessage(null)
-              setError(null)
-            }}
-            className={`rounded-xl px-4 py-2 text-[13px] font-bold transition ${
-              entry.id === channelId
-                ? 'bg-[var(--blue-500)] text-white'
-                : 'bg-[var(--surface)] text-[var(--ink-soft)] ring-1 ring-[var(--border)] hover:text-[var(--ink)]'
-            }`}
-          >
-            {entry.name}
-          </button>
-        ))}
+  return (
+    <div className="mx-auto flex w-full max-w-[1000px] flex-col gap-5 p-4 sm:p-6 lg:p-8">
+      <PageHeader eyebrow="Delivery" title="Cardápio nos canais de venda">
+        Aqui você escolhe o que aparece, e por quanto, em cada lugar onde vende: o seu cardápio online e o iFood. O produto
+        e o estoque são um só: vendeu em qualquer lugar, o estoque baixa sozinho.
+      </PageHeader>
+
+      <div>
+        <p className="mb-2 text-[13px] font-semibold text-[var(--ink-soft)]">Onde você quer mexer?</p>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {tabs.map((entry) => (
+            <button
+              key={entry.id}
+              type="button"
+              onClick={() => {
+                setChannelId(entry.id)
+                setItems([])
+                setMessage(null)
+                setError(null)
+              }}
+              className={`rounded-2xl px-4 py-3.5 text-left transition ${
+                entry.id === channelId
+                  ? 'bg-[var(--blue-500)] text-white shadow-[var(--card-shadow)]'
+                  : 'bg-[var(--surface)] text-[var(--ink)] ring-1 ring-[var(--border)] hover:ring-[var(--blue-300)]'
+              }`}
+            >
+              <span className="block text-[15px] font-bold">{entry.name}</span>
+              <span className={`block text-[12.5px] ${entry.id === channelId ? 'text-white/80' : 'text-[var(--muted)]'}`}>{entry.hint}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
       {channelId === 'own' ? (
         <>
           <OwnMenuTab session={session} company={company} />
           {overview && overview.channels.length === 0 && (
-            <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 text-[13px] text-[var(--ink-soft)]">
-              Para controlar o catálogo do iFood por aqui, conecte a sua loja em Configurações → Integrações. Depois
-              de autorizada, ela aparece como uma aba ao lado do cardápio próprio.
-            </div>
+            <Tip title="Quer vender também pelo iFood?">
+              Conecte a sua loja em <strong>Configurações → Integrações</strong>. Depois de conectada, ela aparece aqui em cima,
+              ao lado do cardápio próprio.
+            </Tip>
           )}
         </>
       ) : (
-        <>
-          {channel && (
-            <div className="grid gap-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)] lg:grid-cols-[1fr_1fr_auto] lg:items-end">
-              <MoneyField
-                label="Preço neste canal (% sobre o cardápio)"
-                icon={<DollarSignIcon className="h-4 w-4" />}
-                value={rule.percent}
-                allowNegative
-                onChange={(event) => setRule({ ...rule, percent: event.target.value })}
-                placeholder="0,00"
-              />
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[12px] font-semibold text-[var(--ink-soft)]">Arredondamento</label>
-                <select
-                  value={rule.rounding}
-                  onChange={(event) => setRule({ ...rule, rounding: event.target.value as PriceRounding })}
-                  className="rounded-xl bg-[var(--page)] px-3.5 py-3 text-[14px] text-[var(--ink)] focus:outline-none"
-                >
-                  {Object.entries(PRICE_ROUNDING_LABELS).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <button
-                type="button"
-                onClick={handleSaveRule}
-                disabled={busy}
-                className="rounded-xl bg-[var(--blue-500)] px-4 py-3 text-[13.5px] font-bold text-white transition hover:bg-[var(--blue-700)] disabled:opacity-60"
-              >
-                Salvar regra
-              </button>
-              <p className="text-[12px] text-[var(--muted)] lg:col-span-3">
-                Ex.: 15% com arredondamento ",90" transforma R$ 10,00 em R$ 11,90. O preço próprio de um produto sempre
-                vale mais que a regra.
-              </p>
-            </div>
-          )}
+        ifoodTab && (
+          <>
+            <GuideSteps title="Passo a passo" subtitle="São só três passos" steps={steps} />
 
-          {channel && (
-            <div className="grid gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 lg:grid-cols-[1fr_1fr] lg:items-end">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[12px] font-semibold text-[var(--ink-soft)]">Categoria padrão no iFood</label>
-                <select
-                  value={defaultCategoryId ?? ''}
-                  onChange={(event) => handleDefaultCategory(event.target.value)}
-                  disabled={busy}
-                  className="rounded-xl bg-[var(--page)] px-3.5 py-3 text-[14px] text-[var(--ink)] focus:outline-none"
-                >
-                  <option value="">Criar automaticamente (Cardápio Controle Dois)</option>
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
+            {error && <Tip tone="bad" title="Não deu certo">{error}</Tip>}
+            {message && <Tip tone="good">{message}</Tip>}
+
+            <Panel
+              title="Enviar para o iFood"
+              help="O que você muda aqui só chega ao iFood quando você toca no botão azul abaixo."
+            >
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[14px] text-[var(--ink-soft)]">
+                <span><strong className="text-[var(--ink)]">{items.length}</strong> produtos no cardápio</span>
+                <span><strong className="text-[var(--green-600)]">{sentCount}</strong> já estão no iFood</span>
+                <span><strong className={pendingCount > 0 ? 'text-[var(--amber-500)]' : 'text-[var(--ink)]'}>{pendingCount}</strong> faltam enviar</span>
               </div>
-              <div className="flex items-end gap-2">
-                <div className="flex-1">
-                  <TextField
-                    label="Nova categoria no iFood"
-                    icon={<TagIcon className="h-4 w-4" />}
-                    value={newCategory}
-                    maxLength={100}
-                    onChange={(event) => setNewCategory(event.target.value)}
-                    placeholder="Ex.: Bebidas"
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={handleCreateCategory}
-                  disabled={busy || !newCategory.trim()}
-                  className="rounded-xl bg-[var(--blue-500)] px-4 py-3 text-[13.5px] font-bold text-white transition hover:bg-[var(--blue-700)] disabled:opacity-60"
-                >
-                  Criar categoria
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <button type="button" onClick={() => setConfirmSync('pending')} disabled={busy || pendingCount === 0} className={buttonPrimary}>
+                  {busy ? 'Enviando…' : pendingCount > 0 ? `Enviar ${pendingCount} ${pendingCount === 1 ? 'produto' : 'produtos'} para o iFood` : 'Tudo em dia no iFood'}
+                </button>
+                <button type="button" onClick={() => setConfirmSync('all')} disabled={busy} className="text-[13px] font-bold text-[var(--blue-700)] hover:underline disabled:opacity-50">
+                  Enviar todos de novo
                 </button>
               </div>
-            </div>
-          )}
-
-          {error && <Notice tone="error">{error}</Notice>}
-          {message && <Notice tone="ok">{message}</Notice>}
-
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex min-w-[240px] flex-1 items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2.5">
-              <SearchIcon className="h-4 w-4 flex-none text-[var(--muted)]" />
-              <input
-                type="text"
-                placeholder="Buscar produto"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                className="w-full bg-transparent text-[13.5px] text-[var(--ink)] placeholder:text-[var(--muted)] focus:outline-none"
-              />
-            </div>
-            <button
-              type="button"
-              onClick={() => handleSync(false)}
-              disabled={busy || !pendingCount}
-              className="flex items-center gap-2 rounded-xl bg-[var(--blue-500)] px-4 py-2.5 text-[13.5px] font-bold text-white transition hover:bg-[var(--blue-700)] disabled:opacity-50"
-            >
-              <RefreshIcon className="h-4 w-4" />
-              {busy ? 'Enviando…' : `Enviar alterações (${pendingCount})`}
-            </button>
-            <button
-              type="button"
-              onClick={() => handleSync(true)}
-              disabled={busy}
-              className="rounded-xl px-3 py-2.5 text-[13px] font-semibold text-[var(--ink-soft)] hover:text-[var(--ink)] disabled:opacity-50"
-            >
-              Reenviar tudo
-            </button>
-          </div>
-
-          <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-[var(--card-shadow)]">
-            {items.length === 0 ? (
-              <p className="py-12 text-center text-[13.5px] text-[var(--muted)]">
-                Nenhum produto no cardápio. Publique produtos na aba Cardápio próprio.
+              <p className="mt-2 text-[12.5px] text-[var(--muted)]">
+                Use "Enviar todos de novo" só se algo no iFood estiver diferente do que você vê aqui.
               </p>
-            ) : (
-              <ul className="divide-y divide-[var(--border)]">
-                {items.map((item) => {
-                  const cover = item.effective.images[0]?.url
-                  return (
-                    <li key={item.product_id} className="flex flex-wrap items-center gap-3 px-4 py-3.5">
-                      {cover ? (
-                        <img src={cover} alt="" className="h-12 w-12 flex-none rounded-lg object-cover" />
-                      ) : (
-                        <span className="flex h-12 w-12 flex-none items-center justify-center rounded-lg bg-[var(--page)] text-[var(--muted)]">
-                          <BoxIcon className="h-5 w-5" />
-                        </span>
-                      )}
-                      <div className="min-w-0 flex-1 basis-[200px]">
-                        <p className="truncate text-[14px] font-bold text-[var(--ink)]">{item.effective.name}</p>
-                        <p className="mt-0.5 text-[12px] text-[var(--ink-soft)]">
-                          {item.effective.name !== item.own.name && <>Cardápio: {item.own.name} · </>}
-                          {item.complement_groups ? `${item.complement_groups} grupo(s) de complemento · ` : ''}
-                          Estoque: {item.stock.toLocaleString('pt-BR')}
-                          {item.stock <= 0 && <span className="font-bold text-[var(--red-500)]"> (zerado)</span>}
-                        </p>
-                      </div>
-                      <div className="w-[140px] text-right">
-                        <p className="text-[14px] font-bold text-[var(--ink)]">{formatCurrency(item.effective.price)}</p>
-                        <p className="text-[11px] text-[var(--muted)]">
-                          {PRICE_SOURCE_LABELS[item.effective.price_source]}
-                          {item.effective.price_source !== 'same' && <> · cardápio {formatCurrency(item.own.price)}</>}
-                        </p>
-                      </div>
-                      <span
-                        className={`rounded-full px-3 py-1 text-[11.5px] font-bold ${
-                          item.effective.active
-                            ? 'bg-[var(--green-100)] text-[var(--green-600)]'
-                            : 'bg-[var(--page)] text-[var(--muted)]'
-                        }`}
-                      >
-                        {item.effective.active ? 'Ativo' : 'Pausado'}
-                      </span>
-                      <SyncChip item={item} />
-                      <button
-                        type="button"
-                        onClick={() => openEdit(item)}
-                        aria-label="Editar neste canal"
-                        className="rounded-lg p-2 text-[var(--ink-soft)] hover:bg-[var(--page)] hover:text-[var(--ink)]"
-                      >
-                        <PencilIcon className="h-4 w-4" />
-                      </button>
-                    </li>
-                  )
-                })}
-              </ul>
-            )}
-          </div>
-        </>
-      )}
+            </Panel>
 
-      {form && channel && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          onClick={saving ? undefined : () => setForm(null)}
-        >
-          <div
-            className="max-h-[92vh] w-full max-w-[560px] overflow-y-auto rounded-2xl bg-[var(--surface)] p-6 shadow-[var(--card-shadow)]"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <h2 className="text-[15px] font-bold text-[var(--ink)]">{form.item.own.name}</h2>
-            <p className="mt-0.5 text-[12.5px] text-[var(--ink-soft)]">
-              Como este produto aparece em <strong>{channel.name}</strong>. Campo em branco usa o cardápio próprio.
-            </p>
-
-            <div className="mt-4 flex flex-col gap-4">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[12px] font-semibold text-[var(--ink-soft)]">Disponibilidade</label>
-                <select
-                  value={form.active}
-                  onChange={(event) => setForm({ ...form, active: event.target.value as EditForm['active'] })}
-                  className="rounded-xl bg-[var(--page)] px-3.5 py-3 text-[14px] text-[var(--ink)] focus:outline-none"
-                >
-                  <option value="inherit">Igual ao cardápio ({form.item.own.active ? 'ativo' : 'pausado'})</option>
-                  <option value="on">Ativo neste canal</option>
-                  <option value="off">Pausado neste canal</option>
-                </select>
-              </div>
-              {channel.type === 'ifood' && (
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[12px] font-semibold text-[var(--ink-soft)]">Categoria no iFood</label>
+            <Panel
+              title="Categoria no iFood"
+              help='No aplicativo do iFood, os produtos ficam dentro de categorias, como "Bebidas" ou "Pizzas". Escolha em qual categoria os produtos novos vão aparecer.'
+            >
+              <div className="grid gap-4 lg:grid-cols-2">
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-[13px] font-semibold text-[var(--ink-soft)]">Categoria dos produtos novos</span>
                   <select
-                    value={form.categoryId}
-                    onChange={(event) => setForm({ ...form, categoryId: event.target.value })}
-                    className="rounded-xl bg-[var(--page)] px-3.5 py-3 text-[14px] text-[var(--ink)] focus:outline-none"
+                    value={defaultCategoryId ?? ''}
+                    onChange={(event) => handleDefaultCategory(event.target.value)}
+                    disabled={busy}
+                    className={inputClass}
                   >
-                    <option value="">Categoria padrão da loja</option>
+                    <option value="">Criar sozinho (Cardápio Controle Dois)</option>
                     {categories.map((category) => (
                       <option key={category.id} value={category.id}>
                         {category.name}
                       </option>
                     ))}
                   </select>
+                </label>
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[13px] font-semibold text-[var(--ink-soft)]">Ou crie uma categoria nova</span>
+                  <div className="flex gap-2">
+                    <input
+                      value={newCategory}
+                      maxLength={100}
+                      onChange={(event) => setNewCategory(event.target.value)}
+                      placeholder="Ex.: Bebidas"
+                      className={inputClass}
+                    />
+                    <button type="button" onClick={handleCreateCategory} disabled={busy || !newCategory.trim()} className={buttonSecondary + ' flex-none'}>
+                      Criar
+                    </button>
+                  </div>
                 </div>
+              </div>
+            </Panel>
+
+            <details className="group rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--card-shadow)] sm:p-6">
+              <summary className="flex cursor-pointer list-none items-start justify-between gap-3">
+                <div>
+                  <h2 className="text-[16px] font-bold text-[var(--ink)]">Preço no iFood</h2>
+                  <p className="mt-1 text-[13.5px] text-[var(--ink-soft)]">
+                    Quer cobrar um valor diferente no iFood? Toque aqui para ajustar.
+                  </p>
+                </div>
+                <span className="text-[13px] font-bold text-[var(--blue-700)] group-open:hidden">Abrir</span>
+              </summary>
+              <div className="mt-4 flex flex-col gap-4">
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <MoneyField
+                    label="Aumentar (ou diminuir) o preço em %"
+                    icon={<DollarSignIcon className="h-4 w-4" />}
+                    value={rule.percent}
+                    allowNegative
+                    onChange={(event) => setRule({ ...rule, percent: event.target.value })}
+                    placeholder="0,00"
+                  />
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Arredondar o preço</span>
+                    <select
+                      value={rule.rounding}
+                      onChange={(event) => setRule({ ...rule, rounding: event.target.value as PriceRounding })}
+                      className={inputClass}
+                    >
+                      {Object.entries(PRICE_ROUNDING_LABELS).map(([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <Tip>
+                  Exemplo: um produto de <strong>R$ 10,00</strong> no cardápio vai custar <strong>{formatCurrency(exampleNow)}</strong> no
+                  iFood. O preço que você definir direto no produto sempre vale mais que esta regra.
+                </Tip>
+                <div>
+                  <button type="button" onClick={handleSaveRule} disabled={busy} className={buttonPrimary}>
+                    Salvar regra de preço
+                  </button>
+                </div>
+              </div>
+            </details>
+
+            <section className="flex flex-col gap-3">
+              <div className="flex items-center gap-2 rounded-xl bg-[var(--surface)] px-4 py-3 ring-1 ring-[var(--border)]">
+                <SearchIcon className="h-4 w-4 flex-none text-[var(--muted)]" />
+                <input
+                  type="text"
+                  placeholder="Procurar um produto pelo nome"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  className="w-full bg-transparent text-[14.5px] text-[var(--ink)] placeholder:text-[var(--muted)] focus:outline-none"
+                />
+              </div>
+
+              {items.length === 0 ? (
+                <Panel title="Ainda não tem produtos aqui">
+                  <Tip title="Como colocar produtos no iFood">
+                    1) Abra <strong>Cardápio próprio</strong> aqui em cima. 2) Toque em "Editar" no produto e marque "Mostrar no
+                    cardápio". 3) Volte para esta aba e envie para o iFood.
+                  </Tip>
+                </Panel>
+              ) : (
+                <ul className="flex flex-col gap-3">
+                  {items.map((item) => {
+                    const cover = item.effective.images[0]?.url
+                    return (
+                      <li key={item.product_id} className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--card-shadow)]">
+                        <div className="flex flex-wrap items-center gap-4">
+                          {cover ? (
+                            <img src={cover} alt="" className="h-16 w-16 flex-none rounded-xl object-cover" />
+                          ) : (
+                            <span className="flex h-16 w-16 flex-none items-center justify-center rounded-xl bg-[var(--page)] text-[var(--muted)]">
+                              <BoxIcon className="h-6 w-6" />
+                            </span>
+                          )}
+                          <div className="min-w-0 flex-1 basis-[220px]">
+                            <p className="text-[15.5px] font-bold text-[var(--ink)]">{item.effective.name}</p>
+                            <p className="mt-0.5 text-[13px] text-[var(--ink-soft)]">
+                              <strong className="text-[var(--ink)]">{formatCurrency(item.effective.price)}</strong> no iFood ·{' '}
+                              {PRICE_SOURCE_TEXT[item.effective.price_source]}
+                              {item.effective.price_source !== 'same' && <> (no cardápio: {formatCurrency(item.own.price)})</>}
+                            </p>
+                            <p className="mt-0.5 text-[12.5px] text-[var(--muted)]">
+                              {item.complement_groups ? `${item.complement_groups} grupo(s) de complemento · ` : ''}
+                              Estoque: {item.stock.toLocaleString('pt-BR')}
+                              {item.stock <= 0 && <span className="font-bold text-[var(--red-500)]"> (zerado)</span>}
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Pill tone={item.effective.active ? 'good' : 'neutral'}>
+                              {item.effective.active ? 'Disponível' : 'Pausado'}
+                            </Pill>
+                            <SyncPill item={item} />
+                            <button type="button" onClick={() => openEdit(item)} className={buttonSecondary + ' !px-4 !py-2'}>
+                              Editar
+                            </button>
+                          </div>
+                        </div>
+                        {item.sync.status === 'error' && (
+                          <div className="mt-3">
+                            <Tip tone="bad" title="Este produto não foi enviado">
+                              {friendlyIfoodMessage(item.sync.error || 'O iFood recusou o envio.')}{' '}
+                              <button type="button" onClick={() => retryItem(item)} disabled={busy} className="font-bold underline">
+                                Tentar de novo
+                              </button>
+                            </Tip>
+                          </div>
+                        )}
+                      </li>
+                    )
+                  })}
+                </ul>
               )}
-              <TextField
-                label="Nome neste canal"
-                icon={<TagIcon className="h-4 w-4" />}
-                value={form.name}
-                maxLength={100}
-                onChange={(event) => setForm({ ...form, name: event.target.value })}
-                placeholder={form.item.own.name}
-              />
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[12px] font-semibold text-[var(--ink-soft)]">Descrição neste canal</label>
+            </section>
+          </>
+        )
+      )}
+
+      <ConfirmDialog
+        open={confirmSync !== null}
+        title={confirmSync === 'all' ? 'Enviar todos os produtos de novo?' : 'Enviar para o iFood?'}
+        message={
+          confirmSync === 'all'
+            ? 'Todos os produtos serão enviados outra vez ao iFood, mesmo os que já estão lá.'
+            : `${pendingCount} ${pendingCount === 1 ? 'produto será enviado' : 'produtos serão enviados'} ao iFood agora.`
+        }
+        confirmLabel="Sim, enviar"
+        cancelLabel="Agora não"
+        danger={false}
+        loading={busy}
+        onConfirm={() => handleSync(confirmSync === 'all')}
+        onCancel={() => setConfirmSync(null)}
+      />
+
+      {form && channel && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4" onClick={saving ? undefined : () => setForm(null)}>
+          <div
+            className="max-h-[94vh] w-full max-w-[600px] overflow-y-auto rounded-t-3xl bg-[var(--surface)] p-5 shadow-[var(--card-shadow)] sm:rounded-3xl sm:p-7"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 className="text-[18px] font-bold text-[var(--ink)]">{form.item.own.name}</h2>
+            <p className="mt-1 text-[13.5px] leading-relaxed text-[var(--ink-soft)]">
+              Aqui você muda como este produto aparece no <strong>{channel.name}</strong>. Deixe em branco o que quiser manter igual
+              ao cardápio.
+            </p>
+
+            <div className="mt-5 flex flex-col gap-5">
+              <label className="flex flex-col gap-1.5">
+                <span className="text-[14px] font-bold text-[var(--ink)]">O produto aparece para venda?</span>
+                <select
+                  value={form.active}
+                  onChange={(event) => setForm({ ...form, active: event.target.value as EditForm['active'] })}
+                  className={inputClass}
+                >
+                  <option value="inherit">Seguir o cardápio ({form.item.own.active ? 'está disponível' : 'está pausado'})</option>
+                  <option value="on">Sim, vender neste canal</option>
+                  <option value="off">Não, pausar só neste canal</option>
+                </select>
+              </label>
+
+              {channel.type === 'ifood' && (
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-[14px] font-bold text-[var(--ink)]">Em qual categoria do iFood?</span>
+                  <select value={form.categoryId} onChange={(event) => setForm({ ...form, categoryId: event.target.value })} className={inputClass}>
+                    <option value="">A categoria padrão da loja</option>
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+
+              <label className="flex flex-col gap-1.5">
+                <span className="text-[14px] font-bold text-[var(--ink)]">Nome</span>
+                <input value={form.name} maxLength={100} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder={form.item.own.name} className={inputClass} />
+                <span className="text-[12.5px] text-[var(--muted)]">Em branco: usa "{form.item.own.name}".</span>
+              </label>
+
+              <label className="flex flex-col gap-1.5">
+                <span className="text-[14px] font-bold text-[var(--ink)]">Descrição</span>
                 <textarea
                   value={form.description}
                   maxLength={500}
                   rows={3}
                   onChange={(event) => setForm({ ...form, description: event.target.value })}
                   placeholder={form.item.own.description || 'Igual ao cardápio'}
-                  className="rounded-xl bg-[var(--page)] px-3.5 py-3 text-[14px] text-[var(--ink)] placeholder:text-[var(--muted)] focus:outline-none"
+                  className={inputClass}
                 />
+              </label>
+
+              <div className="flex flex-col gap-1.5">
+                <MoneyField
+                  label={`Preço neste canal (no cardápio: ${formatCurrency(form.item.own.price)})`}
+                  icon={<DollarSignIcon className="h-4 w-4" />}
+                  value={form.price}
+                  onChange={(event) => setForm({ ...form, price: event.target.value })}
+                  placeholder="Em branco: usa a regra de preço do canal"
+                />
+                <span className="text-[12.5px] text-[var(--muted)]">Em branco: o sistema calcula pelo preço do cardápio e pela regra do canal.</span>
               </div>
-              <MoneyField
-                label={`Preço próprio (cardápio: ${formatCurrency(form.item.own.price)})`}
-                icon={<DollarSignIcon className="h-4 w-4" />}
-                value={form.price}
-                onChange={(event) => setForm({ ...form, price: event.target.value })}
-                placeholder="Em branco: usa a regra do canal"
-              />
 
               <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-[12px] font-semibold text-[var(--ink-soft)]">Fotos neste canal (JPG ou PNG, até 5 MB)</label>
-                  <button
-                    type="button"
-                    disabled={saving}
-                    onClick={() => fileInput.current?.click()}
-                    className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12.5px] font-bold text-[var(--blue-500)] hover:bg-[var(--page)] disabled:opacity-60"
-                  >
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <span className="text-[14px] font-bold text-[var(--ink)]">Fotos</span>
+                    <p className="text-[12.5px] text-[var(--muted)]">JPG ou PNG, até 5 MB. De preferência quadrada e bem iluminada.</p>
+                  </div>
+                  <button type="button" disabled={saving} onClick={() => fileInput.current?.click()} className={buttonSecondary + ' flex-none !px-4 !py-2'}>
                     <CameraIcon className="h-4 w-4" />
                     Adicionar foto
                   </button>
-                  <input
-                    ref={fileInput}
-                    type="file"
-                    accept="image/jpeg,image/png"
-                    multiple
-                    hidden
-                    onChange={(event) => handleUpload(event.target.files)}
-                  />
+                  <input ref={fileInput} type="file" accept="image/jpeg,image/png" multiple hidden onChange={(event) => handleUpload(event.target.files)} />
                 </div>
                 {form.item.images.length > 0 ? (
                   <div className="flex flex-wrap gap-2">
                     {form.item.images.map((image) => (
                       <div key={image.id} className="relative">
-                        <img src={image.url} alt="" className="h-20 w-20 rounded-lg object-cover" />
+                        <img src={image.url} alt="" className="h-24 w-24 rounded-xl object-cover" />
                         <button
                           type="button"
                           onClick={() => handleDeleteImage(image.id)}
-                          aria-label="Remover foto"
-                          className="absolute -right-1.5 -top-1.5 rounded-full bg-[var(--surface)] p-1 text-[var(--red-500)] shadow ring-1 ring-[var(--border)]"
+                          aria-label="Tirar esta foto"
+                          className="absolute -right-2 -top-2 rounded-full bg-[var(--surface)] p-1.5 text-[var(--red-500)] shadow ring-1 ring-[var(--border)]"
                         >
-                          <TrashIcon className="h-3 w-3" />
+                          <TrashIcon className="h-3.5 w-3.5" />
                         </button>
                       </div>
                     ))}
                   </div>
                 ) : form.item.own.images.length > 0 ? (
                   <div>
-                    <p className="mb-1.5 text-[12px] text-[var(--muted)]">Usando as fotos do cardápio próprio:</p>
+                    <p className="mb-1.5 text-[12.5px] text-[var(--muted)]">Sem foto própria: usando as fotos do cardápio.</p>
                     <div className="flex flex-wrap gap-2">
                       {form.item.own.images.map((image, index) => (
-                        <img key={index} src={image.url} alt="" className="h-16 w-16 rounded-lg object-cover opacity-80" />
+                        <img key={index} src={image.url} alt="" className="h-20 w-20 rounded-xl object-cover opacity-80" />
                       ))}
                     </div>
                   </div>
                 ) : (
-                  <p className="text-[12px] text-[var(--muted)]">Sem fotos. Adicione uma para este canal.</p>
+                  <Tip tone="warn">Este produto ainda não tem foto. No iFood, produtos com foto vendem mais.</Tip>
                 )}
               </div>
             </div>
 
-            {form.item.sync.status === 'error' && form.item.sync.error && (
-              <p className="mt-3 text-[12.5px] font-medium text-[var(--red-500)]">Último envio falhou: {form.item.sync.error}</p>
-            )}
             {form.item.sync.status === 'ok' && form.item.sync.error && (
-              <p className="mt-3 text-[12.5px] text-[var(--ink-soft)]">Aviso do último envio: {form.item.sync.error}</p>
+              <div className="mt-4"><Tip>Aviso do último envio: {friendlyIfoodMessage(form.item.sync.error)}</Tip></div>
             )}
-            {formError && <p className="mt-3 text-[13px] font-medium text-[var(--red-500)]">{formError}</p>}
+            {form.item.sync.status === 'error' && form.item.sync.error && (
+              <div className="mt-4"><Tip tone="bad" title="O último envio não deu certo">{friendlyIfoodMessage(form.item.sync.error)}</Tip></div>
+            )}
+            {formError && <div className="mt-4"><Tip tone="bad">{formError}</Tip></div>}
 
-            <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setForm(null)}
-                disabled={saving}
-                className="flex items-center gap-1.5 rounded-xl px-4 py-2 text-[13.5px] font-semibold text-[var(--ink-soft)] hover:text-[var(--ink)] disabled:opacity-60"
-              >
+            <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
+              <button type="button" onClick={() => setForm(null)} disabled={saving} className="inline-flex items-center justify-center gap-1.5 rounded-xl px-5 py-3 text-[14px] font-bold text-[var(--ink-soft)] hover:text-[var(--ink)] disabled:opacity-60">
                 <CloseIcon className="h-4 w-4" />
                 Cancelar
               </button>
-              <button
-                type="button"
-                onClick={() => handleSaveItem(false)}
-                disabled={saving}
-                className="rounded-xl px-4 py-2 text-[13.5px] font-bold text-[var(--blue-500)] ring-1 ring-[var(--blue-300)] hover:bg-[var(--page)] disabled:opacity-60"
-              >
-                Salvar
+              <button type="button" onClick={() => handleSaveItem(false)} disabled={saving} className={buttonSecondary}>
+                Só salvar
               </button>
-              <button
-                type="button"
-                onClick={() => handleSaveItem(true)}
-                disabled={saving}
-                className="rounded-xl bg-[var(--blue-500)] px-4 py-2 text-[13.5px] font-bold text-white transition hover:bg-[var(--blue-700)] disabled:opacity-60"
-              >
-                {saving ? 'Salvando…' : 'Salvar e enviar'}
+              <button type="button" onClick={() => handleSaveItem(true)} disabled={saving} className={buttonPrimary}>
+                {saving ? 'Salvando…' : 'Salvar e enviar ao iFood'}
               </button>
             </div>
           </div>
