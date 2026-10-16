@@ -171,6 +171,11 @@ export interface ConfigRecord {
   cora_environment?: 'production' | 'stage' | null
   // direct = integração direta (certificado); partner = conta conectada pelo login da Cora
   cora_auth_mode?: 'direct' | 'partner' | null
+  cora_partner_client_id?: string | null
+  cora_partner_client_secret?: string | null
+  cora_partner_test_client_id?: string | null
+  cora_partner_test_client_secret?: string | null
+  cora_partner_use_test?: boolean | null
   cora_partner_connected?: boolean
   cora_partner_connected_at?: string | null
   cora_cert_file_name?: string | null
@@ -476,6 +481,11 @@ export interface ConfigPayload {
   cora_client_id?: string
   cora_environment?: 'production' | 'stage'
   cora_auth_mode?: 'direct' | 'partner'
+  cora_partner_client_id?: string
+  cora_partner_client_secret?: string
+  cora_partner_test_client_id?: string
+  cora_partner_test_client_secret?: string
+  cora_partner_use_test?: boolean
   cora_fine_rate?: number
   cora_interest_rate?: number
   cora_discount_type?: 'FIXED' | 'PERCENT' | ''
@@ -731,6 +741,20 @@ export function atualizarWebhookBoletoSicredi(
 
 export function testCoraConnection(token: string, companyId: string) {
   return apiPost<{ message: string }>('/config/cora/test', { companyId }, token)
+}
+
+export interface CoraPartnerCheck {
+  mode: 'production' | 'test'
+  environment: 'production' | 'stage'
+  configured: boolean
+  clientIdStart: string | null
+  accepted: boolean
+  error: string | null
+}
+
+// Só a matriz: confere se a Cora aceita o aplicativo parceiro que o sistema usa agora.
+export function checkCoraPartnerApp(token: string, companyId: string) {
+  return apiPost<CoraPartnerCheck>('/config/cora/partner/check', { companyId }, token)
 }
 
 // Parceria Cora (OAuth): a empresa autoriza o Controle Dois na própria conta Cora.
