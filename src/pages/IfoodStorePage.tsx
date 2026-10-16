@@ -58,6 +58,13 @@ function Fields({ value, depth = 0 }: { value: unknown; depth?: number }) {
   )
 }
 
+// O iFood devolve as pausas sem fuso ("2026-10-16T13:46:00"), e o horário é UTC: sem isso a tela mostra 4 horas a mais.
+function fromIfoodTime(value: string) {
+  return /(Z|[+-]\d{2}:\d{2})$/.test(value) ? value : `${value}Z`
+}
+
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
 function toLocalInput(date: Date) {
   const pad = (value: number) => String(value).padStart(2, '0')
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
@@ -137,16 +144,29 @@ export function IfoodStorePage({ session, company }: IfoodStorePageProps) {
       setPauses(await fetchIfoodInterruptions(token, merchantId))
     })
 
+  // O iFood leva alguns segundos para refletir uma pausa nova ou removida na listagem: confere até 5 vezes.
+  async function refreshPausesUntil(done: (list: IfoodInterruption[]) => boolean) {
+    if (!merchantId) return
+    let list: IfoodInterruption[] = []
+    for (let attempt = 0; attempt < 5; attempt++) {
+      await wait(attempt === 0 ? 1200 : 2000)
+      list = await fetchIfoodInterruptions(token, merchantId)
+      if (done(list)) break
+    }
+    setPauses(list)
+  }
+
   const createPause = () =>
     run(async () => {
       if (!merchantId) return
+      const description = reason.trim()
       await createIfoodInterruption(token, merchantId, {
-        description: reason.trim(),
+        description,
         start: new Date(pauseStart).toISOString(),
         end: new Date(pauseEnd).toISOString(),
       })
       setReason('')
-      setPauses(await fetchIfoodInterruptions(token, merchantId))
+      await refreshPausesUntil((list) => list.some((pause) => pause.description === description))
       return 'Pausa cadastrada no iFood.'
     })
 
@@ -154,7 +174,7 @@ export function IfoodStorePage({ session, company }: IfoodStorePageProps) {
     run(async () => {
       if (!merchantId) return
       await deleteIfoodInterruption(token, merchantId, id)
-      setPauses(await fetchIfoodInterruptions(token, merchantId))
+      await refreshPausesUntil((list) => !list.some((pause) => pause.id === id))
       return 'Pausa removida no iFood.'
     })
 
@@ -246,7 +266,11 @@ export function IfoodStorePage({ session, company }: IfoodStorePageProps) {
               <button
                 key={key}
                 type="button"
-                onClick={() => setTab(key)}
+                onClick={() => {
+                  setTab(key)
+                  setMessage(null)
+                  setError(null)
+                }}
                 className={`rounded-t-xl px-4 py-2.5 text-[13px] font-bold ${
                   tab === key ? 'bg-[var(--blue-500)] text-white' : 'text-[var(--ink-soft)] hover:bg-[var(--surface)]'
                 }`}
@@ -321,7 +345,7 @@ export function IfoodStorePage({ session, company }: IfoodStorePageProps) {
                           <div className="min-w-0 flex-1">
                             <p className="text-[14px] font-bold text-[var(--ink)]">{pause.description || 'Pausa'}</p>
                             <p className="text-[12.5px] text-[var(--ink-soft)]">
-                              {formatDateTime(pause.start)} até {formatDateTime(pause.end)}
+                              {formatDateTime(fromIfoodTime(pause.start))} até {formatDateTime(fromIfoodTime(pause.end))}
                             </p>
                           </div>
                           <button
