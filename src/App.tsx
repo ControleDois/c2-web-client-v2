@@ -130,7 +130,7 @@ import {
   type AuthSession,
   type AuthCompany,
 } from './lib/auth'
-import { isLocacaoVeiculos, isEmprestimo, isGaragemInvestidor, isVidracaria, isMercearia } from './lib/systemTypes'
+import { isLocacaoVeiculos, isEmprestimo, isGaragemInvestidor, isVidracaria, isMercearia, isChaveiro } from './lib/systemTypes'
 
 type Screen = 'login' | 'forgot-password' | 'signup'
 
@@ -1196,9 +1196,10 @@ function App() {
           }}
         />
       )
-    } else if (isMercearia(activeCompany.system_type)) {
+    } else if (isMercearia(activeCompany.system_type) || isChaveiro(activeCompany.system_type)) {
       pageContent = (
         <MerceariaDashboardPage
+          niche={isChaveiro(activeCompany.system_type) ? 'Chaveiro' : 'Mercearia'}
           session={session}
           company={activeCompany}
           onOpenProducts={() => handleNavigate('products')}

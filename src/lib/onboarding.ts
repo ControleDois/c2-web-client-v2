@@ -50,6 +50,7 @@ export interface NicheOption {
 
 export const NICHE_OPTIONS: NicheOption[] = [
   { type: 21, name: 'Mercearia e varejo', text: 'Venda no balcão com leitor de código de barras, balança e catálogo pronto.' },
+  { type: 22, name: 'Chaveiro', text: 'Cadastro de clientes, produtos e serviços e venda rápida com o financeiro.' },
   { type: 14, name: 'Pizzaria', text: 'Mesas, comandas, cardápio digital e delivery.' },
   { type: 15, name: 'Lanchonete', text: 'Pedidos no balcão, mesas e delivery.' },
   { type: 16, name: 'Hamburgueria', text: 'Comandas, cardápio digital e delivery.' },

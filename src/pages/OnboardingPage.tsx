@@ -60,7 +60,7 @@ function firstSteps(systemType: number): FirstStep[] {
       people,
     ]
   }
-  if ([14, 15, 16, 17, 12, 8, 10].includes(systemType)) return [products, pdv, people]
+  if ([14, 15, 16, 17, 12, 8, 10, 22].includes(systemType)) return [products, pdv, people]
   if (systemType === 6) {
     return [
       { title: 'Cadastrar veículos', text: 'Placa, modelo e dados da frota.', to: { page: 'vehicles' } },

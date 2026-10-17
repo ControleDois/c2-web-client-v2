@@ -7,6 +7,7 @@ import { AlertTriangleIcon } from '../components/icons'
 import { getPersonName, type AuthCompany, type AuthSession } from '../lib/auth'
 
 interface MerceariaDashboardPageProps {
+  niche?: string
   session: AuthSession
   company: AuthCompany
   onOpenProducts?: () => void
@@ -39,7 +40,7 @@ function shortTime(iso: string) {
 
 // Painel da mercearia: vendas do período contra o anterior, formas de pagamento, mais vendidos e o
 // que pede atenção (produtos sem preço, contas vencidas).
-export function MerceariaDashboardPage({ session, company, onOpenProducts, onOpenPayables }: MerceariaDashboardPageProps) {
+export function MerceariaDashboardPage({ niche = 'Mercearia', session, company, onOpenProducts, onOpenPayables }: MerceariaDashboardPageProps) {
   const [period, setPeriod] = useState<MerceariaPeriod>('today')
   const [data, setData] = useState<MerceariaDashboard | null>(null)
   const [loading, setLoading] = useState(true)
@@ -125,7 +126,7 @@ export function MerceariaDashboardPage({ session, company, onOpenProducts, onOpe
     <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <p className="text-[12px] font-semibold tracking-wide text-[var(--blue-700)] uppercase">Dashboard · Mercearia</p>
+          <p className="text-[12px] font-semibold tracking-wide text-[var(--blue-700)] uppercase">Dashboard · {niche}</p>
           <h1 className="mt-0.5 text-[22px] font-bold tracking-tight text-[var(--ink)]">Olá, {getPersonName(session.user)}</h1>
         </div>
         <div className="flex gap-1 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1">

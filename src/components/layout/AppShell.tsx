@@ -38,6 +38,7 @@ import {
   isVidracaria,
   isLojaOnline,
   isMercearia,
+  isChaveiro,
 } from '../../lib/systemTypes'
 
 export type AppPage =
@@ -123,6 +124,7 @@ interface AppShellProps {
 type NavItem = { page: AppPage; label: string; icon: typeof GridIcon } | { href: string; label: string; icon: typeof GridIcon }
 type NavGroup = { title: string; items: NavItem[] }
 
+const PDV_URL = (import.meta.env.VITE_PDV_URL ?? 'https://pdv.controledois.com.br').replace(/\/+$/, '')
 const DELIVERY_BOARD_URL = import.meta.env.VITE_DELIVERY_URL ?? 'https://delivery.controledois.com.br'
 
 function buildNavGroups(
@@ -172,6 +174,13 @@ function buildNavGroups(
             { page: 'glass-orders' as const, label: 'Orçamentos e Vendas', icon: SaleIcon },
             { page: 'glass-production' as const, label: 'Produção', icon: WrenchIcon },
             { page: 'glass-schedule' as const, label: 'Agenda', icon: ClockIcon },
+          ]
+      : isChaveiro(systemType)
+        ? [
+            { page: 'dashboard' as const, label: 'Dashboard', icon: GridIcon },
+            { page: 'people' as const, label: 'Pessoas', icon: UserIcon },
+            { page: 'products' as const, label: 'Produtos e Serviços', icon: BoxIcon },
+            { href: PDV_URL, label: 'Venda Rápida', icon: SaleIcon },
           ]
       : padaria
         ? [

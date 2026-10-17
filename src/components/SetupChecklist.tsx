@@ -19,7 +19,7 @@ interface ChecklistResponse {
 }
 
 const PDV_URL = (import.meta.env.VITE_PDV_URL ?? 'https://pdv.controledois.com.br').replace(/\/+$/, '')
-const PDV_NICHES = [21, 14, 15, 16, 17, 8, 12, 10]
+const PDV_NICHES = [21, 22, 14, 15, 16, 17, 8, 12, 10]
 
 interface SetupChecklistProps {
   session: AuthSession
