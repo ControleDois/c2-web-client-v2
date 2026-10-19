@@ -229,6 +229,8 @@ export function drawStampBar(canvas: HTMLCanvasElement, lines: string[]) {
   })
 }
 
+const STAMPED_PHOTO_MAX_SIDE = 2000
+
 export function stampPhotoFile(file: File, lines: string[]): Promise<File> {
   return new Promise((resolve) => {
     const objectUrl = URL.createObjectURL(file)
@@ -236,15 +238,17 @@ export function stampPhotoFile(file: File, lines: string[]): Promise<File> {
 
     img.onload = () => {
       URL.revokeObjectURL(objectUrl)
+      // Foto de celular chega com 12 MP (3 MB+): reduz o lado maior para o relatório e o envio não ficarem pesados.
+      const scale = Math.min(1, STAMPED_PHOTO_MAX_SIDE / Math.max(img.naturalWidth, img.naturalHeight))
       const canvas = document.createElement('canvas')
-      canvas.width = img.naturalWidth
-      canvas.height = img.naturalHeight
+      canvas.width = Math.round(img.naturalWidth * scale)
+      canvas.height = Math.round(img.naturalHeight * scale)
       const ctx = canvas.getContext('2d')
       if (!ctx) {
         resolve(file)
         return
       }
-      ctx.drawImage(img, 0, 0)
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
       drawStampBar(canvas, lines)
       canvas.toBlob(
         (blob) => resolve(blob ? new File([blob], file.name, { type: 'image/jpeg' }) : file),
@@ -260,4 +264,11 @@ export function stampPhotoFile(file: File, lines: string[]): Promise<File> {
 
     img.src = objectUrl
   })
+}
+
+// Carimba data/hora + GPS (e endereço, se vier a tempo) na foto tirada pela câmera. Sem permissão de localização a foto
+// segue com a data e a indicação "Localização não disponível", para ficar claro no registro.
+export async function stampVisitPhoto(file: File): Promise<File> {
+  const fix = await getCurrentFix().catch(() => null)
+  return stampPhotoFile(file, await buildStampLines(fix))
 }

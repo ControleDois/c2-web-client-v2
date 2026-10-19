@@ -2,13 +2,17 @@ import { useEffect, useState } from 'react'
 import {
   fetchSupportVisits,
   fetchSupportVisit,
+  fetchSupportVisitPdf,
+  updateSupportVisit,
   VISIT_TYPE_LABELS,
   VISIT_STATUS_LABELS,
   type SupportVisitRecord,
 } from '../lib/supportVisits'
 import { ApiError } from '../lib/api'
 import { formatDateTime } from '../lib/format'
-import { SearchIcon, PlusIcon, EyeIcon, CloseIcon, ClipboardCheckIcon } from '../components/icons'
+import { SearchIcon, PlusIcon, EyeIcon, CloseIcon, ClipboardCheckIcon, CameraIcon, WhatsappIcon, DownloadIcon, PencilIcon } from '../components/icons'
+import { SupportVisitPhotosModal } from '../components/SupportVisitPhotosModal'
+import { SupportVisitSendModal } from '../components/SupportVisitSendModal'
 import { Select } from '../components/form/Select'
 import { PhotoLightbox, type LightboxPhoto } from '../components/PhotoLightbox'
 import type { AuthSession, AuthCompany } from '../lib/auth'
@@ -35,6 +39,14 @@ export function SupportVisitsPage({ session, company, onCreate }: SupportVisitsP
   const [detailItem, setDetailItem] = useState<SupportVisitRecord | null>(null)
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
+  const [photosOpen, setPhotosOpen] = useState(false)
+  const [sendOpen, setSendOpen] = useState(false)
+  const [notice, setNotice] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [pdfLoading, setPdfLoading] = useState(false)
+  const [editingDescription, setEditingDescription] = useState(false)
+  const [descriptionDraft, setDescriptionDraft] = useState('')
+  const [savingVisit, setSavingVisit] = useState(false)
 
   function load() {
     setLoading(true)
@@ -56,12 +68,58 @@ export function SupportVisitsPage({ session, company, onCreate }: SupportVisitsP
   useEffect(load, [token, company.id, search, visitType, page])
 
   function openDetail(item: SupportVisitRecord) {
+    setNotice(null)
+    setActionError(null)
+    setEditingDescription(false)
     setDetailItem(item)
     setLoadingDetail(true)
     fetchSupportVisit(token, item.id)
       .then((full) => setDetailItem(full))
       .catch(() => {})
       .finally(() => setLoadingDetail(false))
+  }
+
+  // Depois de mudar algo na visita: troca o detalhe aberto e atualiza a lista.
+  function applyUpdated(updated: SupportVisitRecord, message?: string) {
+    setDetailItem((current) => (current ? { ...current, ...updated, people: updated.people ?? current.people } : current))
+    if (message) setNotice(message)
+    load()
+    if (detailItem) {
+      fetchSupportVisit(token, detailItem.id)
+        .then((full) => setDetailItem(full))
+        .catch(() => {})
+    }
+  }
+
+  async function handleOpenPdf() {
+    if (!detailItem) return
+    setPdfLoading(true)
+    setActionError(null)
+    try {
+      const blob = await fetchSupportVisitPdf(token, detailItem.id)
+      const url = URL.createObjectURL(blob)
+      window.open(url, '_blank', 'noreferrer')
+      setTimeout(() => URL.revokeObjectURL(url), 60_000)
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : 'Não foi possível gerar o PDF da visita.')
+    } finally {
+      setPdfLoading(false)
+    }
+  }
+
+  async function saveVisit(payload: { description?: string; status?: number }, message: string) {
+    if (!detailItem) return
+    setSavingVisit(true)
+    setActionError(null)
+    try {
+      const updated = await updateSupportVisit(token, detailItem.id, payload)
+      setEditingDescription(false)
+      applyUpdated(updated, message)
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : 'Não foi possível salvar a visita.')
+    } finally {
+      setSavingVisit(false)
+    }
   }
 
   const photos = detailItem?.photos ?? []
@@ -253,16 +311,42 @@ export function SupportVisitsPage({ session, company, onCreate }: SupportVisitsP
                 <p className="text-[12px] text-[var(--muted)]">{formatDateTime(detailItem.created_at)}</p>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => setDetailItem(null)}
-              className="rounded-lg p-1.5 text-[var(--muted)] hover:bg-[var(--page)] hover:text-[var(--ink)]"
-            >
-              <CloseIcon className="h-5 w-5" />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => void handleOpenPdf()}
+                disabled={pdfLoading}
+                className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-[12.5px] font-bold text-[var(--blue-700)] ring-1 ring-[var(--blue-300)] hover:bg-[var(--blue-100)] disabled:opacity-60"
+              >
+                <DownloadIcon className="h-4 w-4" />
+                <span className="hidden sm:inline">{pdfLoading ? 'Gerando…' : 'Ver PDF'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSendOpen(true)}
+                className="flex items-center gap-1.5 rounded-xl bg-[var(--green-600)] px-3 py-2 text-[12.5px] font-bold text-white hover:opacity-90"
+              >
+                <WhatsappIcon className="h-4 w-4" />
+                <span className="hidden sm:inline">Enviar ao cliente</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setDetailItem(null)}
+                aria-label="Fechar"
+                className="rounded-lg p-1.5 text-[var(--muted)] hover:bg-[var(--page)] hover:text-[var(--ink)]"
+              >
+                <CloseIcon className="h-5 w-5" />
+              </button>
+            </div>
           </div>
 
           <div className="mx-auto flex w-full min-h-0 max-w-[900px] flex-1 flex-col overflow-y-auto px-4 py-6 sm:px-6">
+            {notice && (
+              <p className="mb-4 rounded-xl bg-[var(--green-100)] px-4 py-3 text-[13px] font-semibold text-[var(--green-600)]">{notice}</p>
+            )}
+            {actionError && (
+              <p className="mb-4 rounded-xl bg-[var(--red-100)] px-4 py-3 text-[13px] font-medium text-[var(--red-500)]">{actionError}</p>
+            )}
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <p className="text-[11px] font-semibold tracking-wide text-[var(--muted)] uppercase">Cliente</p>
@@ -282,23 +366,93 @@ export function SupportVisitsPage({ session, company, onCreate }: SupportVisitsP
               </div>
               <div>
                 <p className="text-[11px] font-semibold tracking-wide text-[var(--muted)] uppercase">Status</p>
-                <span className={`mt-1 inline-block rounded-full px-2.5 py-1 text-[11px] font-bold ${statusTone(detailItem.status)}`}>
-                  {VISIT_STATUS_LABELS[detailItem.status] ?? '—'}
-                </span>
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  <span className={`inline-block rounded-full px-2.5 py-1 text-[11px] font-bold ${statusTone(detailItem.status)}`}>
+                    {VISIT_STATUS_LABELS[detailItem.status] ?? '—'}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={savingVisit}
+                    onClick={() =>
+                      void saveVisit(
+                        { status: detailItem.status === 1 ? 0 : 1 },
+                        detailItem.status === 1 ? 'Visita reaberta.' : 'Visita marcada como concluída.'
+                      )
+                    }
+                    className="text-[12px] font-bold text-[var(--blue-700)] hover:underline disabled:opacity-60"
+                  >
+                    {detailItem.status === 1 ? 'Reabrir' : 'Marcar como concluída'}
+                  </button>
+                </div>
               </div>
             </div>
 
-            {detailItem.description && (
-              <div className="mt-6">
+            <div className="mt-6">
+              <div className="flex items-center justify-between gap-3">
                 <p className="text-[11px] font-semibold tracking-wide text-[var(--muted)] uppercase">O que foi feito</p>
-                <p className="mt-1 whitespace-pre-line text-[13.5px] text-[var(--ink)]">{detailItem.description}</p>
+                {!editingDescription && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDescriptionDraft(detailItem.description ?? '')
+                      setEditingDescription(true)
+                    }}
+                    className="flex items-center gap-1.5 text-[12px] font-bold text-[var(--blue-700)] hover:underline"
+                  >
+                    <PencilIcon className="h-3.5 w-3.5" />
+                    Editar
+                  </button>
+                )}
               </div>
-            )}
+              {editingDescription ? (
+                <div className="mt-2">
+                  <textarea
+                    value={descriptionDraft}
+                    rows={5}
+                    onChange={(event) => setDescriptionDraft(event.target.value)}
+                    placeholder="Descreva o que foi feito na visita"
+                    className="w-full rounded-xl bg-[var(--page)] px-3.5 py-3 text-[14px] text-[var(--ink)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--blue-300)]"
+                  />
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      type="button"
+                      disabled={savingVisit}
+                      onClick={() => void saveVisit({ description: descriptionDraft }, 'Descrição salva.')}
+                      className="rounded-xl bg-[var(--blue-500)] px-4 py-2 text-[13px] font-bold text-white hover:bg-[var(--blue-700)] disabled:opacity-60"
+                    >
+                      {savingVisit ? 'Salvando…' : 'Salvar'}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={savingVisit}
+                      onClick={() => setEditingDescription(false)}
+                      className="rounded-xl px-4 py-2 text-[13px] font-semibold text-[var(--ink-soft)] hover:text-[var(--ink)]"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              ) : detailItem.description ? (
+                <p className="mt-1 whitespace-pre-line text-[13.5px] text-[var(--ink)]">{detailItem.description}</p>
+              ) : (
+                <p className="mt-1 text-[13px] text-[var(--muted)]">Nada descrito ainda. Toque em "Editar" para escrever.</p>
+              )}
+            </div>
 
             <div className="mt-6">
-              <p className="text-[11px] font-semibold tracking-wide text-[var(--muted)] uppercase">
-                Fotos ({loadingDetail ? '…' : photos.length})
-              </p>
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-[11px] font-semibold tracking-wide text-[var(--muted)] uppercase">
+                  Fotos ({loadingDetail ? '…' : photos.length})
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setPhotosOpen(true)}
+                  className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[12.5px] font-bold text-[var(--blue-700)] ring-1 ring-[var(--blue-300)] hover:bg-[var(--blue-100)]"
+                >
+                  <CameraIcon className="h-4 w-4" />
+                  Adicionar fotos
+                </button>
+              </div>
               {photos.length > 0 ? (
                 <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
                   {photos.map((photo, index) => (
@@ -352,6 +506,24 @@ export function SupportVisitsPage({ session, company, onCreate }: SupportVisitsP
           </div>
         </div>
       )}
+      <SupportVisitPhotosModal
+        open={photosOpen}
+        token={token}
+        visit={detailItem}
+        onClose={() => setPhotosOpen(false)}
+        onSaved={(updated) => {
+          setPhotosOpen(false)
+          applyUpdated(updated, 'Fotos adicionadas à visita.')
+        }}
+      />
+      <SupportVisitSendModal
+        open={sendOpen}
+        session={session}
+        company={company}
+        visit={detailItem}
+        onClose={() => setSendOpen(false)}
+        onSent={(message) => setNotice(message)}
+      />
       <PhotoLightbox
         photos={lightboxPhotos}
         index={lightboxIndex}

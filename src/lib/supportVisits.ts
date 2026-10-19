@@ -1,4 +1,4 @@
-import { apiGet, apiPut, apiPostForm } from './api'
+import { apiGet, apiPut, apiPutForm, apiPost, apiPostForm, apiFetchBlob } from './api'
 
 export interface SupportVisitPhoto {
   id: string
@@ -141,4 +141,31 @@ export function createSupportVisit(token: string, payload: CreateSupportVisitPay
   }
 
   return apiPostForm<{ message: string; data: SupportVisitRecord }>('/support-visit', form, token)
+}
+
+export function updateSupportVisit(token: string, id: string, payload: { description?: string; status?: number }) {
+  return apiPut<SupportVisitRecord>(`/support-visit/${id}`, payload, token)
+}
+
+// Acrescenta fotos a uma visita que já existe (as que já estavam ficam).
+export function addSupportVisitPhotos(token: string, id: string, photos: CreateVisitPhoto[]) {
+  const form = new FormData()
+  const metadata = photos.map((photo, index) => ({
+    id_referencia: `photo_${index}`,
+    tag: 'foto',
+    label: photo.label,
+    observation: photo.observation ?? '',
+  }))
+  form.append('photos_metadata', JSON.stringify(metadata))
+  photos.forEach((photo, index) => form.append(`photo_${index}`, photo.file))
+  return apiPutForm<SupportVisitRecord>(`/support-visit/${id}`, form, token)
+}
+
+// Relatório da visita em PDF (para abrir ou baixar).
+export function fetchSupportVisitPdf(token: string, id: string) {
+  return apiFetchBlob(`/support-visit/${id}/pdf`, undefined, token)
+}
+
+export function sendSupportVisitReport(token: string, id: string, whatsappId: string) {
+  return apiPost<{ message: string; fileUrl: string }>(`/support-visit/${id}/send-report`, { whatsappId }, token)
 }

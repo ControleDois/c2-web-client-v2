@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type TouchEvent as ReactTouchEvent } from 'react'
-import { buildStampLines, getCurrentFix, stampPhotoFile } from '../lib/photoWatermark'
+import { getCurrentFix, stampVisitPhoto } from '../lib/photoWatermark'
 import { createSupportVisit, VISIT_TYPE_LABELS, type CreateVisitPhoto } from '../lib/supportVisits'
 import { fetchSupportContracts, type SupportContractRecord } from '../lib/supportContracts'
 import { fetchPeople, type PersonRecord } from '../lib/people'
@@ -35,15 +35,6 @@ function dataURLtoFile(dataUrl: string, filename: string): File {
   const bytes = new Uint8Array(binary.length)
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
   return new File([bytes], filename, { type: mime })
-}
-
-// Carimba data/hora + GPS (e endereço, se vier a tempo) na foto tirada pela
-// câmera - mesma evidência da vistoria de veículo. Sem permissão de
-// localização a foto segue com a data e a indicação "Localização não
-// disponível", pra ficar claro no registro.
-async function stampVisitPhoto(file: File): Promise<File> {
-  const fix = await getCurrentFix().catch(() => null)
-  return stampPhotoFile(file, await buildStampLines(fix))
 }
 
 export function SupportVisitFormPage({ session, company, onBack, onSaved }: SupportVisitFormPageProps) {
