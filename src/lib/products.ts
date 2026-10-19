@@ -1,9 +1,52 @@
-import { apiGet, apiPost, apiPut, apiDelete } from './api'
+import { apiGet, apiPost, apiPostForm, apiPut, apiDelete } from './api'
 
 export interface ProductCategoryRef {
   id: string
   name: string
   code?: number
+}
+
+// Complementos do produto (sabores, bordas, adicionais): grupos com as opções que o cliente escolhe.
+export interface ProductComplementOptionRecord {
+  id?: string
+  product_id?: string | null
+  description: string
+  sale_value: number | string | null
+  status?: boolean | null
+  image_url?: string | null
+  file_name?: string | null
+  file_size?: number | null
+}
+
+export interface ProductComplementRecord {
+  id?: string
+  name: string
+  required?: boolean | null
+  minimum?: number | null
+  maximum?: number | null
+  complement_template_id?: string | null
+  complement_template?: { id: string; name: string; options?: { id: string; description: string }[] } | null
+  complementTemplate?: { id: string; name: string; options?: { id: string; description: string }[] } | null
+  products?: ProductComplementOptionRecord[]
+}
+
+export interface ProductComplementPayload {
+  id?: string
+  name: string
+  required: boolean
+  minimum: number
+  maximum: number
+  complement_template_id: string | null
+  products: {
+    id?: string
+    product_id?: string | null
+    description: string
+    sale_value: number
+    active: boolean
+    image_url: string | null
+    file_name: string | null
+    file_size: number | null
+  }[]
 }
 
 export interface ProductRecord {
@@ -29,6 +72,7 @@ export interface ProductRecord {
   code_cest?: string | null
   ncm?: { id: string; code: string; description: string } | null
   taxation?: { id: string; name: string } | null
+  complements?: ProductComplementRecord[]
 }
 
 export interface ProductPayload {
@@ -48,6 +92,8 @@ export interface ProductPayload {
   nfe_taxation_id?: string
   icms_origin?: number
   code_cest?: string
+  // Só vai quando o produto é editado com a seção de complementos: sem ele, os complementos ficam como estão.
+  complements?: ProductComplementPayload[]
 }
 
 interface Paginated<T> {
@@ -133,6 +179,13 @@ export function fetchProducts(
     },
     token
   )
+}
+
+// Envia a foto de um complemento antes de salvar o produto; devolve o endereço da foto.
+export function uploadComplementImage(token: string, file: File) {
+  const form = new FormData()
+  form.append('file', file)
+  return apiPostForm<{ image_url: string; file_name: string; file_size: number }>('/product-complement-image', form, token)
 }
 
 export function fetchProduct(token: string, id: string) {

@@ -18,6 +18,13 @@ import { TextField } from '../components/form/TextField'
 import { SelectField } from '../components/form/SelectField'
 import { SearchSelectField } from '../components/form/SearchSelectField'
 import { SectionCard } from '../components/SectionCard'
+import {
+  ComplementsEditor,
+  complementsError,
+  draftsFromRecords,
+  payloadFromDrafts,
+  type ComplementGroupDraft,
+} from '../components/product/ComplementsEditor'
 import { BoxIcon, DollarSignIcon, TagIcon, FileTextIcon, ChevronLeftIcon, PlusIcon, CloseIcon } from '../components/icons'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
@@ -56,6 +63,7 @@ export function ProductFormPage({ session, company, productId, onBack, onSaved }
   const [nfeTaxation, setNfeTaxation] = useState<{ id: string; label: string } | null>(null)
   const [icmsOrigin, setIcmsOrigin] = useState('')
   const [codeCest, setCodeCest] = useState('')
+  const [complements, setComplements] = useState<ComplementGroupDraft[]>([])
 
   const isProduct = role === 0
 
@@ -103,6 +111,7 @@ export function ProductFormPage({ session, company, productId, onBack, onSaved }
         setNfeTaxation(product.taxation ? { id: product.taxation.id, label: product.taxation.name } : null)
         setIcmsOrigin(product.icms_origin !== null && product.icms_origin !== undefined ? String(product.icms_origin) : '')
         setCodeCest(product.code_cest ?? '')
+        setComplements(draftsFromRecords(product.complements))
       })
       .catch((err) => {
         if (cancelled) return
@@ -126,6 +135,14 @@ export function ProductFormPage({ session, company, productId, onBack, onSaved }
       return
     }
 
+    if (isProduct) {
+      const problem = complementsError(complements)
+      if (problem) {
+        setError(problem)
+        return
+      }
+    }
+
     const payload = {
       company_id: company.id,
       role,
@@ -142,6 +159,7 @@ export function ProductFormPage({ session, company, productId, onBack, onSaved }
       nfe_taxation_id: isProduct ? nfeTaxation?.id : undefined,
       icms_origin: isProduct && icmsOrigin !== '' ? Number(icmsOrigin) : undefined,
       code_cest: isProduct && codeCest.trim() ? codeCest.trim() : undefined,
+      complements: isProduct ? payloadFromDrafts(complements) : undefined,
     }
 
     setSubmitting(true)
@@ -412,6 +430,15 @@ export function ProductFormPage({ session, company, productId, onBack, onSaved }
                   onChange={(event) => setCodeCest(event.target.value)}
                 />
               </div>
+            </SectionCard>
+          )}
+
+          {isProduct && (
+            <SectionCard
+              title="Complementos"
+              subtitle="Sabores, bordas e adicionais que o cliente escolhe (delivery, iFood e PDV)"
+            >
+              <ComplementsEditor value={complements} onChange={setComplements} token={session.token.token} />
             </SectionCard>
           )}
 
