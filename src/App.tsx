@@ -130,7 +130,7 @@ import {
   type AuthSession,
   type AuthCompany,
 } from './lib/auth'
-import { isLocacaoVeiculos, isEmprestimo, isGaragemInvestidor, isVidracaria, isMercearia, isChaveiro } from './lib/systemTypes'
+import { isLocacaoVeiculos, isEmprestimo, isGaragemInvestidor, isVidracaria, isNoVehicleNiche, SYSTEM_TYPE_LABELS } from './lib/systemTypes'
 
 type Screen = 'login' | 'forgot-password' | 'signup'
 
@@ -1196,10 +1196,11 @@ function App() {
           }}
         />
       )
-    } else if (isMercearia(activeCompany.system_type) || isChaveiro(activeCompany.system_type)) {
+    } else if (isNoVehicleNiche(activeCompany.system_type)) {
+      // Nichos de venda sem veículo (mercearia, chaveiro, lanchonete, pizzaria...): painel de vendas, não o do guincho.
       pageContent = (
         <MerceariaDashboardPage
-          niche={isChaveiro(activeCompany.system_type) ? 'Chaveiro' : 'Mercearia'}
+          niche={SYSTEM_TYPE_LABELS[Number(activeCompany.system_type)] ?? 'Vendas'}
           session={session}
           company={activeCompany}
           onOpenProducts={() => handleNavigate('products')}
