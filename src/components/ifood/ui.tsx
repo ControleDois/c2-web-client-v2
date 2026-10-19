@@ -90,6 +90,9 @@ export function Pill({ tone, children, title }: { tone: 'good' | 'warn' | 'bad' 
 // Troca a mensagem técnica do iFood por uma frase que o usuário entende.
 export function friendlyIfoodMessage(raw: string): string {
   const text = String(raw || '')
+  if (/o ifood respondeu (401|403)/i.test(text)) {
+    return 'O iFood recusou este envio (acesso negado). Confira, em Configurações → Integrações (empresa matriz), se "Trabalhar em ambiente de teste" está marcado quando a loja conectada é a de teste, e desmarcado quando é uma loja real. Estando certo, toque em "Tentar de novo".'
+  }
   if (/no permissions? granted|forbidden|not authorized|unauthorized/i.test(text)) {
     return 'O iFood ainda não liberou este recurso para a sua loja. Fale com o suporte e informe esta mensagem.'
   }
