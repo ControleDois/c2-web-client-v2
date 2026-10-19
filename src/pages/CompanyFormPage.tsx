@@ -237,8 +237,8 @@ export function CompanyFormPage({ session, companyId, onBack, onSaved, embedded 
     }
   }
 
-  async function handleCepLookup() {
-    const digits = zipCode.replace(/\D/g, '')
+  async function handleCepLookup(typedDigits?: string) {
+    const digits = typedDigits ?? zipCode.replace(/\D/g, '')
     if (digits.length !== 8) return
 
     setCepLoading(true)
@@ -506,12 +506,18 @@ export function CompanyFormPage({ session, companyId, onBack, onSaved, embedded 
                   icon={<UserIcon className="h-4 w-4" />}
                   placeholder="00000-000"
                   value={zipCode}
-                  onChange={(event) => setZipCode(formatCep(event.target.value))}
+                  onChange={(event) => {
+                    const formatted = formatCep(event.target.value)
+                    setZipCode(formatted)
+                    // Ao completar os 8 números, já busca o endereço e o código IBGE (sem precisar clicar).
+                    const digits = formatted.replace(/\D/g, '')
+                    if (digits.length === 8 && digits !== zipCode.replace(/\D/g, '')) void handleCepLookup(digits)
+                  }}
                   action={
                     zipCode.replace(/\D/g, '').length === 8 ? (
                       <button
                         type="button"
-                        onClick={handleCepLookup}
+                        onClick={() => void handleCepLookup()}
                         disabled={cepLoading}
                         className="text-[12px] font-semibold text-[var(--blue-700)] hover:underline disabled:opacity-60"
                       >

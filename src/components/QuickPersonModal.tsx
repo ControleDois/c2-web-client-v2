@@ -1,6 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { createPerson, fetchPeople, PERSON_IE_INDICATOR_LABELS, type PersonPayload, type PersonRecord } from '../lib/people'
 import { fetchCnpjData } from '../lib/cnpjLookup'
+import { fetchCepData } from '../lib/cepLookup'
+import { formatCep } from '../lib/formatCep'
 import { formatDocument } from '../lib/formatDocument'
 import { formatPhone } from '../lib/formatPhone'
 import { ApiError } from '../lib/api'
@@ -38,6 +40,8 @@ export function QuickPersonModal({ request, session, company, onClose }: QuickPe
   const [stateRegistration, setStateRegistration] = useState('')
   const [address, setAddress] = useState<PersonPayload['address']>(undefined)
   const [lookingUp, setLookingUp] = useState(false)
+  const [cepLoading, setCepLoading] = useState(false)
+  const [cepMessage, setCepMessage] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [existing, setExisting] = useState<PersonRecord | null>(null)
@@ -51,6 +55,7 @@ export function QuickPersonModal({ request, session, company, onClose }: QuickPe
     setIeIndicator(9)
     setStateRegistration('')
     setAddress(undefined)
+    setCepMessage(null)
     setError(null)
     setExisting(null)
   }, [request])
@@ -88,6 +93,33 @@ export function QuickPersonModal({ request, session, company, onClose }: QuickPe
       } finally {
         setLookingUp(false)
       }
+    }
+  }
+
+  // CEP completo: preenche rua, bairro, cidade, UF e o código IBGE (a NFS-e e a NF-e precisam dele).
+  async function handleCepChange(value: string) {
+    const formatted = formatCep(value)
+    const cepDigits = formatted.replace(/\D/g, '')
+    setAddress((current) => ({ ...(current ?? {}), zip_code: cepDigits || undefined }))
+    setCepMessage(null)
+    if (cepDigits.length !== 8) return
+
+    setCepLoading(true)
+    try {
+      const data = await fetchCepData(cepDigits)
+      setAddress((current) => ({
+        ...(current ?? {}),
+        zip_code: cepDigits,
+        address: data.street || current?.address,
+        district: data.district || current?.district,
+        city: data.city || current?.city,
+        state: data.state || current?.state,
+        code_ibge: data.codeIbge || current?.code_ibge,
+      }))
+    } catch {
+      setCepMessage('CEP não encontrado. Confira os números.')
+    } finally {
+      setCepLoading(false)
     }
   }
 
@@ -201,6 +233,25 @@ export function QuickPersonModal({ request, session, company, onClose }: QuickPe
               value={email}
               onChange={(event) => setEmail(event.target.value)}
             />
+          </div>
+          <div>
+            <TextField
+              label="CEP (opcional)"
+              icon={<FileTextIcon className="h-4 w-4" />}
+              placeholder="00000-000"
+              inputMode="numeric"
+              value={address?.zip_code ? formatCep(address.zip_code) : ''}
+              onChange={(event) => void handleCepChange(event.target.value)}
+              trailing={cepLoading ? <span className="text-[11px] text-[var(--muted)]">Buscando…</span> : undefined}
+            />
+            {cepMessage && <p className="mt-1.5 text-[12px] text-[var(--red-500)]">{cepMessage}</p>}
+            {!cepMessage && address?.city && address?.state && (
+              <p className="mt-1.5 text-[12px] text-[var(--ink-soft)]">
+                {[address.address, address.district].filter(Boolean).join(', ')}
+                {address.address || address.district ? ' · ' : ''}
+                {address.city}/{address.state}
+              </p>
+            )}
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <SelectField
