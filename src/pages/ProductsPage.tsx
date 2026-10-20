@@ -23,7 +23,8 @@ import type { AuthSession, AuthCompany } from '../lib/auth'
 interface ProductsPageProps {
   session: AuthSession
   company: AuthCompany
-  onCreate: () => void
+  // ingredient: true quando o botão foi tocado na aba Insumos (o formulário já abre com "é insumo" marcado).
+  onCreate: (options?: { ingredient?: boolean }) => void
   onEdit: (product: ProductRecord) => void
 }
 
@@ -31,6 +32,8 @@ const ROLE_FILTERS: { value: number | undefined; label: string }[] = [
   { value: undefined, label: 'Todos' },
   { value: 0, label: 'Produtos' },
   { value: 1, label: 'Serviços' },
+  // -1: só insumos (matéria-prima), que são produtos marcados como insumo.
+  { value: -1, label: 'Insumos' },
 ]
 
 const PRINT_COLUMNS: PrintColumn[] = [
@@ -81,7 +84,13 @@ export function ProductsPage({ session, company, onCreate, onEdit }: ProductsPag
 
     const timeout = setTimeout(
       () => {
-        fetchProducts(session.token.token, company.id, { search, role, page, limit: 10 })
+        fetchProducts(session.token.token, company.id, {
+          search,
+          role: role === -1 ? undefined : role,
+          ingredient: role === -1 ? true : role === 0 ? false : undefined,
+          page,
+          limit: 10,
+        })
           .then((res) => {
             if (cancelled) return
             const nextItems = res.data || []
@@ -111,7 +120,13 @@ export function ProductsPage({ session, company, onCreate, onEdit }: ProductsPag
 
   function silentReload() {
     const cacheKey = `products:${company.id}:${role ?? 'all'}:${page}:${search}`
-    fetchProducts(session.token.token, company.id, { search, role, page, limit: 10 })
+    fetchProducts(session.token.token, company.id, {
+          search,
+          role: role === -1 ? undefined : role,
+          ingredient: role === -1 ? true : role === 0 ? false : undefined,
+          page,
+          limit: 10,
+        })
       .then((res) => {
         const nextItems = res.data || []
         const nextMeta = { total: res.meta?.total ?? res.data?.length ?? 0, lastPage: res.meta?.last_page ?? 1 }
@@ -223,11 +238,11 @@ export function ProductsPage({ session, company, onCreate, onEdit }: ProductsPag
           </button>
           <button
             type="button"
-            onClick={onCreate}
+            onClick={() => onCreate({ ingredient: role === -1 })}
             className="flex items-center gap-2 rounded-xl bg-[var(--blue-500)] px-4 py-2.5 text-[13.5px] font-bold text-white transition hover:bg-[var(--blue-700)]"
           >
             <PlusIcon className="h-4 w-4" />
-            Novo item
+            {role === -1 ? 'Novo insumo' : 'Novo item'}
           </button>
         </div>
       </div>
@@ -338,7 +353,7 @@ export function ProductsPage({ session, company, onCreate, onEdit }: ProductsPag
                       <div className="flex items-start justify-between gap-2">
                         <p className="min-w-0 truncate text-[13.5px] font-bold text-[var(--ink)]">{item.name}</p>
                         <span className={`flex-none rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${roleTone(item.role)}`}>
-                          {PRODUCT_ROLE_LABELS[item.role ?? 0]}
+                          {item.is_ingredient ? 'Insumo' : PRODUCT_ROLE_LABELS[item.role ?? 0]}
                         </span>
                       </div>
                       <p className="mt-0.5 text-[12px] text-[var(--muted)]">
@@ -408,7 +423,7 @@ export function ProductsPage({ session, company, onCreate, onEdit }: ProductsPag
                       <td className="py-2.5 font-medium text-[var(--ink)]">{item.name}</td>
                       <td className="py-2.5">
                         <span className={`rounded-full px-2 py-0.5 text-[10.5px] font-bold uppercase ${roleTone(item.role)}`}>
-                          {PRODUCT_ROLE_LABELS[item.role ?? 0]}
+                          {item.is_ingredient ? 'Insumo' : PRODUCT_ROLE_LABELS[item.role ?? 0]}
                         </span>
                       </td>
                       <td className="py-2.5 text-right font-semibold text-[var(--ink)]">

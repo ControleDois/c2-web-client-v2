@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { MoneyField } from '../components/form/MoneyField'
+import { parseMoney } from '../lib/money'
 import {
   createProduct,
   fetchProduct,
@@ -18,6 +19,14 @@ import { TextField } from '../components/form/TextField'
 import { SelectField } from '../components/form/SelectField'
 import { SearchSelectField } from '../components/form/SearchSelectField'
 import { SectionCard } from '../components/SectionCard'
+import {
+  RecipeEditor,
+  draftsFromRecipe,
+  recipeError,
+  saveRecipeDrafts,
+  type RecipeLineDraft,
+} from '../components/product/RecipeEditor'
+import { fetchRecipe } from '../lib/stock'
 import { PopupPanel } from '../components/PopupPanel'
 import {
   ComplementsEditor,
@@ -33,11 +42,13 @@ interface ProductFormPageProps {
   session: AuthSession
   company: AuthCompany
   productId?: string
+  // Novo item vindo da aba Insumos: já abre com "é insumo" marcado.
+  defaultIngredient?: boolean
   onBack: () => void
   onSaved: () => void
 }
 
-export function ProductFormPage({ session, company, productId, onBack, onSaved }: ProductFormPageProps) {
+export function ProductFormPage({ session, company, productId, defaultIngredient = false, onBack, onSaved }: ProductFormPageProps) {
   const [loading, setLoading] = useState(Boolean(productId))
   const [loadError, setLoadError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -66,6 +77,12 @@ export function ProductFormPage({ session, company, productId, onBack, onSaved }
   const [icmsOrigin, setIcmsOrigin] = useState('')
   const [codeCest, setCodeCest] = useState('')
   const [complements, setComplements] = useState<ComplementGroupDraft[]>([])
+  const [isIngredient, setIsIngredient] = useState(Boolean(defaultIngredient) && !productId)
+  const [controlsStock, setControlsStock] = useState(true)
+  const [minStock, setMinStock] = useState('')
+  const [recipe, setRecipe] = useState<RecipeLineDraft[]>([])
+  const [producible, setProducible] = useState<number | null>(null)
+  const [createdId, setCreatedId] = useState<string | null>(null)
 
   const isProduct = role === 0
 
@@ -114,6 +131,18 @@ export function ProductFormPage({ session, company, productId, onBack, onSaved }
         setIcmsOrigin(product.icms_origin !== null && product.icms_origin !== undefined ? String(product.icms_origin) : '')
         setCodeCest(product.code_cest ?? '')
         setComplements(draftsFromRecords(product.complements))
+        setIsIngredient(Boolean(product.is_ingredient))
+        setControlsStock(product.controls_stock !== false)
+        setMinStock(product.min_stock !== null && product.min_stock !== undefined ? String(Number(product.min_stock)) : '')
+        if ((product.role ?? 0) === 0) {
+          fetchRecipe(session.token.token, productId)
+            .then((loaded) => {
+              if (cancelled) return
+              setRecipe(draftsFromRecipe(loaded))
+              setProducible(loaded.items.length ? loaded.producible : null)
+            })
+            .catch(() => {})
+        }
       })
       .catch((err) => {
         if (cancelled) return
@@ -138,7 +167,7 @@ export function ProductFormPage({ session, company, productId, onBack, onSaved }
     }
 
     if (isProduct) {
-      const problem = complementsError(complements)
+      const problem = complementsError(complements) ?? (isIngredient ? null : recipeError(recipe))
       if (problem) {
         setError(problem)
         return
@@ -162,14 +191,32 @@ export function ProductFormPage({ session, company, productId, onBack, onSaved }
       icms_origin: isProduct && icmsOrigin !== '' ? Number(icmsOrigin) : undefined,
       code_cest: isProduct && codeCest.trim() ? codeCest.trim() : undefined,
       complements: isProduct ? payloadFromDrafts(complements) : undefined,
+      is_ingredient: isProduct ? isIngredient : undefined,
+      controls_stock: isProduct ? controlsStock : undefined,
+      min_stock: isProduct ? (parseMoney(minStock) ?? null) : undefined,
     }
 
     setSubmitting(true)
     try {
-      if (productId) {
-        await updateProduct(session.token.token, productId, payload)
+      const currentId = productId ?? createdId
+      let savedId = currentId
+      if (currentId) {
+        await updateProduct(session.token.token, currentId, payload)
       } else {
-        await createProduct(session.token.token, payload)
+        const created = await createProduct(session.token.token, payload)
+        savedId = created.id
+        setCreatedId(created.id)
+      }
+      // A ficha técnica é salva à parte. Se der erro, o produto já foi salvo: a pessoa corrige e salva de novo.
+      if (isProduct && savedId) {
+        try {
+          await saveRecipeDrafts(session.token.token, savedId, isIngredient ? [] : recipe)
+        } catch (err) {
+          setError(
+            `O produto foi salvo, mas a ficha técnica não: ${err instanceof ApiError ? err.message : 'tente de novo.'}`
+          )
+          return
+        }
       }
       onSaved()
     } catch (err) {
@@ -432,6 +479,77 @@ export function ProductFormPage({ session, company, productId, onBack, onSaved }
                   onChange={(event) => setCodeCest(event.target.value)}
                 />
               </div>
+            </SectionCard>
+          )}
+
+          {isProduct && (
+            <SectionCard
+              title="Estoque"
+              subtitle="Controle de saldo, estoque mínimo e insumo"
+            >
+              <div className="flex flex-col gap-4">
+                <label className="flex items-start gap-2.5 rounded-xl bg-[var(--page)] p-3.5">
+                  <input
+                    type="checkbox"
+                    checked={isIngredient}
+                    onChange={(event) => setIsIngredient(event.target.checked)}
+                    className="mt-0.5 h-4 w-4 accent-[var(--blue-500)]"
+                  />
+                  <span>
+                    <span className="block text-[13.5px] font-semibold text-[var(--ink)]">É um insumo (matéria-prima)</span>
+                    <span className="block text-[12px] text-[var(--ink-soft)]">
+                      Marque para itens que você compra para fazer os produtos (pão, carne, queijo, embalagem). Eles entram no estoque e nas fichas técnicas, mas não aparecem no PDV nem no cardápio.
+                    </span>
+                  </span>
+                </label>
+                {!isIngredient && (
+                  <label className="flex items-start gap-2.5 rounded-xl bg-[var(--page)] p-3.5">
+                    <input
+                      type="checkbox"
+                      checked={controlsStock}
+                      onChange={(event) => setControlsStock(event.target.checked)}
+                      className="mt-0.5 h-4 w-4 accent-[var(--blue-500)]"
+                    />
+                    <span>
+                      <span className="block text-[13.5px] font-semibold text-[var(--ink)]">Controlar o estoque deste item</span>
+                      <span className="block text-[12px] text-[var(--ink-soft)]">
+                        Ligado: cada venda desconta do estoque (ou dos insumos, se tiver ficha técnica). Desligue para itens feitos sob encomenda ou que você não controla.
+                      </span>
+                    </span>
+                  </label>
+                )}
+                {(isIngredient || controlsStock) && (
+                  <div className="max-w-[260px]">
+                    <TextField
+                      label={`Estoque mínimo${unit ? ` (${unit})` : ''}`}
+                      icon={<BoxIcon className="h-4 w-4" />}
+                      inputMode="decimal"
+                      placeholder="Sem aviso"
+                      value={minStock}
+                      onChange={(event) => setMinStock(event.target.value.replace(/[^\d.,]/g, ''))}
+                    />
+                    <p className="mt-1.5 text-[12px] text-[var(--muted)]">Quando o saldo chegar nesse número, o item aparece como "baixo" no estoque e no dashboard.</p>
+                  </div>
+                )}
+              </div>
+            </SectionCard>
+          )}
+
+          {isProduct && !isIngredient && (
+            <SectionCard
+              title="Ficha técnica (receita)"
+              subtitle="Insumos que cada unidade gasta, custo de produção e margem"
+              defaultCollapsed={false}
+            >
+              <RecipeEditor
+                value={recipe}
+                onChange={setRecipe}
+                token={session.token.token}
+                companyId={company.id}
+                productId={productId ?? createdId ?? undefined}
+                salePrice={parseMoney(saleValue) ?? 0}
+                producible={producible}
+              />
             </SectionCard>
           )}
 

@@ -31,6 +31,7 @@ export interface MerceariaDashboard {
       weekTotal: number
     }
     receivablesOverdue: { count: number; total: number }
+    stock?: { items: number; ingredients: number; negative: number; empty: number; low: number; stock_value: number }
   }
 }
 

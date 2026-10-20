@@ -143,3 +143,8 @@ export function isGaragemInvestidor(systemType?: number): boolean {
 export function isVidracaria(systemType?: number): boolean {
   return systemType === SYSTEM_TYPE_VIDRACARIA
 }
+
+// Nichos com controle de estoque completo (produtos, insumos e ficha técnica): comida, mercearia, distribuidora, chaveiro.
+export function hasStockControl(systemType?: number): boolean {
+  return isNoVehicleNiche(systemType) && !isVidracaria(systemType) && !isSoftwareHouse(systemType)
+}

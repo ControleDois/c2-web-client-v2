@@ -339,7 +339,7 @@ export function SaleFormPage({ session, company, saleId, onBack, onSaved }: Sale
               label=""
               placeholder="Buscar produto ou serviço…"
               selectedLabel={null}
-              onSearch={(query) => fetchProducts(token, company.id, { search: query, limit: 8 }).then((res) => res.data)}
+              onSearch={(query) => fetchProducts(token, company.id, { search: query, limit: 8, ingredient: false }).then((res) => res.data)}
               getOptionLabel={(item: ProductRecord) => item.name}
               getOptionSubLabel={(item: ProductRecord) =>
                 [item.role === 1 ? 'Serviço' : item.code ? `Cód. ${item.code}` : '', formatCurrency(Number(item.sale_value ?? 0))].filter(Boolean).join(' · ')

@@ -64,6 +64,11 @@ export interface ProductRecord {
   print_token?: boolean
   // Produto avulso: o PDV pede o nome (e o preço) na hora de vender
   ask_name?: boolean
+  // Insumo (matéria-prima): entra no estoque e nas fichas técnicas, mas não é vendido.
+  is_ingredient?: boolean
+  // Desligado: o item não baixa nem controla estoque.
+  controls_stock?: boolean
+  min_stock?: number | string | null
   categories?: ProductCategoryRef[]
   // Dados fiscais (NFe)
   ncm_id?: string | null
@@ -86,6 +91,9 @@ export interface ProductPayload {
   unit?: string
   print_token?: boolean
   ask_name?: boolean
+  is_ingredient?: boolean
+  controls_stock?: boolean
+  min_stock?: number | null
   categories?: { id?: string; name?: string }[]
   // Dados fiscais (NFe)
   ncm_id?: string
@@ -166,7 +174,8 @@ export const PRODUCT_UNIT_OPTIONS: { value: string; label: string }[] = [
 export function fetchProducts(
   token: string,
   companyId: string,
-  options: { search?: string; page?: number; limit?: number; role?: number } = {}
+  // ingredient: true só insumos, false sem os insumos, vazio todos.
+  options: { search?: string; page?: number; limit?: number; role?: number; ingredient?: boolean } = {}
 ) {
   return apiGet<Paginated<ProductRecord>>(
     '/product',
@@ -176,6 +185,7 @@ export function fetchProducts(
       page: options.page ? String(options.page) : '1',
       limit: options.limit ? String(options.limit) : '10',
       role: options.role !== undefined ? String(options.role) : undefined,
+      ingredient: options.ingredient === undefined ? undefined : String(options.ingredient),
     },
     token
   )

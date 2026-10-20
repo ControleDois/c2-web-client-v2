@@ -12,6 +12,7 @@ interface MerceariaDashboardPageProps {
   company: AuthCompany
   onOpenProducts?: () => void
   onOpenPayables?: () => void
+  onOpenStock?: () => void
 }
 
 const PERIOD_OPTIONS: { key: MerceariaPeriod; label: string; compare: string }[] = [
@@ -40,7 +41,14 @@ function shortTime(iso: string) {
 
 // Painel da mercearia: vendas do período contra o anterior, formas de pagamento, mais vendidos e o
 // que pede atenção (produtos sem preço, contas vencidas).
-export function MerceariaDashboardPage({ niche = 'Mercearia', session, company, onOpenProducts, onOpenPayables }: MerceariaDashboardPageProps) {
+export function MerceariaDashboardPage({
+  niche = 'Mercearia',
+  session,
+  company,
+  onOpenProducts,
+  onOpenPayables,
+  onOpenStock,
+}: MerceariaDashboardPageProps) {
   const [period, setPeriod] = useState<MerceariaPeriod>('today')
   const [data, setData] = useState<MerceariaDashboard | null>(null)
   const [loading, setLoading] = useState(true)
@@ -90,6 +98,25 @@ export function MerceariaDashboardPage({ niche = 'Mercearia', session, company, 
         text: `${attention.productsWithoutPrice} produto${attention.productsWithoutPrice === 1 ? '' : 's'} sem preço de venda (valor zerado).`,
         action: onOpenProducts,
         actionLabel: 'Ver produtos',
+      })
+    }
+    const stock = attention.stock
+    if (stock && stock.negative > 0) {
+      alerts.push({
+        key: 'stock-negative',
+        tone: 'red',
+        text: `${stock.negative} ${stock.negative === 1 ? 'item com estoque negativo' : 'itens com estoque negativo'} (vendeu mais do que tinha lançado). Dê entrada ou faça uma contagem.`,
+        action: onOpenStock,
+        actionLabel: 'Ver estoque',
+      })
+    }
+    if (stock && stock.empty + stock.low > 0) {
+      alerts.push({
+        key: 'stock-low',
+        tone: 'amber',
+        text: `${stock.empty + stock.low} ${stock.empty + stock.low === 1 ? 'item com estoque baixo ou zerado' : 'itens com estoque baixo ou zerado'}.`,
+        action: onOpenStock,
+        actionLabel: 'Ver estoque',
       })
     }
     if (attention.payables.overdueCount > 0) {

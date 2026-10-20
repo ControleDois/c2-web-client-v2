@@ -22,6 +22,10 @@ import { OrderServicesPage } from './pages/OrderServicesPage'
 import { OrderServiceFormPage } from './pages/OrderServiceFormPage'
 import { TowingSalesPage } from './pages/TowingSalesPage'
 import { SalesPage } from './pages/SalesPage'
+import { StockPage } from './pages/StockPage'
+import { StockMovementsPage } from './pages/StockMovementsPage'
+import { StockInventoriesPage } from './pages/StockInventoriesPage'
+import { StockInventoryFormPage } from './pages/StockInventoryFormPage'
 import { SaleFormPage } from './pages/SaleFormPage'
 import { PDV_URL } from './lib/pdv'
 import { TowingSaleFormPage } from './pages/TowingSaleFormPage'
@@ -133,7 +137,7 @@ import {
   type AuthSession,
   type AuthCompany,
 } from './lib/auth'
-import { isLocacaoVeiculos, isEmprestimo, isGaragemInvestidor, isVidracaria, isNoVehicleNiche, SYSTEM_TYPE_LABELS } from './lib/systemTypes'
+import { isLocacaoVeiculos, isEmprestimo, isGaragemInvestidor, isVidracaria, isNoVehicleNiche, hasStockControl, SYSTEM_TYPE_LABELS } from './lib/systemTypes'
 
 type Screen = 'login' | 'forgot-password' | 'signup'
 
@@ -230,6 +234,9 @@ function App() {
   const glassColorsView = useEntityView()
   const glassOrdersView = useEntityView()
   const salesView = useEntityView()
+  const stockInventoriesView = useEntityView()
+  const [newIngredient, setNewIngredient] = useState(false)
+  const [stockProduct, setStockProduct] = useState<{ id: string; name: string } | null>(null)
 
   const entityViews = {
     people: peopleView,
@@ -270,6 +277,7 @@ function App() {
     'glass-colors': glassColorsView,
     'glass-orders': glassOrdersView,
     sales: salesView,
+    'stock-inventories': stockInventoriesView,
   } as const
 
   function handleLoginSuccess(newSession: AuthSession) {
@@ -474,6 +482,7 @@ function App() {
             session={session}
             company={activeCompany}
             productId={productsView.view.id}
+            defaultIngredient={newIngredient}
             onBack={productsView.reset}
             onSaved={productsView.reset}
           />
@@ -481,7 +490,10 @@ function App() {
           <ProductsPage
             session={session}
             company={activeCompany}
-            onCreate={productsView.create}
+            onCreate={(options) => {
+              setNewIngredient(Boolean(options?.ingredient))
+              productsView.create()
+            }}
             onEdit={(p) => productsView.edit(p.id)}
           />
         )
@@ -597,6 +609,54 @@ function App() {
             pdvUrl={PDV_URL}
             onCreate={salesView.create}
             onEdit={(sale) => salesView.edit(sale.id)}
+          />
+        )
+    } else if (page === 'stock') {
+      pageContent = (
+        <StockPage
+          session={session}
+          company={activeCompany}
+          onOpenInventory={() => {
+            setPage('stock-inventories')
+            stockInventoriesView.create()
+          }}
+          onOpenMovements={(product) => {
+            setStockProduct(product ?? null)
+            setPage('stock-movements')
+          }}
+          onEditProduct={(id) => {
+            setPage('products')
+            productsView.edit(id)
+          }}
+        />
+      )
+    } else if (page === 'stock-movements') {
+      pageContent = (
+        <StockMovementsPage
+          session={session}
+          company={activeCompany}
+          product={stockProduct}
+          onClearProduct={() => setStockProduct(null)}
+          onBack={() => handleNavigate('stock')}
+        />
+      )
+    } else if (page === 'stock-inventories') {
+      pageContent =
+        stockInventoriesView.view.mode === 'form' ? (
+          <StockInventoryFormPage
+            session={session}
+            company={activeCompany}
+            inventoryId={stockInventoriesView.view.id}
+            onBack={stockInventoriesView.reset}
+            onSaved={stockInventoriesView.reset}
+          />
+        ) : (
+          <StockInventoriesPage
+            session={session}
+            company={activeCompany}
+            onCreate={stockInventoriesView.create}
+            onOpen={(inventory) => stockInventoriesView.edit(inventory.id)}
+            onBack={() => handleNavigate('stock')}
           />
         )
     } else if (page === 'bank-accounts') {
@@ -1229,6 +1289,7 @@ function App() {
           company={activeCompany}
           onOpenProducts={() => handleNavigate('products')}
           onOpenPayables={() => handleNavigate('bills-payable')}
+          onOpenStock={hasStockControl(activeCompany.system_type) ? () => handleNavigate('stock') : undefined}
         />
       )
     } else {

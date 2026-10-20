@@ -39,6 +39,7 @@ import {
   isLojaOnline,
   isMercearia,
   isChaveiro,
+  hasStockControl,
 } from '../../lib/systemTypes'
 import { PDV_URL } from '../../lib/pdv'
 
@@ -51,6 +52,9 @@ export type AppPage =
   | 'vehicle-sales'
   | 'towing-sales'
   | 'sales'
+  | 'stock'
+  | 'stock-movements'
+  | 'stock-inventories'
   | 'bank-accounts'
   | 'categories'
   | 'cost-centers'
@@ -256,6 +260,18 @@ function buildNavGroups(
         { href: DELIVERY_BOARD_URL, label: 'Pedidos de Delivery', icon: TruckIcon },
         { page: 'catalog' as const, label: 'Catálogo por canal', icon: TagIcon },
         { page: 'ifood-store' as const, label: 'Loja no iFood', icon: ClockIcon },
+      ],
+    })
+  }
+
+  // Estoque: situação, movimentações e contagem. As vendas e os pedidos descontam sozinhos.
+  if (hasStockControl(systemType)) {
+    groups.splice(1, 0, {
+      title: 'Estoque',
+      items: [
+        { page: 'stock' as const, label: 'Situação do estoque', icon: BoxIcon },
+        { page: 'stock-movements' as const, label: 'Movimentações', icon: ClockIcon },
+        { page: 'stock-inventories' as const, label: 'Contagens', icon: ClipboardCheckIcon },
       ],
     })
   }
