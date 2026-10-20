@@ -44,9 +44,19 @@ export function PopupPanel({
     const panel = ref.current
     if (!anchor || !panel) return
 
-    const rect = anchor.getBoundingClientRect()
-    const viewportHeight = window.innerHeight
-    const viewportWidth = window.innerWidth
+    // A tela pode estar encolhida (zoom do CSS em telas pequenas): as medidas da janela vêm em pixels da tela, e as
+    // posições do popup valem em pixels da página. Convertendo tudo para pixels da página, ele cai no lugar certo.
+    const zoom = parseFloat(getComputedStyle(document.documentElement).zoom) || 1
+    const box = anchor.getBoundingClientRect()
+    const rect = {
+      top: box.top / zoom,
+      bottom: box.bottom / zoom,
+      left: box.left / zoom,
+      right: box.right / zoom,
+      width: box.width / zoom,
+    }
+    const viewportHeight = window.innerHeight / zoom
+    const viewportWidth = window.innerWidth / zoom
 
     const below = viewportHeight - rect.bottom - MARGIN - GAP
     const above = rect.top - MARGIN - GAP
