@@ -40,6 +40,7 @@ import {
   isMercearia,
   isChaveiro,
 } from '../../lib/systemTypes'
+import { PDV_URL } from '../../lib/pdv'
 
 export type AppPage =
   | 'dashboard'
@@ -49,6 +50,7 @@ export type AppPage =
   | 'vehicle-rentals'
   | 'vehicle-sales'
   | 'towing-sales'
+  | 'sales'
   | 'bank-accounts'
   | 'categories'
   | 'cost-centers'
@@ -124,7 +126,6 @@ interface AppShellProps {
 type NavItem = { page: AppPage; label: string; icon: typeof GridIcon } | { href: string; label: string; icon: typeof GridIcon }
 type NavGroup = { title: string; items: NavItem[] }
 
-const PDV_URL = (import.meta.env.VITE_PDV_URL ?? 'https://pdv.controledois.com.br').replace(/\/+$/, '')
 const DELIVERY_BOARD_URL = import.meta.env.VITE_DELIVERY_URL ?? 'https://delivery.controledois.com.br'
 
 function buildNavGroups(
@@ -180,13 +181,16 @@ function buildNavGroups(
             { page: 'dashboard' as const, label: 'Dashboard', icon: GridIcon },
             { page: 'people' as const, label: 'Pessoas', icon: UserIcon },
             { page: 'products' as const, label: 'Produtos e Serviços', icon: BoxIcon },
-            { href: PDV_URL, label: 'Venda Rápida', icon: SaleIcon },
+            { page: 'sales' as const, label: 'Vendas', icon: CoinIcon },
+            { href: PDV_URL, label: 'Venda Rápida (PDV)', icon: SaleIcon },
           ]
       : padaria
         ? [
             { page: 'dashboard' as const, label: 'Dashboard', icon: GridIcon },
             { page: 'people' as const, label: 'Pessoas', icon: UserIcon },
             { page: 'products' as const, label: 'Produtos', icon: BoxIcon },
+            { page: 'sales' as const, label: 'Vendas', icon: CoinIcon },
+            { href: PDV_URL, label: 'PDV', icon: SaleIcon },
           ]
         : noVehicleNiche
           ? [
@@ -197,7 +201,8 @@ function buildNavGroups(
                 ? [{ page: 'vehicles' as const, label: 'Veículos', icon: TruckIcon }]
                 : []),
               { page: 'products' as const, label: 'Produtos e Serviços', icon: BoxIcon },
-              { page: 'towing-sales' as const, label: 'Vendas', icon: CoinIcon },
+              { page: 'sales' as const, label: 'Vendas', icon: CoinIcon },
+              { href: PDV_URL, label: 'PDV', icon: SaleIcon },
               // Distribuidora: controle das fichas vendidas (emitidas, trocadas, em aberto).
               ...(isDistribuidoraBebidas(systemType)
                 ? [{ page: 'sale-tokens' as const, label: 'Fichas', icon: TagIcon }]

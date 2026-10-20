@@ -118,6 +118,11 @@ export interface SaleRecord {
   user_id?: string
   category_id?: string | null
   bills?: SaleBillRef[] | null
+  products?: SaleProductRecord[] | null
+  discount?: number | string | null
+  discount_type?: number | null
+  shipping?: number | string | null
+  consumer_document?: string | null
   vehicleRentalContract?: VehicleRentalContractRecord | null
   vehicleSaleContract?: VehicleSaleContractRecord | null
   created_at?: string
@@ -128,8 +133,21 @@ export interface SaleRecord {
   meta?: { contract_sent?: boolean; contract_signed?: boolean; has_next_period?: boolean }
 }
 
+export interface SaleProductRecord {
+  id: string
+  product_id?: string | null
+  description?: string | null
+  amount?: number | string | null
+  cost_value?: number | string | null
+  discount?: number | string | null
+  subtotal?: number | string | null
+  total?: number | string | null
+  product?: { id: string; name: string; unit?: string | null } | null
+}
+
 export interface SaleBillRef {
   id: string
+  form_payment?: number | null
   installment_number?: number | null
   date_due?: string | null
   date_received?: string | null
@@ -175,11 +193,22 @@ export interface VehicleSaleContractPayload {
   notes?: string
 }
 
+export interface SaleProductPayload {
+  product_id: string
+  description: string
+  amount: number
+  cost_value: number
+  discount: number
+  subtotal: number
+  total: number
+}
+
 export interface SalePlotPayload {
   portion: number
   form_payment: number
   date_due: string
   amount: number
+  bill_value?: number
   principal_amount?: number
   interest_amount?: number
   status?: number
@@ -199,8 +228,12 @@ export interface SalePayload {
   amount?: number
   payment_terms?: number
   net_total?: number
+  discount_type?: number
+  discount?: number
+  shipping?: number
   note?: string
   internal_code?: number
+  products?: SaleProductPayload[]
   vehicleRentalContract?: VehicleRentalContractPayload
   vehicleSaleContract?: VehicleSaleContractPayload
   plots?: SalePlotPayload[]
@@ -277,6 +310,11 @@ export function fetchSales(
     vehicleId?: string
     withBills?: boolean
     withContractFlags?: boolean
+    // Situação: um número ou vários separados por vírgula (3 = venda; 0,1,2 = orçamentos).
+    status?: string
+    role?: number
+    dateStart?: string
+    dateEnd?: string
     // 'rental' pula os preloads de venda de veículo/expedição/NFe no
     // backend (não usados nas telas de Locação) - deixa a listagem bem
     // mais rápida em empresas com muitas vendas. Só usar em telas que
@@ -295,6 +333,10 @@ export function fetchSales(
       withBills: options.withBills ? 'true' : undefined,
       withContractFlags: options.withContractFlags ? 'true' : undefined,
       scope: options.scope,
+      status: options.status,
+      role: options.role !== undefined ? String(options.role) : undefined,
+      dateStart: options.dateStart,
+      dateEnd: options.dateEnd,
     },
     token
   )
@@ -391,4 +433,13 @@ export function fetchLoanSendTimeline(token: string, id: string) {
 
 export function fetchLoanSignatureEvidence(token: string, id: string) {
   return apiGet<{ signature: SignatureEvidence | null }>(`/loan-contract/${id}/signature-evidence`, {}, token)
+}
+
+// Situações da venda normal (balcão, delivery, mesa e as feitas no painel).
+export const SALE_STATUS_LABELS: Record<number, string> = {
+  0: 'Em orçamento',
+  1: 'Orçamento aceito',
+  2: 'Orçamento recusado',
+  3: 'Venda',
+  4: 'Contrato',
 }

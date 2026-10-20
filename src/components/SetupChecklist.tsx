@@ -1,3 +1,4 @@
+import { isNoVehicleNiche } from '../lib/systemTypes'
 import { useCallback, useEffect, useState } from 'react'
 import { apiGet, apiPost } from '../lib/api'
 import { CheckCircleIcon, ChevronRightIcon } from './icons'
@@ -62,6 +63,7 @@ export function SetupChecklist({ session, company, onNavigate }: SetupChecklistP
         if (PDV_NICHES.includes(type)) window.open(PDV_URL, '_blank', 'noreferrer')
         else if (type === 6) onNavigate('vehicle-rentals')
         else if (type === 20) onNavigate('glass-orders')
+        else if (isNoVehicleNiche(type)) onNavigate('sales')
         else onNavigate('towing-sales')
         return
     }

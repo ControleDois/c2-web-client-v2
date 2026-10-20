@@ -21,6 +21,9 @@ import { VehicleSaleFormPage } from './pages/VehicleSaleFormPage'
 import { OrderServicesPage } from './pages/OrderServicesPage'
 import { OrderServiceFormPage } from './pages/OrderServiceFormPage'
 import { TowingSalesPage } from './pages/TowingSalesPage'
+import { SalesPage } from './pages/SalesPage'
+import { SaleFormPage } from './pages/SaleFormPage'
+import { PDV_URL } from './lib/pdv'
 import { TowingSaleFormPage } from './pages/TowingSaleFormPage'
 import { BankAccountsPage } from './pages/BankAccountsPage'
 import { BankAccountFormPage } from './pages/BankAccountFormPage'
@@ -226,6 +229,7 @@ function App() {
   const glassAccessoriesView = useEntityView()
   const glassColorsView = useEntityView()
   const glassOrdersView = useEntityView()
+  const salesView = useEntityView()
 
   const entityViews = {
     people: peopleView,
@@ -265,6 +269,7 @@ function App() {
     'glass-accessories': glassAccessoriesView,
     'glass-colors': glassColorsView,
     'glass-orders': glassOrdersView,
+    sales: salesView,
   } as const
 
   function handleLoginSuccess(newSession: AuthSession) {
@@ -573,6 +578,25 @@ function App() {
             company={activeCompany}
             onCreate={towingSalesView.create}
             onEdit={(sale) => towingSalesView.edit(sale.id)}
+          />
+        )
+    } else if (page === 'sales') {
+      pageContent =
+        salesView.view.mode === 'form' ? (
+          <SaleFormPage
+            session={session}
+            company={activeCompany}
+            saleId={salesView.view.id}
+            onBack={salesView.reset}
+            onSaved={salesView.reset}
+          />
+        ) : (
+          <SalesPage
+            session={session}
+            company={activeCompany}
+            pdvUrl={PDV_URL}
+            onCreate={salesView.create}
+            onEdit={(sale) => salesView.edit(sale.id)}
           />
         )
     } else if (page === 'bank-accounts') {
