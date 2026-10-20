@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { MoneyField } from '../components/form/MoneyField'
 import {
   createProduct,
@@ -18,6 +18,7 @@ import { TextField } from '../components/form/TextField'
 import { SelectField } from '../components/form/SelectField'
 import { SearchSelectField } from '../components/form/SearchSelectField'
 import { SectionCard } from '../components/SectionCard'
+import { PopupPanel } from '../components/PopupPanel'
 import {
   ComplementsEditor,
   complementsError,
@@ -56,6 +57,7 @@ export function ProductFormPage({ session, company, productId, onBack, onSaved }
   const [selectedCategories, setSelectedCategories] = useState<ProductCategoryRef[]>([])
   const [availableCategories, setAvailableCategories] = useState<CategoryProductRecord[]>([])
   const [showCategoryPicker, setShowCategoryPicker] = useState(false)
+  const categoryAnchorRef = useRef<HTMLDivElement>(null)
   const [categorySearch, setCategorySearch] = useState('')
 
   // Dados fiscais (NFe)
@@ -332,7 +334,7 @@ export function ProductFormPage({ session, company, productId, onBack, onSaved }
                     </span>
                   ))}
 
-                  <div className="relative">
+                  <div ref={categoryAnchorRef} className="relative">
                     <button
                       type="button"
                       onClick={() => setShowCategoryPicker((prev) => !prev)}
@@ -343,7 +345,7 @@ export function ProductFormPage({ session, company, productId, onBack, onSaved }
                     </button>
 
                     {showCategoryPicker && (
-                      <div className="absolute left-0 top-full z-10 mt-1.5 w-64 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-2 shadow-lg">
+                      <PopupPanel anchorRef={categoryAnchorRef} width={256} maxHeight={360} className="p-2">
                         <input
                           type="text"
                           autoFocus
@@ -352,7 +354,7 @@ export function ProductFormPage({ session, company, productId, onBack, onSaved }
                           onChange={(event) => setCategorySearch(event.target.value)}
                           className="w-full rounded-lg bg-[var(--page)] px-3 py-2 text-[13px] text-[var(--ink)] placeholder:text-[var(--muted)] focus:outline-none"
                         />
-                        <div className="mt-1.5 flex max-h-48 flex-col gap-0.5 overflow-y-auto">
+                        <div className="mt-1.5 flex flex-col gap-0.5">
                           {availableCategories
                             .filter((category) => !selectedCategories.some((c) => c.id === category.id))
                             .filter((category) =>
@@ -381,7 +383,7 @@ export function ProductFormPage({ session, company, productId, onBack, onSaved }
                             </p>
                           )}
                         </div>
-                      </div>
+                      </PopupPanel>
                     )}
                   </div>
                 </div>

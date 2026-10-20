@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { PlusIcon, SearchIcon } from '../icons'
+import { PopupPanel } from '../PopupPanel'
 
 interface SearchSelectFieldProps<T> {
   label: string
@@ -39,6 +40,8 @@ export function SearchSelectField<T>({
   const [loading, setLoading] = useState(false)
   const [results, setResults] = useState<T[]>([])
   const containerRef = useRef<HTMLDivElement>(null)
+  const fieldRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!open) return
@@ -63,9 +66,9 @@ export function SearchSelectField<T>({
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setOpen(false)
-      }
+      const target = event.target as Node
+      if (containerRef.current?.contains(target) || panelRef.current?.contains(target)) return
+      setOpen(false)
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
@@ -98,6 +101,7 @@ export function SearchSelectField<T>({
         </div>
       ) : (
         <div
+          ref={fieldRef}
           className={`flex items-center gap-2 rounded-xl px-3.5 py-2.5 ring-1 ring-transparent transition focus-within:ring-[var(--blue-300)] ${
             variant === 'surface' ? 'border border-[var(--border)] bg-[var(--surface)]' : 'bg-[var(--page)]'
           }`}
@@ -118,13 +122,13 @@ export function SearchSelectField<T>({
       )}
 
       {open && !selectedLabel && (
-        <div className="absolute top-full z-10 mt-1 w-full overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-[var(--card-shadow)]">
+        <PopupPanel anchorRef={fieldRef} panelRef={panelRef} matchWidth maxHeight={340}>
           {loading ? (
             <p className="px-3.5 py-3 text-[12.5px] text-[var(--muted)]">Buscando…</p>
           ) : results.length === 0 ? (
             <p className="px-3.5 py-3 text-[12.5px] text-[var(--muted)]">Nenhum resultado.</p>
           ) : (
-            <ul className="max-h-56 overflow-y-auto">
+            <ul>
               {results.map((item, index) => (
                 <li key={index}>
                   <button
@@ -163,7 +167,7 @@ export function SearchSelectField<T>({
               </span>
             </button>
           )}
-        </div>
+        </PopupPanel>
       )}
     </div>
   )

@@ -8,6 +8,7 @@ import {
 } from '../../lib/notifications'
 import { formatDateTime } from '../../lib/format'
 import { ThemeToggle } from '../ThemeToggle'
+import { PopupPanel } from '../PopupPanel'
 import {
   BellIcon,
   ChevronDownIcon,
@@ -70,6 +71,8 @@ export function Header({
 
   const notifRef = useRef<HTMLDivElement>(null)
   const userRef = useRef<HTMLDivElement>(null)
+  const notifPanelRef = useRef<HTMLDivElement>(null)
+  const userPanelRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -91,8 +94,8 @@ export function Header({
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       const target = event.target as Node
-      if (notifRef.current && !notifRef.current.contains(target)) setNotifOpen(false)
-      if (userRef.current && !userRef.current.contains(target)) setUserMenuOpen(false)
+      if (!notifRef.current?.contains(target) && !notifPanelRef.current?.contains(target)) setNotifOpen(false)
+      if (!userRef.current?.contains(target) && !userPanelRef.current?.contains(target)) setUserMenuOpen(false)
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
@@ -154,11 +157,11 @@ export function Header({
         </button>
 
         {notifOpen && (
-          <div className="absolute right-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-[var(--card-shadow)]">
-            <div className="border-b border-[var(--border)] px-4 py-3">
+          <PopupPanel anchorRef={notifRef} panelRef={notifPanelRef} align="right" width={320} maxHeight={460}>
+            <div className="sticky top-0 border-b border-[var(--border)] bg-[var(--surface)] px-4 py-3">
               <h3 className="text-[13px] font-bold text-[var(--ink)]">Notificações</h3>
             </div>
-            <div className="max-h-80 overflow-y-auto">
+            <div>
               {notifLoading ? (
                 <p className="px-4 py-6 text-center text-[12.5px] text-[var(--muted)]">Carregando…</p>
               ) : notifications.length === 0 ? (
@@ -184,7 +187,7 @@ export function Header({
                 ))
               )}
             </div>
-          </div>
+          </PopupPanel>
         )}
       </div>
 
@@ -233,7 +236,7 @@ export function Header({
         </button>
 
         {userMenuOpen && (
-          <div className="absolute right-0 top-full z-50 mt-2 w-60 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)] py-1.5 shadow-[var(--card-shadow)]">
+          <PopupPanel anchorRef={userRef} panelRef={userPanelRef} align="right" width={240} maxHeight={640} className="py-1.5">
             <div className="border-b border-[var(--border)] px-4 py-3">
               <p className="truncate text-[13px] font-bold text-[var(--ink)]">{personName}</p>
               {roleName && <p className="truncate text-[11.5px] text-[var(--muted)]">{roleName}</p>}
@@ -433,7 +436,7 @@ export function Header({
               <LogoutIcon className="h-4 w-4 flex-none" />
               Sair
             </button>
-          </div>
+          </PopupPanel>
         )}
       </div>
       </div>

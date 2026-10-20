@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { PopupPanel } from '../components/PopupPanel'
 import {
   fetchTimeClockDevices,
   createTimeClockDevice,
@@ -88,6 +89,7 @@ function PeopleSearchPicker({
   const [results, setResults] = useState<PersonRecord[]>([])
   const [loading, setLoading] = useState(false)
   const [open, setOpen] = useState(false)
+  const anchorRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!query.trim()) {
@@ -112,7 +114,7 @@ function PeopleSearchPicker({
   }, [query, token, companyId])
 
   return (
-    <div className="relative">
+    <div ref={anchorRef} className="relative">
       <TextField
         label="Funcionário"
         icon={<SearchIcon className="h-4 w-4" />}
@@ -125,7 +127,7 @@ function PeopleSearchPicker({
         onFocus={() => setOpen(true)}
       />
       {open && query.trim() && (
-        <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-[var(--card-shadow)]">
+        <PopupPanel anchorRef={anchorRef} matchWidth maxHeight={300}>
           {loading ? (
             <p className="px-3.5 py-2.5 text-[12.5px] text-[var(--muted)]">Buscando…</p>
           ) : results.length === 0 ? (
@@ -146,7 +148,7 @@ function PeopleSearchPicker({
               </button>
             ))
           )}
-        </div>
+        </PopupPanel>
       )}
     </div>
   )

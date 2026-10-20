@@ -1,5 +1,6 @@
 import { Children, isValidElement, useEffect, useRef, useState, type ReactNode } from 'react'
 import { ChevronDownIcon } from '../icons'
+import { PopupPanel } from '../PopupPanel'
 
 interface SelectOption {
   value: string
@@ -38,6 +39,7 @@ function parseOptions(children: ReactNode): SelectOption[] {
 export function Select({ value, onChange, children, disabled, className = '', variant = 'surface' }: SelectProps) {
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
   const options = parseOptions(children)
   const stringValue = String(value)
   const selected = options.find((option) => option.value === stringValue)
@@ -45,7 +47,9 @@ export function Select({ value, onChange, children, disabled, className = '', va
   useEffect(() => {
     if (!open) return
     function handleClickOutside(event: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) setOpen(false)
+      const target = event.target as Node
+      if (containerRef.current?.contains(target) || panelRef.current?.contains(target)) return
+      setOpen(false)
     }
     function handleKey(event: KeyboardEvent) {
       if (event.key === 'Escape') setOpen(false)
@@ -75,8 +79,8 @@ export function Select({ value, onChange, children, disabled, className = '', va
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full z-20 mt-1 min-w-full w-max max-w-sm overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-[var(--card-shadow)]">
-          <ul className="max-h-64 overflow-y-auto py-1.5">
+        <PopupPanel anchorRef={containerRef} panelRef={panelRef} matchWidth maxWidth={384} maxHeight={320} className="w-max">
+          <ul className="py-1.5">
             {options.map((option) => (
               <li key={option.value}>
                 <button
@@ -95,7 +99,7 @@ export function Select({ value, onChange, children, disabled, className = '', va
               </li>
             ))}
           </ul>
-        </div>
+        </PopupPanel>
       )}
     </div>
   )
