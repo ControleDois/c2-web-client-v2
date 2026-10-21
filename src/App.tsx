@@ -1270,6 +1270,7 @@ function App() {
             setPage('glass-orders')
             glassOrdersView.reset()
           }}
+          onOpenSchedule={() => handleNavigate('glass-schedule')}
           onOpenModels={() => {
             setPage('glass-models')
             glassModelsView.reset()

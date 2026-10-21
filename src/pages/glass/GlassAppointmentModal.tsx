@@ -19,7 +19,7 @@ import { ApiError } from '../../lib/api'
 import { TextField } from '../../components/form/TextField'
 import { SelectField } from '../../components/form/SelectField'
 import { SearchSelectField } from '../../components/form/SearchSelectField'
-import { CalendarIcon, ClockIcon, FileTextIcon, TagIcon, UserIcon } from '../../components/icons'
+import { CalendarIcon, ClockIcon, FileTextIcon, TagIcon } from '../../components/icons'
 import type { AuthCompany, AuthSession } from '../../lib/auth'
 
 export interface GlassAppointmentDraft {
@@ -51,7 +51,7 @@ export function GlassAppointmentModal({ open, session, company, draft, onClose, 
   const [date, setDate] = useState('')
   const [time, setTime] = useState('08:00')
   const [duration, setDuration] = useState('60')
-  const [team, setTeam] = useState('')
+  const [responsible, setResponsible] = useState<Link | null>(null)
   const [address, setAddress] = useState('')
   const [notes, setNotes] = useState('')
   const [order, setOrder] = useState<Link | null>(null)
@@ -68,7 +68,13 @@ export function GlassAppointmentModal({ open, session, company, draft, onClose, 
       setDate(agendaDateKey(appointment.scheduled_at))
       setTime(agendaTime(appointment.scheduled_at))
       setDuration(String(appointment.duration_minutes ?? 60))
-      setTeam(appointment.team ?? '')
+      setResponsible(
+        appointment.responsible
+          ? { id: appointment.responsible.id, label: appointment.responsible.name }
+          : appointment.team
+            ? { id: '', label: appointment.team }
+            : null
+      )
       setAddress(appointment.address ?? '')
       setNotes(appointment.notes ?? '')
       setOrder(
@@ -84,7 +90,7 @@ export function GlassAppointmentModal({ open, session, company, draft, onClose, 
     setDate(draft.date ?? '')
     setTime('08:00')
     setDuration('60')
-    setTeam('')
+    setResponsible(null)
     setNotes('')
     if (draft.order) {
       setOrder({ id: draft.order.id, label: `#${draft.order.code}`, sub: draft.order.reference ?? undefined })
@@ -99,6 +105,10 @@ export function GlassAppointmentModal({ open, session, company, draft, onClose, 
 
   const searchOrders = useCallback(
     (query: string) => fetchGlassOrders(token, company.id, { search: query, limit: 8 }).then((res) => res.data),
+    [token, company.id]
+  )
+  const searchUsers = useCallback(
+    (query: string) => fetchPeople(token, company.id, { search: query, limit: 8, role: 0 }).then((res) => res.data),
     [token, company.id]
   )
   const searchPeople = useCallback(
@@ -130,10 +140,11 @@ export function GlassAppointmentModal({ open, session, company, draft, onClose, 
       company_id: company.id,
       glass_order_id: order?.id || null,
       people_id: client?.id || null,
+      responsible_people_id: responsible?.id || null,
       type,
       scheduled_at: `${date}T${time}`,
       duration_minutes: Math.max(Number(duration) || 60, 5),
-      team: team.trim() || null,
+      team: responsible?.label ?? null,
       address: address.trim() || null,
       notes: notes.trim() || null,
     }
@@ -166,12 +177,15 @@ export function GlassAppointmentModal({ open, session, company, draft, onClose, 
               </option>
             ))}
           </SelectField>
-          <TextField
-            label="Equipe / responsável"
-            icon={<UserIcon className="h-4 w-4" />}
-            placeholder="Ex: Equipe 1, João"
-            value={team}
-            onChange={(event) => setTeam(event.target.value)}
+          <SearchSelectField
+            label="Responsável (técnico)"
+            variant="surface"
+            placeholder="Escolha quem vai atender"
+            selectedLabel={responsible?.label ?? null}
+            onSearch={searchUsers}
+            getOptionLabel={(item: PersonRecord) => item.name}
+            onSelect={(item: PersonRecord) => setResponsible({ id: item.id, label: item.name })}
+            onClear={() => setResponsible(null)}
           />
           <TextField label="Data" icon={<CalendarIcon className="h-4 w-4" />} type="date" value={date} onChange={(event) => setDate(event.target.value)} />
           <div className="grid grid-cols-2 gap-4">

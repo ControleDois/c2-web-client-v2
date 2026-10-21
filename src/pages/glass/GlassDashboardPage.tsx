@@ -3,6 +3,7 @@ import {
   agendaDateKey,
   agendaTime,
   fetchGlassDashboard,
+  generateMissingGlassBills,
   GLASS_APPOINTMENT_TYPES,
   GLASS_ORDER_STATUS_LABELS,
   GLASS_STAGE_LABELS,
@@ -12,7 +13,7 @@ import {
 import { ApiError } from '../../lib/api'
 import { formatCurrency, formatPercent } from '../../lib/format'
 import { GlassStatusBadge } from './GlassOrdersPage'
-import { FileTextIcon, PlusIcon, TagIcon, UserIcon } from '../../components/icons'
+import { BellIcon, FileTextIcon, PlusIcon, TagIcon, UserIcon } from '../../components/icons'
 import { getPersonName, type AuthCompany, type AuthSession } from '../../lib/auth'
 
 interface GlassDashboardPageProps {
@@ -23,6 +24,7 @@ interface GlassDashboardPageProps {
   onOpenOrders?: () => void
   onOpenModels?: () => void
   onOpenOrder?: (orderId: string) => void
+  onOpenSchedule?: () => void
 }
 
 // Variação contra o mesmo trecho do mês passado. Sem base de comparação, não mostra percentual.
@@ -131,11 +133,31 @@ function dayLabel(iso: string) {
   return `${day}/${month}`
 }
 
-export function GlassDashboardPage({ session, company, onNewQuote, onNewClient, onOpenOrders, onOpenModels, onOpenOrder }: GlassDashboardPageProps) {
+export function GlassDashboardPage({ session, company, onNewQuote, onNewClient, onOpenOrders, onOpenModels, onOpenOrder, onOpenSchedule }: GlassDashboardPageProps) {
   const [period, setPeriod] = useState<PeriodKey>('all')
   const [data, setData] = useState<GlassDashboard | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [reloadKey, setReloadKey] = useState(0)
+  const [generating, setGenerating] = useState(false)
+  const [billingNotice, setBillingNotice] = useState<string | null>(null)
+
+  async function handleGenerateMissingBills() {
+    setGenerating(true)
+    setBillingNotice(null)
+    try {
+      const result = await generateMissingGlassBills(session.token.token, company.id)
+      const parts: string[] = []
+      if (result.generated > 0) parts.push(`${result.generated} venda${result.generated === 1 ? '' : 's'} com contas a receber geradas.`)
+      for (const skipped of result.skipped) parts.push(`Pedido #${skipped.code}: ${skipped.reason}`)
+      setBillingNotice(parts.join(' ') || 'Nada a gerar.')
+      setReloadKey((key) => key + 1)
+    } catch (err) {
+      setBillingNotice(err instanceof ApiError ? err.message : 'Não foi possível gerar as contas a receber.')
+    } finally {
+      setGenerating(false)
+    }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -154,7 +176,7 @@ export function GlassDashboardPage({ session, company, onNewQuote, onNewClient, 
     return () => {
       cancelled = true
     }
-  }, [session.token.token, company.id, period])
+  }, [session.token.token, company.id, period, reloadKey])
 
   const kpis = data?.kpis
   const cards = kpis
@@ -163,8 +185,15 @@ export function GlassDashboardPage({ session, company, onNewQuote, onNewClient, 
         { label: 'Vendas aprovadas', value: formatCurrency(kpis.sales_total), sub: `${kpis.sales_count} venda${kpis.sales_count === 1 ? '' : 's'}` },
         { label: 'Ticket médio', value: formatCurrency(kpis.average_ticket), sub: 'por venda aprovada' },
         { label: 'Taxa de conversão', value: formatPercent(kpis.conversion_percent), sub: 'aprovados / criados' },
+        { label: 'Recebido', value: formatCurrency(kpis.received), sub: 'parcelas já pagas' },
         { label: 'A receber', value: formatCurrency(kpis.receivable), sub: 'parcelas em aberto' },
         { label: 'Em atraso', value: formatCurrency(kpis.overdue), sub: 'parcelas vencidas', alert: kpis.overdue > 0 },
+        {
+          label: 'Visitas hoje',
+          value: String(data?.visits.today ?? 0),
+          sub: data && data.visits.overdue > 0 ? `${data.visits.overdue} atrasada${data.visits.overdue === 1 ? '' : 's'}` : 'agendadas para hoje',
+          alert: Boolean(data && data.visits.overdue > 0),
+        },
       ]
     : []
 
@@ -196,6 +225,80 @@ export function GlassDashboardPage({ session, company, onNewQuote, onNewClient, 
           ))}
         </div>
       </div>
+
+      {data && (data.visits.today > 0 || data.visits.overdue > 0) && (
+        <div
+          role="alert"
+          className={`flex flex-wrap items-center gap-4 rounded-2xl border p-4 ${
+            data.visits.overdue > 0
+              ? 'border-[var(--red-500)] bg-[var(--red-100)]'
+              : 'border-[var(--amber-500)] bg-[var(--amber-100)]'
+          }`}
+        >
+          <span className="relative flex h-10 w-10 flex-none items-center justify-center">
+            <span
+              className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-60 ${
+                data.visits.overdue > 0 ? 'bg-[var(--red-500)]' : 'bg-[var(--amber-500)]'
+              }`}
+            />
+            <span
+              className={`relative flex h-10 w-10 items-center justify-center rounded-full text-white ${
+                data.visits.overdue > 0 ? 'bg-[var(--red-500)]' : 'bg-[var(--amber-500)]'
+              }`}
+            >
+              <BellIcon className="h-5 w-5 animate-pulse" />
+            </span>
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-[14.5px] font-bold text-[var(--ink)]">
+              {data.visits.today > 0 &&
+                `${data.visits.today} ${data.visits.today === 1 ? 'visita técnica hoje' : 'visitas técnicas hoje'}`}
+              {data.visits.today > 0 && data.visits.overdue > 0 && ' · '}
+              {data.visits.overdue > 0 &&
+                `${data.visits.overdue} ${data.visits.overdue === 1 ? 'visita atrasada' : 'visitas atrasadas'}`}
+            </p>
+            <p className="text-[12.5px] text-[var(--ink-soft)]">
+              {data.visits.overdue > 0
+                ? 'Visitas que já passaram e não foram concluídas. Abra a agenda para concluir ou reagendar.'
+                : 'Confira o horário e o endereço na agenda antes de sair.'}
+            </p>
+          </div>
+          {onOpenSchedule && (
+            <button
+              type="button"
+              onClick={onOpenSchedule}
+              className="rounded-xl bg-[var(--blue-500)] px-4 py-2.5 text-[13px] font-bold text-white hover:bg-[var(--blue-700)]"
+            >
+              Ver agenda
+            </button>
+          )}
+        </div>
+      )}
+
+      {data && data.kpis.sales_without_bills_count > 0 && (
+        <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-[var(--amber-500)] bg-[var(--amber-100)] p-4">
+          <div className="min-w-0 flex-1">
+            <p className="text-[14px] font-bold text-[var(--ink)]">
+              {data.kpis.sales_without_bills_count}{' '}
+              {data.kpis.sales_without_bills_count === 1 ? 'venda aprovada ainda sem' : 'vendas aprovadas ainda sem'} contas a receber (
+              {formatCurrency(data.kpis.sales_without_bills_total)})
+            </p>
+            <p className="text-[12.5px] text-[var(--ink-soft)]">
+              Enquanto as parcelas não existem, o valor não aparece em “A receber” nem no financeiro. Se faltar o cliente ou a
+              categoria no pedido, o sistema avisa qual pedido ajustar.
+            </p>
+            {billingNotice && <p className="mt-1 text-[12.5px] font-semibold text-[var(--ink)]">{billingNotice}</p>}
+          </div>
+          <button
+            type="button"
+            disabled={generating}
+            onClick={handleGenerateMissingBills}
+            className="rounded-xl bg-[var(--blue-500)] px-4 py-2.5 text-[13px] font-bold text-white hover:bg-[var(--blue-700)] disabled:opacity-60"
+          >
+            {generating ? 'Gerando…' : 'Gerar contas a receber'}
+          </button>
+        </div>
+      )}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {[
@@ -270,8 +373,8 @@ export function GlassDashboardPage({ session, company, onNewQuote, onNewClient, 
 
       {error && <div className="rounded-2xl bg-[var(--red-100)] p-4 text-[13.5px] font-medium text-[var(--red-500)]">{error}</div>}
 
-      <div className={`grid gap-3 sm:grid-cols-2 xl:grid-cols-3 ${loading ? 'opacity-60' : ''}`}>
-        {(cards.length ? cards : Array.from({ length: 6 }).map(() => null)).map((card, index) => (
+      <div className={`grid gap-3 sm:grid-cols-2 xl:grid-cols-4 ${loading ? 'opacity-60' : ''}`}>
+        {(cards.length ? cards : Array.from({ length: 8 }).map(() => null)).map((card, index) => (
           <div key={card?.label ?? index} className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
             {card ? (
               <>
@@ -348,7 +451,7 @@ export function GlassDashboardPage({ session, company, onNewQuote, onNewClient, 
                       {typeLabel(appointment.type)} · {appointment.people?.name ?? appointment.order?.people?.name ?? 'Sem cliente'}
                     </p>
                     <p className="truncate text-[12px] text-[var(--muted)]">
-                      {[appointment.order ? `#${appointment.order.code}` : null, appointment.team, appointment.address].filter(Boolean).join(' · ')}
+                      {[appointment.order ? `#${appointment.order.code}` : null, appointment.responsible?.name ?? appointment.team, appointment.address].filter(Boolean).join(' · ')}
                     </p>
                   </div>
                   <span className="flex-none text-[12.5px] font-semibold text-[var(--ink-soft)]">

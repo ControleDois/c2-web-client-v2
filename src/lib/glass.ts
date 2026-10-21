@@ -290,6 +290,7 @@ export interface GlassOrderRecord {
   meta?: {
     contract?: { status: number; provider: string } | null
     nfe?: { id: string; status: number; numero: number | null } | null
+    billing?: { generated: boolean; message: string | null } | null
   }
 }
 
@@ -628,6 +629,7 @@ export interface GlassAppointmentRecord {
   code?: number
   glass_order_id?: string | null
   people_id?: string | null
+  responsible_people_id?: string | null
   type: GlassAppointmentType
   scheduled_at: string
   duration_minutes: number
@@ -636,6 +638,7 @@ export interface GlassAppointmentRecord {
   notes?: string | null
   status: number
   people?: { id: string; name: string; phone?: string | null } | null
+  responsible?: { id: string; name: string } | null
   order?: { id: string; code: number; reference?: string | null; people?: { name: string } | null } | null
 }
 
@@ -643,6 +646,7 @@ export interface GlassAppointmentPayload {
   company_id: string
   glass_order_id?: string | null
   people_id?: string | null
+  responsible_people_id?: string | null
   type: GlassAppointmentType
   // Data e hora locais da empresa (AAAA-MM-DDTHH:mm)
   scheduled_at: string
@@ -689,6 +693,26 @@ export function addDaysToKey(key: string, days: number): string {
   const date = new Date(`${key}T12:00:00Z`)
   date.setUTCDate(date.getUTCDate() + days)
   return date.toISOString().slice(0, 10)
+}
+
+// Primeiro dia (AAAA-MM-01) do mês que contém o dia informado, e o mesmo mês
+// deslocado em `months` meses.
+export function monthStartKey(key: string, months = 0): string {
+  const [year, month] = key.split('-').map(Number)
+  const date = new Date(Date.UTC(year, month - 1 + months, 1, 12))
+  return date.toISOString().slice(0, 10)
+}
+
+// Dias exibidos na grade do mês: da segunda-feira da 1ª semana até o domingo
+// da última (de 4 a 6 semanas).
+export function monthGridDays(monthKey: string): string[] {
+  const first = monthStartKey(monthKey)
+  const last = addDaysToKey(monthStartKey(first, 1), -1)
+  const start = weekStartKey(first)
+  const end = addDaysToKey(weekStartKey(last), 6)
+  const days: string[] = []
+  for (let day = start; day <= end; day = addDaysToKey(day, 1)) days.push(day)
+  return days
 }
 
 // Segunda-feira da semana que contém o dia informado.
@@ -880,12 +904,24 @@ export interface GlassDashboard {
     conversion_percent: number
     receivable: number
     overdue: number
+    received: number
+    sales_without_bills_count: number
+    sales_without_bills_total: number
   }
+  visits: { today: number; overdue: number }
   by_status: Record<string, { count: number; total: number }>
   stages: Record<string, number>
   upcoming: GlassAppointmentRecord[]
   recent: GlassOrderRecord[]
 }
+
+export interface GlassMissingBillsResult {
+  generated: number
+  skipped: { id: string; code: number; reason: string }[]
+}
+
+export const generateMissingGlassBills = (token: string, companyId: string) =>
+  apiPost<GlassMissingBillsResult>('/glass-order/generate-missing-bills', { company_id: companyId }, token)
 
 export const fetchGlassDashboard = (token: string, companyId: string, period: string) =>
   apiGet<GlassDashboard>('/glass-dashboard', { companyId, period }, token)

@@ -262,7 +262,15 @@ export function GlassOrdersPage({ session, company, onCreate, onEdit }: GlassOrd
               label: next.label,
               icon: <CheckCircleIcon className="h-4 w-4" />,
               dividerBefore: true,
-              onClick: () => run(() => changeGlassOrderStatus(token, item.id, next.status), reload),
+              onClick: () =>
+                run(async () => {
+                  const updated = await changeGlassOrderStatus(token, item.id, next.status)
+                  const billing = updated.meta?.billing
+                  if (billing?.generated) setNotice('Venda aprovada e contas a receber geradas.')
+                  else if (billing?.message) {
+                    setNotice(`Venda aprovada, mas as contas a receber não foram geradas: ${billing.message} Abra o pedido para ajustar.`)
+                  }
+                }, reload),
             })
           }
           if (item.status !== GLASS_ORDER_STATUS.CANCELED && item.status < GLASS_ORDER_STATUS.INVOICED) {
