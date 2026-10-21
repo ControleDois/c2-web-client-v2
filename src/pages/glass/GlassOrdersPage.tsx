@@ -32,6 +32,7 @@ import {
   ClipboardCheckIcon,
   CalendarIcon,
 } from '../../components/icons'
+import { GlassApproveSaleModal } from './GlassApproveSaleModal'
 import { can, type AuthCompany, type AuthSession } from '../../lib/auth'
 
 interface GlassOrdersPageProps {
@@ -76,6 +77,7 @@ export function GlassOrdersPage({ session, company, onCreate, onEdit }: GlassOrd
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const [approveTarget, setApproveTarget] = useState<{ order: GlassOrderRecord; reload: () => void } | null>(null)
   const [contractTarget, setContractTarget] = useState<GlassContractTarget | null>(null)
   const [reloadToken, setReloadToken] = useState(0)
   const [memoryOrder, setMemoryOrder] = useState<GlassOrderRecord | null>(null)
@@ -263,14 +265,11 @@ export function GlassOrdersPage({ session, company, onCreate, onEdit }: GlassOrd
               icon: <CheckCircleIcon className="h-4 w-4" />,
               dividerBefore: true,
               onClick: () =>
-                run(async () => {
-                  const updated = await changeGlassOrderStatus(token, item.id, next.status)
-                  const billing = updated.meta?.billing
-                  if (billing?.generated) setNotice('Venda aprovada e contas a receber geradas.')
-                  else if (billing?.message) {
-                    setNotice(`Venda aprovada, mas as contas a receber não foram geradas: ${billing.message} Abra o pedido para ajustar.`)
-                  }
-                }, reload),
+                item.status === GLASS_ORDER_STATUS.QUOTE
+                  ? setApproveTarget({ order: item, reload })
+                  : run(async () => {
+                      await changeGlassOrderStatus(token, item.id, next.status)
+                    }, reload),
             })
           }
           if (item.status !== GLASS_ORDER_STATUS.CANCELED && item.status < GLASS_ORDER_STATUS.INVOICED) {
@@ -297,6 +296,18 @@ export function GlassOrdersPage({ session, company, onCreate, onEdit }: GlassOrd
         deleteItem={(item) => deleteGlassOrder(token, item.id)}
         deleteTitle="Excluir orçamento"
         deleteLabel={(item) => `Orçamento #${item.code}`}
+      />
+
+      <GlassApproveSaleModal
+        order={approveTarget?.order ?? null}
+        session={session}
+        company={company}
+        onClose={() => setApproveTarget(null)}
+        onApproved={(message) => {
+          approveTarget?.reload()
+          setApproveTarget(null)
+          setNotice(message)
+        }}
       />
 
       {cancelTarget && (

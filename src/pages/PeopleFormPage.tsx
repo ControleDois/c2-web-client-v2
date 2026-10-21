@@ -33,7 +33,7 @@ import {
   PaperclipIcon,
   EyeIcon,
 } from '../components/icons'
-import { isEmprestimo, isSoftwareHouse } from '../lib/systemTypes'
+import { isEmprestimo, isSoftwareHouse, isVidracaria } from '../lib/systemTypes'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 import { Select } from '../components/form/Select'
 
@@ -92,6 +92,8 @@ export function PeopleFormPage({
   const [email, setEmail] = useState('')
   const [internalCode, setInternalCode] = useState('')
   const [role, setRole] = useState(2)
+  // Vidraçaria: cliente pode ser cadastrado só com nome (o documento é cobrado ao emitir NF-e ou contrato).
+  const documentOptional = isVidracaria(company.system_type) && role === 2
   const [status, setStatus] = useState(0)
   const [birth, setBirth] = useState('')
   const [limitCredit, setLimitCredit] = useState('')
@@ -334,7 +336,11 @@ export function PeopleFormPage({
     setError(null)
 
     const documentDigits = document.replace(/\D/g, '')
-    if (!name || !documentDigits) {
+    if (!name) {
+      setError('Preencha o nome para continuar.')
+      return
+    }
+    if (!documentDigits && !documentOptional) {
       setError('Preencha nome e CPF/CNPJ para continuar.')
       return
     }
@@ -371,7 +377,7 @@ export function PeopleFormPage({
     const payload = {
       company_id: company.id,
       name,
-      document: documentDigits,
+      document: documentDigits || undefined,
       social_name: socialName || undefined,
       people_type: documentDigits.length > 11 ? 1 : 0,
       roles: [role],
@@ -499,9 +505,9 @@ export function PeopleFormPage({
                 />
                 <div className="sm:col-span-2">
                   <TextField
-                    label="CPF / CNPJ"
+                    label={documentOptional ? 'CPF / CNPJ (pode completar depois)' : 'CPF / CNPJ'}
                     icon={<BadgeIcon className="h-4 w-4" />}
-                    placeholder="000.000.000-00"
+                    placeholder={documentOptional ? 'Opcional' : '000.000.000-00'}
                     inputMode="numeric"
                     value={document}
                     onChange={(event) => setDocument(formatDocument(event.target.value))}

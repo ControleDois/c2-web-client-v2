@@ -28,6 +28,7 @@ import {
 } from '../components/product/RecipeEditor'
 import { fetchRecipe } from '../lib/stock'
 import { PopupPanel } from '../components/PopupPanel'
+import { isVidracaria } from '../lib/systemTypes'
 import {
   ComplementsEditor,
   complementsError,
@@ -235,11 +236,11 @@ export function ProductFormPage({ session, company, productId, defaultIngredient
           className="mb-3 flex items-center gap-1 text-[12.5px] font-semibold text-[var(--ink-soft)] hover:text-[var(--ink)]"
         >
           <ChevronLeftIcon className="h-3.5 w-3.5" />
-          Voltar para produtos e serviços
+          {isVidracaria(company.system_type) ? 'Voltar para produtos fiscais' : 'Voltar para produtos e serviços'}
         </button>
         <p className="text-[12px] font-semibold tracking-wide text-[var(--blue-700)] uppercase">Principal</p>
         <h1 className="mt-0.5 text-[22px] font-bold tracking-tight text-[var(--ink)]">
-          {productId ? 'Editar item' : 'Novo item'}
+          {isVidracaria(company.system_type) ? (productId ? 'Editar produto fiscal' : 'Novo produto fiscal') : productId ? 'Editar item' : 'Novo item'}
         </h1>
       </div>
 
@@ -323,7 +324,7 @@ export function ProductFormPage({ session, company, productId, defaultIngredient
               )}
             </div>
 
-            {isProduct && (
+            {isProduct && !isVidracaria(company.system_type) && (
               <label className="mt-4 flex items-start gap-2.5 rounded-xl bg-[var(--page)] p-3.5">
                 <input
                   type="checkbox"
@@ -341,7 +342,7 @@ export function ProductFormPage({ session, company, productId, defaultIngredient
               </label>
             )}
 
-            {isProduct && (
+            {isProduct && !isVidracaria(company.system_type) && (
               <label className="mt-4 flex items-start gap-2.5 rounded-xl bg-[var(--page)] p-3.5">
                 <input
                   type="checkbox"

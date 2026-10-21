@@ -9,6 +9,7 @@ import { ApiError } from '../lib/api'
 import { TextField } from './form/TextField'
 import { SelectField } from './form/SelectField'
 import { CloseIcon, FileTextIcon, MailIcon, UserIcon, WhatsappIcon } from './icons'
+import { isVidracaria } from '../lib/systemTypes'
 import type { AuthCompany, AuthSession } from '../lib/auth'
 
 export interface QuickPersonRequest {
@@ -132,7 +133,8 @@ export function QuickPersonModal({ request, session, company, onClose }: QuickPe
       setError('Informe o nome.')
       return
     }
-    if (digits.length !== 11 && digits.length !== 14) {
+    const documentOptional = isVidracaria(company.system_type) && request.role === 2
+    if (!(documentOptional && digits.length === 0) && digits.length !== 11 && digits.length !== 14) {
       setError('Informe um CPF (11 dígitos) ou CNPJ (14 dígitos) válido.')
       return
     }
@@ -147,7 +149,7 @@ export function QuickPersonModal({ request, session, company, onClose }: QuickPe
       const created = await createPerson(session.token.token, {
         company_id: company.id,
         name: name.trim(),
-        document: digits,
+        document: digits || undefined,
         people_type: digits.length > 11 ? 1 : 0,
         roles: [request.role],
         status: [0],
@@ -200,9 +202,9 @@ export function QuickPersonModal({ request, session, company, onClose }: QuickPe
 
         <div className="mt-5 flex flex-col gap-4">
           <TextField
-            label="CPF ou CNPJ"
+            label={isVidracaria(company.system_type) && request.role === 2 ? 'CPF ou CNPJ (pode completar depois)' : 'CPF ou CNPJ'}
             icon={<FileTextIcon className="h-4 w-4" />}
-            placeholder="Só números"
+            placeholder={isVidracaria(company.system_type) && request.role === 2 ? 'Opcional — só números' : 'Só números'}
             inputMode="numeric"
             autoFocus
             value={document}

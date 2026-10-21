@@ -176,7 +176,7 @@ function buildNavGroups(
         ? [
             { page: 'dashboard' as const, label: 'Dashboard', icon: GridIcon },
             { page: 'people' as const, label: 'Pessoas', icon: UserIcon },
-            { page: 'products' as const, label: 'Produtos e Serviços', icon: BoxIcon },
+            { page: 'products' as const, label: 'Produtos fiscais (NF-e)', icon: BoxIcon },
             { page: 'glass-orders' as const, label: 'Orçamentos e Vendas', icon: SaleIcon },
             { page: 'glass-production' as const, label: 'Produção', icon: WrenchIcon },
             { page: 'glass-schedule' as const, label: 'Agenda', icon: ClockIcon },

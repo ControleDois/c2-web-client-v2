@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
   fetchGlassColors,
+  GLASS_CATEGORIES,
   previewGlassPrice,
   type GlassColorRecord,
   saveGlassVariableDefaults,
@@ -221,6 +222,7 @@ export function GlassItemModal({ open, token, companyId, item, prefill, models, 
     if (!aluminumColor && model.default_aluminum_color) setAluminumColor(model.default_aluminum_color)
     if (!accessoryColor && model.default_accessory_color) setAccessoryColor(model.default_accessory_color)
     if (!description.trim()) setDescription(model.name)
+    if (!itemType.trim() && model.category) setItemType(model.category)
     if (!typeId && model.default_glass_type_id) setTypeId(model.default_glass_type_id)
   }
 
@@ -375,13 +377,15 @@ export function GlassItemModal({ open, token, companyId, item, prefill, models, 
             value={quantity}
             onChange={(event) => setQuantity(digits(event.target.value))}
           />
-          <TextField
-            label="Tipo"
-            icon={<TagIcon className="h-4 w-4" />}
-            placeholder="Ex: Janela, Porta, Box"
-            value={itemType}
-            onChange={(event) => setItemType(event.target.value)}
-          />
+          <SelectField label="Tipo" variant="surface" value={itemType} onChange={(event) => setItemType(event.target.value)}>
+            <option value="">Sem tipo</option>
+            {itemType && !GLASS_CATEGORIES.includes(itemType) && <option value={itemType}>{itemType}</option>}
+            {GLASS_CATEGORIES.map((category) => (
+              <option key={category} value={category}>
+                {category}
+              </option>
+            ))}
+          </SelectField>
           {colorField('profile', 'Cor do perfil / alumínio', aluminumColor, setAluminumColor)}
           {colorField('accessory', 'Cor dos acessórios', accessoryColor, setAccessoryColor)}
           <TextField
@@ -467,6 +471,29 @@ export function GlassItemModal({ open, token, companyId, item, prefill, models, 
                 value={manualPrice}
                 onChange={(event) => setManualPrice(event.target.value)}
               />
+            </div>
+          )}
+
+          {preview && !overridden && !previewing && preview.unit_price === 0 && (
+            <div className="mt-3 rounded-xl border border-[var(--amber-500)] bg-[var(--amber-100)] p-3 text-[12.5px] leading-relaxed text-[var(--ink)]">
+              <p className="font-bold">
+                {selectedModel ? 'Este modelo ainda está sem preço' : 'Sem modelo e sem vidro, o item fica sem preço'}
+              </p>
+              <p className="mt-0.5">
+                {selectedModel
+                  ? 'O modelo não tem perfis, acessórios, ferragens, mão de obra nem preço por m² cadastrados. Para orçar agora, digite o valor deste item. Para resolver de vez, abra o modelo em Modelos e escolha o tipo de cálculo “Por m²” com o preço, ou adicione os perfis e ferragens.'
+                  : 'Escolha um modelo ou um vidro, ou digite o valor deste item.'}
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setOverridden(true)
+                  if (!manualPrice) setManualPrice('')
+                }}
+                className="mt-2 rounded-lg bg-[var(--surface)] px-3 py-1.5 text-[12px] font-bold text-[var(--blue-700)] hover:bg-[var(--blue-100)]"
+              >
+                Digitar o valor agora
+              </button>
             </div>
           )}
 

@@ -9,7 +9,7 @@ import {
   type MerceariaCatalogPreview,
   type ProductRecord,
 } from '../lib/products'
-import { isMercearia } from '../lib/systemTypes'
+import { hasStockControl, isMercearia, isVidracaria } from '../lib/systemTypes'
 import { formatCurrency } from '../lib/format'
 import { ApiError } from '../lib/api'
 import { getCached, setCached } from '../lib/cache'
@@ -23,6 +23,8 @@ import type { AuthSession, AuthCompany } from '../lib/auth'
 interface ProductsPageProps {
   session: AuthSession
   company: AuthCompany
+  // Vidraçaria: leva ao cadastro de Modelos (onde o orçamento realmente se monta).
+  onOpenModels?: () => void
   // ingredient: true quando o botão foi tocado na aba Insumos (o formulário já abre com "é insumo" marcado).
   onCreate: (options?: { ingredient?: boolean }) => void
   onEdit: (product: ProductRecord) => void
@@ -47,7 +49,8 @@ function roleTone(role?: number): string {
   return role === 1 ? 'bg-[var(--indigo-100)] text-[var(--indigo-500)]' : 'bg-[var(--blue-100)] text-[var(--blue-700)]'
 }
 
-export function ProductsPage({ session, company, onCreate, onEdit }: ProductsPageProps) {
+export function ProductsPage({ session, company, onCreate, onEdit, onOpenModels }: ProductsPageProps) {
+  const fiscalOnly = isVidracaria(company.system_type)
   const [search, setSearch] = useState('')
   const [role, setRole] = useState<number | undefined>(undefined)
   const [page, setPage] = useState(1)
@@ -217,7 +220,9 @@ export function ProductsPage({ session, company, onCreate, onEdit }: ProductsPag
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="text-[12px] font-semibold tracking-wide text-[var(--blue-700)] uppercase">Principal</p>
-          <h1 className="mt-0.5 text-[22px] font-bold tracking-tight text-[var(--ink)]">Produtos e Serviços</h1>
+          <h1 className="mt-0.5 text-[22px] font-bold tracking-tight text-[var(--ink)]">
+            {fiscalOnly ? 'Produtos fiscais (NF-e)' : 'Produtos e Serviços'}
+          </h1>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
           {isMercearia(company.system_type) && (
@@ -229,23 +234,47 @@ export function ProductsPage({ session, company, onCreate, onEdit }: ProductsPag
               Cadastrar produtos de mercearia
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => setImportOpen(true)}
-            className="flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 text-[13.5px] font-bold text-[var(--ink)] hover:bg-[var(--page)]"
-          >
-            Importar do Hero
-          </button>
+          {!fiscalOnly && (
+            <button
+              type="button"
+              onClick={() => setImportOpen(true)}
+              className="flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 text-[13.5px] font-bold text-[var(--ink)] hover:bg-[var(--page)]"
+            >
+              Importar do Hero
+            </button>
+          )}
           <button
             type="button"
             onClick={() => onCreate({ ingredient: role === -1 })}
             className="flex items-center gap-2 rounded-xl bg-[var(--blue-500)] px-4 py-2.5 text-[13.5px] font-bold text-white transition hover:bg-[var(--blue-700)]"
           >
             <PlusIcon className="h-4 w-4" />
-            {role === -1 ? 'Novo insumo' : 'Novo item'}
+            {role === -1 ? 'Novo insumo' : fiscalOnly ? 'Novo produto fiscal' : 'Novo item'}
           </button>
         </div>
       </div>
+
+      {fiscalOnly && (
+        <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-[var(--blue-300)] bg-[var(--blue-100)] p-4">
+          <div className="min-w-0 flex-1">
+            <p className="text-[13.5px] font-bold text-[var(--ink)]">Aqui ficam só os produtos usados para emitir NF-e</p>
+            <p className="mt-0.5 text-[12.5px] leading-relaxed text-[var(--ink-soft)]">
+              Para montar um orçamento (porta, janela, box...), cadastre em <strong>Modelos</strong>: lá ficam medidas, vidro,
+              perfis e preço. Depois, no modelo, escolha o “Produto fiscal” daqui para a nota sair com o NCM e a tributação
+              certos.
+            </p>
+          </div>
+          {onOpenModels && (
+            <button
+              type="button"
+              onClick={onOpenModels}
+              className="rounded-xl bg-[var(--blue-500)] px-4 py-2.5 text-[13px] font-bold text-white hover:bg-[var(--blue-700)]"
+            >
+              Ir para Modelos
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex min-w-[240px] flex-1 items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2.5">
@@ -263,7 +292,7 @@ export function ProductsPage({ session, company, onCreate, onEdit }: ProductsPag
         </div>
 
         <div className="flex gap-1 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1">
-          {ROLE_FILTERS.map((option) => (
+          {ROLE_FILTERS.filter((option) => option.value !== -1 || hasStockControl(company.system_type)).map((option) => (
             <button
               key={option.label}
               type="button"
@@ -557,7 +586,7 @@ export function ProductsPage({ session, company, onCreate, onEdit }: ProductsPag
       <PrintPreviewModal
         open={printOpen}
         company={company}
-        title="Produtos e Serviços"
+        title={fiscalOnly ? 'Produtos fiscais (NF-e)' : 'Produtos e Serviços'}
         subtitle={`${company.people?.name ?? ''} · ${printRows.length} registro${printRows.length === 1 ? '' : 's'}`}
         columns={PRINT_COLUMNS}
         rows={printRows}

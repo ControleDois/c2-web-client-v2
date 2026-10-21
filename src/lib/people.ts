@@ -96,7 +96,7 @@ export interface PersonRecord {
 export interface PersonPayload {
   company_id: string
   name: string
-  document: string
+  document?: string
   social_name?: string
   people_type?: number
   roles?: number[]

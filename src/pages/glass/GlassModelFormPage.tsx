@@ -645,6 +645,32 @@ export function GlassModelFormPage({ session, company, glassModelId, onBack, onS
             <p className="mt-2 text-[11.5px] text-[var(--muted)]">
               {GLASS_CALC_TYPES.find((type) => type.value === calcType)?.hint}
             </p>
+            {(() => {
+              const number = (value: string) => parseMoney(value) ?? 0
+              const noLabor = !number(laborPerM2) && !number(laborFixed)
+              const missingComposition = calcType === 'composition' && rows.length === 0 && noLabor
+              const missingFramePrice = calcType === 'per_m2' && !number(framePrice) && noLabor
+              if (!missingComposition && !missingFramePrice) return null
+              return (
+                <div className="mt-3 rounded-xl border border-[var(--amber-500)] bg-[var(--amber-100)] p-3 text-[12.5px] leading-relaxed text-[var(--ink)]">
+                  <p className="font-bold">Este modelo ainda está sem preço</p>
+                  <p className="mt-0.5">
+                    {missingComposition
+                      ? 'Em “Composição” o preço é a soma de vidro, perfis, acessórios, ferragens e mão de obra, e nada disso foi informado — o orçamento sairia com R$ 0,00. Adicione as linhas abaixo ou use o preço por m².'
+                      : 'Informe o preço por m² da esquadria (ou a mão de obra) para o orçamento calcular o valor.'}
+                  </p>
+                  {missingComposition && (
+                    <button
+                      type="button"
+                      onClick={() => setCalcType('per_m2')}
+                      className="mt-2 rounded-lg bg-[var(--surface)] px-3 py-1.5 text-[12px] font-bold text-[var(--blue-700)] hover:bg-[var(--blue-100)]"
+                    >
+                      Usar preço por m²
+                    </button>
+                  )}
+                </div>
+              )
+            })()}
             <p className="mt-2 text-[11.5px] text-[var(--muted)]">
               Na lista de corte, a peça de vidro é a medida do vão menos esses descontos; a largura ainda é dividida pelo
               número de folhas.

@@ -441,6 +441,18 @@ export const deleteGlassOrder = (token: string, id: string) => apiDelete<void>(`
 export const duplicateGlassOrder = (token: string, id: string) => apiPost<GlassOrderRecord>(`/glass-order/${id}/duplicate`, {}, token)
 export const changeGlassOrderStatus = (token: string, id: string, status: number, cancelReason?: string) =>
   apiPut<GlassOrderRecord>(`/glass-order/${id}/status`, { status, cancel_reason: cancelReason }, token)
+export interface GlassApprovePayload {
+  form_payment: number
+  installments: number
+  first_due_date: string | null
+  down_payment: number
+  category_id: string | null
+  bank_account_id: string | null
+}
+
+export const approveGlassOrder = (token: string, id: string, payload: GlassApprovePayload) =>
+  apiPost<GlassOrderRecord>(`/glass-order/${id}/approve`, payload, token)
+
 export const previewGlassPrice = (
   token: string,
   payload: {

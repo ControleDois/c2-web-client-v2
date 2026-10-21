@@ -383,7 +383,15 @@ export function PeoplePage({ session, company, onCreate, onEdit }: PeoplePagePro
                       </td>
                       <td className="py-2.5 font-medium text-[var(--ink)]">{person.name}</td>
                       <td className="py-2.5 font-mono text-[var(--ink-soft)]">
-                        {person.document ? formatDocument(person.document) : '—'}
+                        {person.document ? (
+                          formatDocument(person.document)
+                        ) : person.roles?.includes(2) ? (
+                          <span className="rounded-full bg-[var(--amber-100)] px-2 py-0.5 text-[11px] font-bold text-[var(--amber-500)]">
+                            sem CPF/CNPJ
+                          </span>
+                        ) : (
+                          '—'
+                        )}
                       </td>
                       <td className="py-2.5 text-[var(--ink-soft)]">{person.phone ? formatPhone(person.phone) : '—'}</td>
                       <td className="py-2.5 text-[var(--ink-soft)]">

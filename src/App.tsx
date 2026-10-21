@@ -499,6 +499,7 @@ function App() {
               productsView.create()
             }}
             onEdit={(p) => productsView.edit(p.id)}
+            onOpenModels={isVidracaria(activeCompany.system_type) ? () => handleNavigate('glass-models') : undefined}
           />
         )
     } else if (page === 'vehicle-rentals') {
