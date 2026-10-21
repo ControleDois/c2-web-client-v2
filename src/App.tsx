@@ -948,6 +948,7 @@ function App() {
             orderId={glassOrdersView.view.id}
             onBack={glassOrdersView.reset}
             onSaved={glassOrdersView.reset}
+            onCreated={(id) => glassOrdersView.edit(id)}
           />
         ) : (
           <GlassOrdersPage

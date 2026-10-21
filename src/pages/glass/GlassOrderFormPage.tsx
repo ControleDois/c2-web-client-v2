@@ -33,8 +33,19 @@ import { GlassContractModals, type GlassContractTarget } from './GlassContractMo
 import { GlassInvoiceModal } from './GlassInvoiceModal'
 import { GlassMemoryModal } from './GlassMemoryModal'
 import { GlassQuoteModal } from './GlassQuoteModal'
+import { GlassApproveSaleModal } from './GlassApproveSaleModal'
 import { NFE_STATUS_LABELS } from '../../lib/nfes'
-import { ChevronLeftIcon, PlusIcon, PencilIcon, TrashIcon, TagIcon, FileTextIcon, CalendarIcon, CopyIcon } from '../../components/icons'
+import {
+  CheckCircleIcon,
+  ChevronLeftIcon,
+  PlusIcon,
+  PencilIcon,
+  TrashIcon,
+  TagIcon,
+  FileTextIcon,
+  CalendarIcon,
+  CopyIcon,
+} from '../../components/icons'
 import type { AuthSession, AuthCompany } from '../../lib/auth'
 
 interface GlassOrderFormPageProps {
@@ -43,7 +54,16 @@ interface GlassOrderFormPageProps {
   orderId?: string
   onBack: () => void
   onSaved: () => void
+  // Orçamento novo salvo: abre o mesmo orçamento para seguir (imprimir, aprovar...).
+  onCreated?: (orderId: string) => void
 }
+
+const STEPS = [
+  { key: 1, label: 'Cliente e obra' },
+  { key: 2, label: 'Itens' },
+  { key: 3, label: 'Valores e pagamento' },
+  { key: 4, label: 'Revisar e finalizar' },
+]
 
 interface Client {
   id: string
@@ -57,7 +77,7 @@ let itemCounter = 0
 const withKey = (item: GlassOrderItemRecord): ItemRow => ({ ...item, key: item.id ?? `new-${++itemCounter}` })
 const dateInput = (value?: string | null) => (value ? value.slice(0, 10) : '')
 
-export function GlassOrderFormPage({ session, company, orderId, onBack, onSaved }: GlassOrderFormPageProps) {
+export function GlassOrderFormPage({ session, company, orderId, onBack, onSaved, onCreated }: GlassOrderFormPageProps) {
   const token = session.token.token
   const quickPerson = useQuickPerson(session, company)
   const [loading, setLoading] = useState(Boolean(orderId))
@@ -91,6 +111,8 @@ export function GlassOrderFormPage({ session, company, orderId, onBack, onSaved 
   const [invoiceOpen, setInvoiceOpen] = useState(false)
   const [memoryOpen, setMemoryOpen] = useState(false)
   const [quoteOpen, setQuoteOpen] = useState(false)
+  const [approveOpen, setApproveOpen] = useState(false)
+  const [step, setStep] = useState(1)
   const [editing, setEditing] = useState<{ open: boolean; row: ItemRow | null; prefill?: GlassOrderItemRecord | null }>({
     open: false,
     row: null,
@@ -118,6 +140,7 @@ export function GlassOrderFormPage({ session, company, orderId, onBack, onSaved 
       .then((data) => {
         if (cancelled) return
         setOrder(data)
+        if (data.status === GLASS_ORDER_STATUS.QUOTE) setStep(4)
         setClient(data.people ? { id: data.people.id, label: data.people.name, sub: data.people.document ?? undefined } : null)
         setReference(data.reference ?? '')
         setWorkAddress(data.work_address ?? '')
@@ -158,6 +181,10 @@ export function GlassOrderFormPage({ session, company, orderId, onBack, onSaved 
   const locked = order?.status === GLASS_ORDER_STATUS.CANCELED
   const approved = Boolean(order) && (order?.status ?? 0) >= GLASS_ORDER_STATUS.SALE && !locked
   const bills = order?.bills ?? []
+  // Orçamento em aberto: passo a passo (Avançar). Venda aprovada: página completa, como antes.
+  const guided = !approved && !locked
+  const showStep = (n: number) => !guided || step === n
+  const itemsWithoutPrice = items.filter((item) => !item.total).length
 
   function saveItem(item: GlassOrderItemRecord, addAnother = false) {
     setItems((current) =>
@@ -195,24 +222,69 @@ export function GlassOrderFormPage({ session, company, orderId, onBack, onSaved 
     }
   }
 
-  async function handleSubmit(event: FormEvent) {
-    event.preventDefault()
+  function validateStep(from: number) {
+    if (from === 2 && items.length === 0) {
+      setError('Adicione ao menos uma peça para poder avançar.')
+      return false
+    }
+    return true
+  }
+
+  function goToStep(target: number) {
+    setError(null)
+    if (target > step) {
+      for (let current = step; current < target; current++) {
+        if (!validateStep(current)) {
+          setStep(current)
+          return
+        }
+      }
+    }
+    setStep(target)
+    document.querySelector('main')?.scrollTo?.({ top: 0 })
+  }
+
+  async function save(after: 'stay' | 'list') {
     setError(null)
     if (items.length === 0) {
       setError('Adicione ao menos um item ao orçamento.')
+      setStep(2)
       return
     }
 
     setSubmitting(true)
     try {
-      if (orderId) await updateGlassOrder(token, orderId, buildPayload())
-      else await createGlassOrder(token, buildPayload())
-      onSaved()
+      if (orderId) {
+        await updateGlassOrder(token, orderId, buildPayload())
+        if (after === 'list') {
+          onSaved()
+          return
+        }
+        setOrder(await fetchGlassOrder(token, orderId))
+        setNotice('Orçamento salvo.')
+      } else {
+        const created = await createGlassOrder(token, buildPayload())
+        if (after === 'list' || !onCreated || !created.id) {
+          onSaved()
+          return
+        }
+        onCreated(created.id)
+        setNotice('Orçamento salvo. Agora você pode imprimir, enviar ou aprovar a venda.')
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Não foi possível salvar o orçamento.')
     } finally {
       setSubmitting(false)
     }
+  }
+
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault()
+    if (guided && step < 4) {
+      goToStep(step + 1)
+      return
+    }
+    await save('stay')
   }
 
   async function handleGenerateBills() {
@@ -325,6 +397,59 @@ export function GlassOrderFormPage({ session, company, orderId, onBack, onSaved 
         <p className="rounded-2xl bg-[var(--red-100)] p-5 text-[13.5px] font-medium text-[var(--red-500)]">{loadError}</p>
       ) : (
         <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+          {guided && (
+            <nav aria-label="Etapas do orçamento" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {STEPS.map((item) => {
+                const done = item.key < step
+                const current = item.key === step
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => goToStep(item.key)}
+                    aria-current={current ? 'step' : undefined}
+                    className={`flex items-center gap-2.5 rounded-xl border px-3.5 py-2.5 text-left transition ${
+                      current
+                        ? 'border-[var(--blue-500)] bg-[var(--blue-100)]'
+                        : 'border-[var(--border)] bg-[var(--surface)] hover:bg-[var(--page)]'
+                    }`}
+                  >
+                    <span
+                      className={`flex h-6 w-6 flex-none items-center justify-center rounded-full text-[12px] font-bold ${
+                        done
+                          ? 'bg-[var(--green-600)] text-white'
+                          : current
+                            ? 'bg-[var(--blue-500)] text-white'
+                            : 'bg-[var(--page)] text-[var(--muted)]'
+                      }`}
+                    >
+                      {done ? <CheckCircleIcon className="h-4 w-4" /> : item.key}
+                    </span>
+                    <span className={`text-[12.5px] font-bold ${current ? 'text-[var(--ink)]' : 'text-[var(--ink-soft)]'}`}>{item.label}</span>
+                  </button>
+                )
+              })}
+            </nav>
+          )}
+
+          {guided && step === 1 && (
+            <p className="-mb-2 text-[13px] text-[var(--ink-soft)]">
+              Passo 1 de 4: diga para quem é o orçamento e onde a obra será feita. Se o cliente ainda não está cadastrado, use “+ Cadastrar novo” na busca
+              (só o nome já basta).
+            </p>
+          )}
+          {guided && step === 2 && (
+            <p className="-mb-2 text-[13px] text-[var(--ink-soft)]">
+              Passo 2 de 4: adicione cada peça com as medidas em milímetros. O modelo e o vidro escolhidos calculam o preço sozinhos.
+            </p>
+          )}
+          {guided && step === 3 && (
+            <p className="-mb-2 text-[13px] text-[var(--ink-soft)]">
+              Passo 3 de 4: ajuste acréscimo ou desconto e combine o pagamento. Pode deixar o pagamento para depois: ao aprovar a venda você confirma tudo.
+            </p>
+          )}
+
+          {showStep(1) && (
           <SectionCard title="Cliente e obra">
             <div className="grid gap-4 sm:grid-cols-2">
               <SearchSelectField
@@ -376,7 +501,9 @@ export function GlassOrderFormPage({ session, company, orderId, onBack, onSaved 
               </div>
             </div>
           </SectionCard>
+          )}
 
+          {showStep(2) && (
           <SectionCard
             title="Itens"
             subtitle="Cada item é uma peça com medidas; o preço sai do modelo e do vidro escolhidos"
@@ -455,7 +582,9 @@ export function GlassOrderFormPage({ session, company, orderId, onBack, onSaved 
               </div>
             )}
           </SectionCard>
+          )}
 
+          {showStep(3) && (
           <SectionCard title="Negociação e totais">
             <div className="grid gap-4 sm:grid-cols-3">
               <TextField
@@ -480,7 +609,9 @@ export function GlassOrderFormPage({ session, company, orderId, onBack, onSaved 
               </div>
             </div>
           </SectionCard>
+          )}
 
+          {showStep(3) && (
           <SectionCard
             title="Pagamento"
             subtitle="Condições usadas ao gerar as contas a receber depois que a venda for aprovada"
@@ -576,7 +707,9 @@ export function GlassOrderFormPage({ session, company, orderId, onBack, onSaved 
               </p>
             )}
           </SectionCard>
+          )}
 
+          {showStep(3) && (
           <SectionCard title="Observações" defaultCollapsed={!notes && !internalNotes}>
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="flex flex-col gap-1.5">
@@ -599,19 +732,116 @@ export function GlassOrderFormPage({ session, company, orderId, onBack, onSaved 
               </label>
             </div>
           </SectionCard>
+          )}
+
+          {guided && step === 4 && (
+            <SectionCard title="Revisar e finalizar" subtitle="Confira os dados e salve. Depois dá para imprimir, enviar e aprovar a venda">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-xl bg-[var(--page)] p-4">
+                  <p className="text-[11.5px] font-bold tracking-wide text-[var(--muted)] uppercase">Cliente</p>
+                  <p className="mt-1 text-[14px] font-semibold text-[var(--ink)]">{client?.label ?? 'Nenhum cliente escolhido'}</p>
+                  {reference && <p className="text-[12.5px] text-[var(--ink-soft)]">{reference}</p>}
+                  {workAddress && <p className="text-[12.5px] text-[var(--ink-soft)]">{workAddress}</p>}
+                </div>
+                <div className="rounded-xl bg-[var(--page)] p-4">
+                  <p className="text-[11.5px] font-bold tracking-wide text-[var(--muted)] uppercase">Valor</p>
+                  <p className="mt-1 text-[20px] font-bold text-[var(--ink)]">{formatCurrency(total)}</p>
+                  <p className="text-[12.5px] text-[var(--ink-soft)]">
+                    {items.length} {items.length === 1 ? 'item' : 'itens'} ·{' '}
+                    {FORM_PAYMENT_LABELS[formPayment] ?? 'PIX'}
+                    {(Number(installments) || 1) > 1 ? ` em ${installments}x` : ''}
+                    {parseMoney(downPayment) ? ` · entrada ${formatCurrency(parseMoney(downPayment) ?? 0)}` : ''}
+                  </p>
+                </div>
+              </div>
+
+              <ul className="mt-4 flex flex-col gap-1.5 text-[13px]">
+                <li className={client ? 'text-[var(--green-600)]' : 'text-[var(--amber-500)]'}>
+                  {client ? '✓ Cliente escolhido' : '• Falta escolher o cliente (volte ao passo 1) — sem ele não dá para aprovar a venda'}
+                </li>
+                <li className={items.length > 0 ? 'text-[var(--green-600)]' : 'text-[var(--amber-500)]'}>
+                  {items.length > 0 ? `✓ ${items.length} ${items.length === 1 ? 'item adicionado' : 'itens adicionados'}` : '• Adicione ao menos uma peça (passo 2)'}
+                </li>
+                <li className={itemsWithoutPrice === 0 ? 'text-[var(--green-600)]' : 'text-[var(--amber-500)]'}>
+                  {itemsWithoutPrice === 0
+                    ? '✓ Todos os itens têm preço'
+                    : `• ${itemsWithoutPrice} ${itemsWithoutPrice === 1 ? 'item está' : 'itens estão'} com valor R$ 0,00 (passo 2)`}
+                </li>
+              </ul>
+
+              {order && (
+                <div className="mt-5 rounded-xl border border-[var(--border)] p-4">
+                  <p className="text-[13px] font-bold text-[var(--ink)]">Próximos passos</p>
+                  <p className="mt-0.5 text-[12.5px] text-[var(--ink-soft)]">
+                    Se você mudou algo acima, salve antes. O orçamento impresso e a aprovação usam o que está salvo.
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setQuoteOpen(true)}
+                      className="rounded-xl bg-[var(--page)] px-4 py-2.5 text-[13px] font-bold text-[var(--blue-700)] hover:bg-[var(--blue-100)]"
+                    >
+                      Imprimir / enviar orçamento
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMemoryOpen(true)}
+                      className="rounded-xl bg-[var(--page)] px-4 py-2.5 text-[13px] font-bold text-[var(--blue-700)] hover:bg-[var(--blue-100)]"
+                    >
+                      Memória de cálculo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setApproveOpen(true)}
+                      className="rounded-xl bg-[var(--green-600)] px-4 py-2.5 text-[13px] font-bold text-white hover:opacity-90"
+                    >
+                      Aprovar venda
+                    </button>
+                  </div>
+                </div>
+              )}
+            </SectionCard>
+          )}
 
           {error && (
             <p className="rounded-xl bg-[var(--red-100)] px-4 py-3 text-[13.5px] font-medium text-[var(--red-500)]">{error}</p>
           )}
 
-          <div className="flex items-center gap-3">
-            {!locked && (
+          <div className="flex flex-wrap items-center gap-3">
+            {guided && step > 1 && (
+              <button
+                type="button"
+                onClick={() => goToStep(step - 1)}
+                className="rounded-xl border border-[var(--border)] px-5 py-2.5 text-[14px] font-bold text-[var(--ink-soft)] hover:text-[var(--ink)]"
+              >
+                Voltar
+              </button>
+            )}
+            {guided && step < 4 && (
+              <button
+                type="submit"
+                className="rounded-xl bg-[var(--blue-500)] px-6 py-2.5 text-[14px] font-bold text-white transition hover:bg-[var(--blue-700)]"
+              >
+                Avançar
+              </button>
+            )}
+            {!locked && (!guided || step === 4) && (
               <button
                 type="submit"
                 disabled={submitting}
                 className="rounded-xl bg-[var(--blue-500)] px-6 py-2.5 text-[14px] font-bold text-white transition hover:bg-[var(--blue-700)] disabled:opacity-60"
               >
-                {submitting ? 'Salvando…' : 'Salvar orçamento'}
+                {submitting ? 'Salvando…' : orderId ? 'Salvar alterações' : 'Salvar orçamento'}
+              </button>
+            )}
+            {guided && step === 4 && (
+              <button
+                type="button"
+                disabled={submitting}
+                onClick={() => save('list')}
+                className="rounded-xl border border-[var(--border)] px-5 py-2.5 text-[14px] font-bold text-[var(--ink-soft)] hover:text-[var(--ink)] disabled:opacity-60"
+              >
+                Salvar e voltar para a lista
               </button>
             )}
             <button
@@ -638,6 +868,17 @@ export function GlassOrderFormPage({ session, company, orderId, onBack, onSaved 
         onClose={() => setEditing({ open: false, row: null })}
       />
       {quickPerson.modal}
+      <GlassApproveSaleModal
+        order={approveOpen ? order : null}
+        session={session}
+        company={company}
+        onClose={() => setApproveOpen(false)}
+        onApproved={(message) => {
+          setApproveOpen(false)
+          setNotice(message)
+          if (orderId) fetchGlassOrder(token, orderId).then(setOrder).catch(() => {})
+        }}
+      />
       <GlassQuoteModal open={quoteOpen} session={session} company={company} order={order} onClose={() => setQuoteOpen(false)} />
       <GlassMemoryModal
         open={memoryOpen}
