@@ -84,6 +84,8 @@ import { BlogPostFormPage } from './pages/BlogPostFormPage'
 import { SaleTokensPage } from './pages/SaleTokensPage'
 import { PrinterFormPage } from './pages/PrinterFormPage'
 import { GlassSchedulePage } from './pages/glass/GlassSchedulePage'
+import { GlassMyVisitsPage } from './pages/glass/GlassMyVisitsPage'
+import { GlassVisitPage } from './pages/glass/GlassVisitPage'
 import { RentalTypeFormPage } from './pages/RentalTypeFormPage'
 import { NfesPage } from './pages/NfesPage'
 import { NfeFormPage } from './pages/NfeFormPage'
@@ -233,6 +235,7 @@ function App() {
   const glassAccessoriesView = useEntityView()
   const glassColorsView = useEntityView()
   const glassOrdersView = useEntityView()
+  const glassVisitsView = useEntityView()
   const salesView = useEntityView()
   const stockInventoriesView = useEntityView()
   const [newIngredient, setNewIngredient] = useState(false)
@@ -276,6 +279,7 @@ function App() {
     'glass-accessories': glassAccessoriesView,
     'glass-colors': glassColorsView,
     'glass-orders': glassOrdersView,
+    'glass-my-visits': glassVisitsView,
     sales: salesView,
     'stock-inventories': stockInventoriesView,
   } as const
@@ -1007,7 +1011,31 @@ function App() {
           />
         )
     } else if (page === 'glass-schedule') {
-      pageContent = <GlassSchedulePage session={session} company={activeCompany} />
+      pageContent = (
+        <GlassSchedulePage
+          session={session}
+          company={activeCompany}
+          onOpenOrder={(orderId) => {
+            setPage('glass-orders')
+            glassOrdersView.edit(orderId)
+          }}
+        />
+      )
+    } else if (page === 'glass-my-visits') {
+      pageContent =
+        glassVisitsView.view.mode === 'form' && glassVisitsView.view.id ? (
+          <GlassVisitPage
+            session={session}
+            visitId={glassVisitsView.view.id}
+            onBack={glassVisitsView.reset}
+            onOpenOrder={(orderId) => {
+              setPage('glass-orders')
+              glassOrdersView.edit(orderId)
+            }}
+          />
+        ) : (
+          <GlassMyVisitsPage session={session} company={activeCompany} onOpenVisit={(id) => glassVisitsView.edit(id)} />
+        )
     } else if (page === 'glass-production') {
       pageContent = <GlassProductionPage session={session} company={activeCompany} />
     } else if (page === 'roles') {

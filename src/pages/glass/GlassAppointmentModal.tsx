@@ -4,8 +4,10 @@ import {
   agendaTime,
   changeGlassAppointmentStatus,
   createGlassAppointment,
+  createGlassOrderFromVisit,
   deleteGlassAppointment,
   fetchGlassOrders,
+  fetchGlassVisit,
   GLASS_APPOINTMENT_STATUS_LABELS,
   GLASS_APPOINTMENT_TYPES,
   updateGlassAppointment,
@@ -20,7 +22,7 @@ import { TextField } from '../../components/form/TextField'
 import { SelectField } from '../../components/form/SelectField'
 import { SearchSelectField } from '../../components/form/SearchSelectField'
 import { CalendarIcon, ClockIcon, FileTextIcon, TagIcon } from '../../components/icons'
-import type { AuthCompany, AuthSession } from '../../lib/auth'
+import { can, type AuthCompany, type AuthSession } from '../../lib/auth'
 
 export interface GlassAppointmentDraft {
   appointment?: GlassAppointmentRecord
@@ -34,6 +36,7 @@ interface GlassAppointmentModalProps {
   session: AuthSession
   company: AuthCompany
   draft: GlassAppointmentDraft | null
+  onOpenOrder?: (orderId: string) => void
   onClose: () => void
   onChanged: () => void
 }
@@ -44,7 +47,7 @@ interface Link {
   sub?: string
 }
 
-export function GlassAppointmentModal({ open, session, company, draft, onClose, onChanged }: GlassAppointmentModalProps) {
+export function GlassAppointmentModal({ open, session, company, draft, onOpenOrder, onClose, onChanged }: GlassAppointmentModalProps) {
   const token = session.token.token
   const editing = draft?.appointment
   const [type, setType] = useState<GlassAppointmentType>('medicao')
@@ -57,6 +60,7 @@ export function GlassAppointmentModal({ open, session, company, draft, onClose, 
   const [order, setOrder] = useState<Link | null>(null)
   const [client, setClient] = useState<Link | null>(null)
   const [saving, setSaving] = useState(false)
+  const [detail, setDetail] = useState<GlassAppointmentRecord | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -103,6 +107,20 @@ export function GlassAppointmentModal({ open, session, company, draft, onClose, 
     }
   }, [open, draft])
 
+  useEffect(() => {
+    setDetail(null)
+    if (!open || !draft?.appointment) return
+    let cancelled = false
+    fetchGlassVisit(token, draft.appointment.id)
+      .then((record) => {
+        if (!cancelled) setDetail(record)
+      })
+      .catch(() => undefined)
+    return () => {
+      cancelled = true
+    }
+  }, [open, draft, token])
+
   const searchOrders = useCallback(
     (query: string) => fetchGlassOrders(token, company.id, { search: query, limit: 8 }).then((res) => res.data),
     [token, company.id]
@@ -126,6 +144,21 @@ export function GlassAppointmentModal({ open, session, company, draft, onClose, 
       onChanged()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : fallback)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleOrderFromVisit() {
+    if (!editing) return
+    setSaving(true)
+    setError(null)
+    try {
+      const result = await createGlassOrderFromVisit(token, editing.id)
+      onChanged()
+      onOpenOrder?.(result.order.id)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Não foi possível criar o orçamento.')
     } finally {
       setSaving(false)
     }
@@ -240,6 +273,65 @@ export function GlassAppointmentModal({ open, session, company, draft, onClose, 
           </div>
         </div>
 
+        {editing && detail && (detail.started_at || detail.report || (detail.measurements?.length ?? 0) > 0 || (detail.photos?.length ?? 0) > 0 || detail.signature_url) && (
+          <div className="mt-4 rounded-xl border border-[var(--border)] bg-[var(--page)] p-4">
+            <p className="text-[12px] font-bold tracking-wide text-[var(--muted)] uppercase">Atendimento em campo</p>
+            <div className="mt-2 flex flex-col gap-2 text-[13px] text-[var(--ink)]">
+              {detail.started_at && <p>Chegada às {agendaTime(detail.started_at)}.</p>}
+              {detail.report && <p className="whitespace-pre-line">{detail.report}</p>}
+              {(detail.measurements?.length ?? 0) > 0 && (
+                <ul className="list-disc pl-5 text-[12.5px] text-[var(--ink-soft)]">
+                  {detail.measurements!.map((row, index) => (
+                    <li key={index}>
+                      {[row.location, row.description].filter(Boolean).join(' · ') || 'Peça'}
+                      {row.width_mm && row.height_mm ? ` — ${row.width_mm} × ${row.height_mm} mm` : ''}
+                      {row.quantity && row.quantity > 1 ? ` (${row.quantity}x)` : ''}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {(detail.photos?.length ?? 0) > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {detail.photos!.map((photo) => (
+                    <a key={photo.id} href={photo.file_url} target="_blank" rel="noreferrer" className="h-16 w-16 overflow-hidden rounded-lg bg-[var(--surface)]">
+                      <img src={photo.file_url} alt={photo.name ?? 'Foto da visita'} className="h-full w-full object-cover" />
+                    </a>
+                  ))}
+                </div>
+              )}
+              {detail.signature_url && (
+                <div>
+                  <img src={detail.signature_url} alt="Assinatura do cliente" className="h-14 rounded-lg bg-white object-contain" />
+                  <p className="text-[12px] text-[var(--ink-soft)]">Assinado por {detail.signed_by}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {editing && onOpenOrder && (
+          <div className="mt-3">
+            {editing.glass_order_id && (editing.order ?? detail?.order) ? (
+              <button
+                type="button"
+                onClick={() => onOpenOrder(editing.glass_order_id!)}
+                className="rounded-xl bg-[var(--page)] px-3.5 py-2 text-[12.5px] font-bold text-[var(--blue-700)] hover:bg-[var(--blue-100)]"
+              >
+                Abrir orçamento #{(editing.order ?? detail?.order)!.code}
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled={saving}
+                onClick={handleOrderFromVisit}
+                className="rounded-xl bg-[var(--page)] px-3.5 py-2 text-[12.5px] font-bold text-[var(--blue-700)] hover:bg-[var(--blue-100)] disabled:opacity-60"
+              >
+                Criar orçamento desta visita
+              </button>
+            )}
+          </div>
+        )}
+
         {editing && type === 'instalacao' && editing.glass_order_id && editing.status === 0 && (
           <p className="mt-3 text-[12px] text-[var(--muted)]">
             Ao concluir a instalação, os itens do pedido ficam como instalados.
@@ -280,7 +372,7 @@ export function GlassAppointmentModal({ open, session, company, draft, onClose, 
                 Reabrir
               </button>
             )}
-            {editing && (
+            {editing && can(session, 'glass.appointment.delete') && (
               <button
                 type="button"
                 disabled={saving}

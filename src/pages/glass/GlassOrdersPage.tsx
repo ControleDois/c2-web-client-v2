@@ -32,7 +32,7 @@ import {
   ClipboardCheckIcon,
   CalendarIcon,
 } from '../../components/icons'
-import type { AuthCompany, AuthSession } from '../../lib/auth'
+import { can, type AuthCompany, type AuthSession } from '../../lib/auth'
 
 interface GlassOrdersPageProps {
   session: AuthSession
@@ -282,14 +282,16 @@ export function GlassOrdersPage({ session, company, onCreate, onEdit }: GlassOrd
               onClick: () => setCancelTarget({ order: item, reload }),
             })
           }
-          list.push({
-            key: 'delete',
-            label: 'Excluir',
-            icon: <TrashIcon className="h-4 w-4" />,
-            tone: 'danger',
-            dividerBefore: true,
-            onClick: () => askDelete(item),
-          })
+          if (can(session, 'glass.order.delete')) {
+            list.push({
+              key: 'delete',
+              label: 'Excluir',
+              icon: <TrashIcon className="h-4 w-4" />,
+              tone: 'danger',
+              dividerBefore: true,
+              onClick: () => askDelete(item),
+            })
+          }
           return list
         }}
         deleteItem={(item) => deleteGlassOrder(token, item.id)}

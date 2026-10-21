@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiPostForm, apiPut, apiDelete } from './api'
+import { apiGet, apiPost, apiPostForm, apiPut, apiPutForm, apiDelete } from './api'
 import type { SendTimeline, SignatureEvidence } from './supportContracts'
 
 export interface Paginated<T> {
@@ -624,6 +624,22 @@ export const GLASS_APPOINTMENT_STATUS_LABELS: Record<number, string> = {
   2: 'Cancelado',
 }
 
+export interface GlassVisitMeasurement {
+  location?: string | null
+  description?: string | null
+  width_mm?: number | null
+  height_mm?: number | null
+  quantity?: number | null
+  notes?: string | null
+}
+
+export interface GlassVisitPhoto {
+  id: string
+  file_url: string
+  name?: string | null
+  description?: string | null
+}
+
 export interface GlassAppointmentRecord {
   id: string
   code?: number
@@ -637,6 +653,15 @@ export interface GlassAppointmentRecord {
   address?: string | null
   notes?: string | null
   status: number
+  // Atendimento em campo (técnico no celular)
+  started_at?: string | null
+  report?: string | null
+  measurements?: GlassVisitMeasurement[] | null
+  signature_url?: string | null
+  signed_by?: string | null
+  signed_at?: string | null
+  rescheduled_count?: number
+  photos?: GlassVisitPhoto[]
   people?: { id: string; name: string; phone?: string | null } | null
   responsible?: { id: string; name: string } | null
   order?: { id: string; code: number; reference?: string | null; people?: { name: string } | null } | null
@@ -672,6 +697,41 @@ export const updateGlassAppointment = (token: string, id: string, payload: Glass
   apiPut<GlassAppointmentRecord>(`/glass-appointment/${id}`, payload, token)
 export const changeGlassAppointmentStatus = (token: string, id: string, status: number) =>
   apiPut<GlassAppointmentRecord>(`/glass-appointment/${id}/status`, { status }, token)
+export const fetchMyGlassVisits = (token: string, companyId: string, scope: 'open' | 'done') =>
+  apiGet<GlassAppointmentRecord[]>('/glass-appointment/mine', { companyId, scope }, token)
+
+export const fetchGlassVisit = (token: string, id: string) =>
+  apiGet<GlassAppointmentRecord>(`/glass-appointment/${id}/field`, {}, token)
+
+export const startGlassVisit = (token: string, id: string) =>
+  apiPut<GlassAppointmentRecord>(`/glass-appointment/${id}/start`, {}, token)
+
+export const saveGlassVisitReport = (
+  token: string,
+  id: string,
+  payload: { report: string | null; measurements: GlassVisitMeasurement[] }
+) => apiPut<GlassAppointmentRecord>(`/glass-appointment/${id}/report`, payload, token)
+
+export function addGlassVisitPhotos(token: string, id: string, photos: { file: File; label: string }[]) {
+  const form = new FormData()
+  const metadata = photos.map((photo, index) => ({ id_referencia: `photo_${index}`, label: photo.label, observation: '' }))
+  form.append('photos_metadata', JSON.stringify(metadata))
+  photos.forEach((photo, index) => form.append(`photo_${index}`, photo.file))
+  return apiPutForm<GlassAppointmentRecord>(`/glass-appointment/${id}/photos`, form, token)
+}
+
+export const removeGlassVisitPhoto = (token: string, id: string, photoId: string) =>
+  apiDelete<GlassAppointmentRecord>(`/glass-appointment/${id}/photos/${photoId}`, token)
+
+export const saveGlassVisitSignature = (token: string, id: string, payload: { name: string; image: string }) =>
+  apiPut<GlassAppointmentRecord>(`/glass-appointment/${id}/signature`, payload, token)
+
+export const rescheduleGlassVisit = (token: string, id: string, payload: { scheduled_at: string; reason: string | null }) =>
+  apiPut<GlassAppointmentRecord>(`/glass-appointment/${id}/reschedule`, payload, token)
+
+export const createGlassOrderFromVisit = (token: string, id: string) =>
+  apiPost<{ created: boolean; order: GlassOrderRecord }>(`/glass-appointment/${id}/order`, {}, token)
+
 export const deleteGlassAppointment = (token: string, id: string) => apiDelete<void>(`/glass-appointment/${id}`, token)
 
 const AGENDA_ZONE = 'America/Cuiaba'

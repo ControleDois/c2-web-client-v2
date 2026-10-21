@@ -5,7 +5,7 @@ export interface AuthPeople {
   name: string
   document?: string | null
   file_url?: string | null
-  role?: { id: string; name: string } | null
+  role?: { id: string; name: string; permissions?: { slug: string }[] } | null
   [key: string]: unknown
 }
 
@@ -143,4 +143,14 @@ export function isMasterOfCompany(session: AuthSession, companyId: string | unde
   if (!companyId) return false
   const company = getUserCompanies(session).find((c) => c.people?.id === companyId)
   return Boolean(company?.isMaster)
+}
+
+// O usuário pode fazer a ação (slug da permissão do perfil)? Master sempre pode;
+// sem perfil, ou numa sessão antiga que ainda não trouxe as permissões, libera
+// (o servidor é quem barra de verdade).
+export function can(session: AuthSession, slug: string): boolean {
+  if (session.company?.isMaster || session.isMaster) return true
+  const role = session.user.people?.role
+  if (!role || !Array.isArray(role.permissions)) return true
+  return role.permissions.some((permission) => permission.slug === slug)
 }

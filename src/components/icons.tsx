@@ -538,3 +538,20 @@ export function CalendarIcon(props: SVGProps<SVGSVGElement>) {
     </svg>
   )
 }
+
+export function PhoneIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" {...props}>
+      <path d="M5.2 3h2.4l1.2 3.2-1.6 1.1a8.6 8.6 0 0 0 4.5 4.5l1.1-1.6 3.2 1.2v2.4a1.7 1.7 0 0 1-1.8 1.7A12.6 12.6 0 0 1 3.5 4.8 1.7 1.7 0 0 1 5.2 3Z" />
+    </svg>
+  )
+}
+
+export function MapPinIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" {...props}>
+      <path d="M10 18s5.5-5 5.5-9.2a5.5 5.5 0 1 0-11 0C4.5 13 10 18 10 18Z" />
+      <circle cx="10" cy="8.8" r="2" />
+    </svg>
+  )
+}

@@ -20,6 +20,7 @@ import type { AuthCompany, AuthSession } from '../../lib/auth'
 interface GlassSchedulePageProps {
   session: AuthSession
   company: AuthCompany
+  onOpenOrder?: (orderId: string) => void
 }
 
 const TYPE_TONES: Record<string, string> = {
@@ -42,7 +43,7 @@ function dayLabel(key: string) {
   return `${day}/${month}`
 }
 
-export function GlassSchedulePage({ session, company }: GlassSchedulePageProps) {
+export function GlassSchedulePage({ session, company, onOpenOrder }: GlassSchedulePageProps) {
   const token = session.token.token
   const [mode, setMode] = useState<'month' | 'week'>('month')
   const [weekStart, setWeekStart] = useState(() => weekStartKey(agendaToday()))
@@ -385,6 +386,7 @@ export function GlassSchedulePage({ session, company }: GlassSchedulePageProps) 
         session={session}
         company={company}
         draft={draft}
+        onOpenOrder={onOpenOrder}
         onClose={() => setDraft(null)}
         onChanged={() => {
           setDraft(null)

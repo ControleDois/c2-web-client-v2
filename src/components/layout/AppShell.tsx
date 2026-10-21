@@ -109,6 +109,7 @@ export type AppPage =
   | 'glass-colors'
   | 'glass-production'
   | 'glass-schedule'
+  | 'glass-my-visits'
 
 interface AppShellProps {
   session: AuthSession
@@ -179,6 +180,7 @@ function buildNavGroups(
             { page: 'glass-orders' as const, label: 'Orçamentos e Vendas', icon: SaleIcon },
             { page: 'glass-production' as const, label: 'Produção', icon: WrenchIcon },
             { page: 'glass-schedule' as const, label: 'Agenda', icon: ClockIcon },
+            { page: 'glass-my-visits' as const, label: 'Minhas visitas', icon: ClipboardCheckIcon },
           ]
       : isChaveiro(systemType)
         ? [
