@@ -432,3 +432,76 @@ export interface BillDetails {
 export function fetchBillDetails(token: string, id: string) {
   return apiGet<BillDetails>(`/bill/${id}/details`, {}, token)
 }
+
+export interface RentalDetails {
+  sale: { id: string; code: number; status: number; created_at: string | null; created_by: string | null; deleted: boolean; note: string | null }
+  contract: {
+    status: number
+    vehicle: string | null
+    renter: string | null
+    owner: string | null
+    driver: string | null
+    rental_type: string | null
+    start_date: string | null
+    end_date: string | null
+    billing_day: number | null
+    frequency: string | null
+    monthly_value: number
+    security_deposit: number
+    pickup_date: string | null
+    return_date: string | null
+    notes: string | null
+  } | null
+  totals: {
+    bills: number
+    bills_total: number
+    received_count: number
+    received_total: number
+    open_count: number
+    open_total: number
+    deleted_count: number
+    deleted_total: number
+  }
+  bills: {
+    id: string
+    code: number
+    name: string
+    status: number
+    amount: number
+    bill_value: number
+    date_due: string | null
+    date_received: string | null
+    created_at: string | null
+    deleted: boolean
+    deleted_at: string | null
+    deleted_by: string | null
+    paid_via: 'user' | 'automatic' | 'import' | 'unknown' | null
+    paid_by: string | null
+    paid_detail: string | null
+  }[]
+  charges: {
+    id: string
+    subject: string
+    kind: 'bill' | 'contract'
+    status: 'queued' | 'sent' | 'delivered' | 'read' | 'failed'
+    automated: boolean
+    whatsapp_name: string | null
+    text: string | null
+    last_error: string | null
+    at: string | null
+  }[]
+  signatures: {
+    id: string
+    signer_name: string | null
+    provider: string | null
+    status: number
+    sent_at: string | null
+    signed_at: string | null
+    error: string | null
+  }[]
+  timeline: BillTimelineItem[]
+}
+
+export function fetchRentalDetails(token: string, saleId: string) {
+  return apiGet<RentalDetails>(`/sale/${saleId}/rental-details`, {}, token)
+}

@@ -13,7 +13,7 @@ import { ApiError } from '../lib/api'
 import { getCached, setCached } from '../lib/cache'
 import { fetchConfig } from '../lib/config'
 import { useRowSelection } from '../hooks/useRowSelection'
-import { SearchIcon, PlusIcon, PencilIcon, TrashIcon, PrinterIcon, TruckIcon, WhatsappIcon, RouteIcon, RefreshIcon } from '../components/icons'
+import { SearchIcon, PlusIcon, PencilIcon, TrashIcon, PrinterIcon, TruckIcon, WhatsappIcon, RouteIcon, RefreshIcon, EyeIcon } from '../components/icons'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { RowActionsMenu, type RowAction } from '../components/RowActionsMenu'
 import { SaleContractPreviewModal } from '../components/SaleContractPreviewModal'
@@ -22,6 +22,7 @@ import { SaleQuitacaoPreviewModal } from '../components/SaleQuitacaoPreviewModal
 import { ListEntityDateFilters, type EntityPick } from '../components/ListEntityDateFilters'
 import { RentalOperationModal, type OperationMode } from '../components/RentalOperationModal'
 import { RenewRentalModal } from '../components/RenewRentalModal'
+import { RentalDetailsModal } from '../components/RentalDetailsModal'
 import { SortableTh } from '../components/SortableTh'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
@@ -215,6 +216,7 @@ export function VehicleRentalsPage({ session, company, onCreate, onEdit }: Vehic
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [contractSale, setContractSale] = useState<SaleRecord | null>(null)
+  const [detailsSaleId, setDetailsSaleId] = useState<string | null>(null)
   const [sendContractSale, setSendContractSale] = useState<SaleRecord | null>(null)
   const [quitacaoSale, setQuitacaoSale] = useState<SaleRecord | null>(null)
   const [renewSale, setRenewSale] = useState<SaleRecord | null>(null)
@@ -456,6 +458,12 @@ export function VehicleRentalsPage({ session, company, onCreate, onEdit }: Vehic
           ]
         : []
     return [
+      {
+        key: 'details',
+        label: 'Detalhes',
+        icon: <EyeIcon className="h-4 w-4" />,
+        onClick: () => setDetailsSaleId(sale.id),
+      },
       {
         key: 'edit',
         label: 'Editar',
@@ -923,6 +931,12 @@ export function VehicleRentalsPage({ session, company, onCreate, onEdit }: Vehic
         </div>
       )}
 
+      <RentalDetailsModal
+        open={Boolean(detailsSaleId)}
+        session={session}
+        saleId={detailsSaleId}
+        onClose={() => setDetailsSaleId(null)}
+      />
       <SaleContractPreviewModal
         open={Boolean(contractSale)}
         session={session}
