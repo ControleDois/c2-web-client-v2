@@ -16,7 +16,7 @@ import { ApiError } from '../lib/api'
 import { TextField } from '../components/form/TextField'
 import { SearchSelectField } from '../components/form/SearchSelectField'
 import { SectionCard } from '../components/SectionCard'
-import { ChevronLeftIcon, ClockIcon, KeyIcon, DollarSignIcon } from '../components/icons'
+import { ChevronLeftIcon, ClockIcon, DollarSignIcon } from '../components/icons'
 import { fetchPlans, type PlanRecord } from '../lib/plans'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 import { SelectField } from '../components/form/SelectField'
@@ -68,7 +68,6 @@ export function LicenseFormPage({ session, licenseId, onBack }: LicenseFormPageP
   const [subscriptionError, setSubscriptionError] = useState<string | null>(null)
   const [subscriptionMessage, setSubscriptionMessage] = useState<string | null>(null)
 
-  const [keyDueDate, setKeyDueDate] = useState(plusDays(30))
   const [savingKey, setSavingKey] = useState(false)
   const [keyError, setKeyError] = useState<string | null>(null)
 
@@ -129,7 +128,7 @@ export function LicenseFormPage({ session, licenseId, onBack }: LicenseFormPageP
         plan_cycle: planCycle,
       })
       setDetail(updated)
-      setSubscriptionMessage('Validade atualizada.')
+      setSubscriptionMessage('Validade atualizada. A chave do Delphi já foi gerada para essa data.')
     } catch (err) {
       setSubscriptionError(err instanceof ApiError ? err.message : 'Não foi possível salvar a validade.')
     } finally {
@@ -153,13 +152,10 @@ export function LicenseFormPage({ session, licenseId, onBack }: LicenseFormPageP
   }
 
   async function handleSaveKey() {
-    if (!keyDueDate) return
     setSavingKey(true)
     setKeyError(null)
     try {
-      const updated = await updateLicenseCompany(session.token.token, licenseId, {
-        delphi_key_due_date: new Date(keyDueDate).toISOString(),
-      })
+      const updated = await updateLicenseCompany(session.token.token, licenseId, { regenerate_delphi_key: true })
       setDetail(updated)
     } catch (err) {
       setKeyError(err instanceof ApiError ? err.message : 'Não foi possível gerar a chave.')
@@ -199,6 +195,11 @@ export function LicenseFormPage({ session, licenseId, onBack }: LicenseFormPageP
   }
 
   const expired = Boolean(detail?.license_expires_at && new Date(detail.license_expires_at) < new Date())
+  const keyOutdated = Boolean(
+    detail?.delphiKey &&
+      detail.license_status !== 'blocked' &&
+      toDateInputValue(detail.license_expires_at) !== toDateInputValue(detail.delphiKey.dueDate)
+  )
 
   return (
     <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8">
@@ -240,8 +241,8 @@ export function LicenseFormPage({ session, licenseId, onBack }: LicenseFormPageP
       ) : detail ? (
         <div className="flex flex-col gap-6">
           <SectionCard
-            title="Assinatura Web"
-            subtitle="Validade do acesso ao sistema"
+            title="Validade da licença"
+            subtitle="Uma data só: libera o sistema web e o ERP Delphi ao mesmo tempo"
             headerExtra={
               <div className="flex items-center gap-1.5">
                 <span className={`rounded-full px-2 py-0.5 text-[10.5px] font-bold uppercase ${statusTone(detail.license_status)}`}>
@@ -258,7 +259,7 @@ export function LicenseFormPage({ session, licenseId, onBack }: LicenseFormPageP
             <div className="flex flex-col gap-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <TextField
-                  label="Nova validade"
+                  label="Válida até"
                   icon={<ClockIcon className="h-4 w-4" />}
                   type="date"
                   value={expiresAt}
@@ -374,31 +375,28 @@ export function LicenseFormPage({ session, licenseId, onBack }: LicenseFormPageP
             </div>
           </SectionCard>
 
-          <SectionCard title="Chave Delphi" subtitle="Chave de licença usada pelo ERP desktop (siace-erp)">
+          <SectionCard title="Chave Delphi" subtitle="Chave do ERP desktop (siace-erp), gerada a partir da validade da licença">
             <div className="flex flex-col gap-4">
               <div className="rounded-xl bg-[var(--page)] px-3.5 py-2.5">
                 {detail.delphiKey ? (
                   <>
                     <p className="break-all font-mono text-[13px] font-semibold text-[var(--ink)]">{detail.delphiKey.key}</p>
                     <p className="mt-0.5 text-[12px] text-[var(--muted)]">
-                      Válida até {formatDate(detail.delphiKey.dueDate)} — o Delphi renova sozinho a cada conexão
-                      enquanto a assinatura estiver liberada.
+                      Válida até {formatDate(detail.delphiKey.dueDate)}
                     </p>
                   </>
                 ) : (
-                  <p className="text-[12.5px] text-[var(--muted)]">Ainda não gerou chave.</p>
+                  <p className="text-[12.5px] text-[var(--muted)]">
+                    Ainda não tem chave. Salve a validade da licença acima que a chave é gerada sozinha.
+                  </p>
                 )}
               </div>
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <TextField
-                  label="Validade da chave"
-                  icon={<KeyIcon className="h-4 w-4" />}
-                  type="date"
-                  value={keyDueDate}
-                  onChange={(event) => setKeyDueDate(event.target.value)}
-                />
-              </div>
+              {keyOutdated && (
+                <p className="text-[12.5px] font-medium text-[var(--amber-500)]">
+                  A chave está com uma data diferente da validade da licença. Clique em "Gerar chave novamente".
+                </p>
+              )}
 
               {keyError && <p className="text-[13px] font-medium text-[var(--red-500)]">{keyError}</p>}
 
@@ -406,10 +404,10 @@ export function LicenseFormPage({ session, licenseId, onBack }: LicenseFormPageP
                 <button
                   type="button"
                   onClick={handleSaveKey}
-                  disabled={savingKey || !keyDueDate}
+                  disabled={savingKey || !detail.license_expires_at}
                   className="rounded-xl bg-[var(--blue-500)] px-4 py-2.5 text-[13.5px] font-bold text-white transition hover:bg-[var(--blue-700)] disabled:opacity-60"
                 >
-                  {savingKey ? 'Gerando…' : 'Gerar / Atualizar chave'}
+                  {savingKey ? 'Gerando…' : 'Gerar chave novamente'}
                 </button>
               </div>
             </div>

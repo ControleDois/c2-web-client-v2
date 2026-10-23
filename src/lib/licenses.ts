@@ -101,7 +101,7 @@ export function fetchLicenseCompany(token: string, id: string) {
 export interface UpdateLicenseCompanyPayload {
   license_status?: LicenseStatus
   license_expires_at?: string | null
-  delphi_key_due_date?: string
+  regenerate_delphi_key?: boolean
   monthly_fee?: number | null
   commission_percent?: number | null
   representative_user_id?: string | null
