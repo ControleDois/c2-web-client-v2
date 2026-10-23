@@ -7,6 +7,7 @@ import {
   cancelNfe,
   skipNfeNumber,
   reconcileNfe,
+  consultNfe,
   isDuplicateNfe,
   duplicateNfe,
   fetchNfeLogs,
@@ -244,6 +245,22 @@ export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) 
     }
   }
 
+  async function handleConsult(nfe: NfeRecord) {
+    setBusyId(nfe.id)
+    setActionError(null)
+    setActionMessage(null)
+    setErrorTarget(null)
+    try {
+      const res = await consultNfe(session.token.token, nfe.id)
+      setActionMessage(res.mensagem)
+      reload()
+    } catch (err) {
+      showActionError(err, 'Não foi possível consultar a nota na SEFAZ.')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   function openReconcile(nfe: NfeRecord) {
     setReconcileKey('')
     setReconcileProtocol('')
@@ -419,12 +436,20 @@ export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) 
     }
 
     if (isDuplicateNfe(nfe)) {
-      actions.push({
-        key: 'reconcile',
-        label: 'Conferir na SEFAZ',
-        icon: <ClipboardCheckIcon className="h-4 w-4" />,
-        onClick: () => openReconcile(nfe),
-      })
+      actions.push(
+        {
+          key: 'consult',
+          label: 'Consultar na SEFAZ',
+          icon: <RefreshIcon className="h-4 w-4" />,
+          onClick: () => handleConsult(nfe),
+        },
+        {
+          key: 'reconcile',
+          label: 'Informar chave e protocolo',
+          icon: <ClipboardCheckIcon className="h-4 w-4" />,
+          onClick: () => openReconcile(nfe),
+        }
+      )
     }
 
     if (nfe.status === 1 || (nfe.status === 3 && !isDuplicateNfe(nfe))) {
@@ -767,7 +792,7 @@ export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) 
             className="max-h-[92vh] w-full max-w-[520px] overflow-y-auto rounded-2xl bg-[var(--surface)] p-6 shadow-[var(--card-shadow)]"
             onClick={(event) => event.stopPropagation()}
           >
-            <h2 className="text-[16px] font-bold text-[var(--ink)]">Conferir na SEFAZ — nota nº {reconcileTarget.numero}</h2>
+            <h2 className="text-[16px] font-bold text-[var(--ink)]">Informar chave e protocolo — nota nº {reconcileTarget.numero}</h2>
             <p className="mt-1 text-[12.5px] leading-relaxed text-[var(--ink-soft)]">
               A SEFAZ respondeu que esta nota já existe: um envio anterior foi aceito e o retorno não chegou aqui. Consulte a nota no portal da
               SEFAZ (série {reconcileTarget.serie}, número {reconcileTarget.numero}) e copie a <strong>chave de acesso</strong> e o{' '}
@@ -928,13 +953,22 @@ export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) 
 
             <div className="flex flex-wrap gap-2 border-t border-[var(--border)] p-4">
               {isDuplicateNfe(errorTarget) && (
-                <button
-                  type="button"
-                  onClick={() => openReconcile(errorTarget)}
-                  className="w-full rounded-xl bg-[var(--green-600)] px-4 py-2.5 text-[13.5px] font-bold text-white hover:opacity-90 sm:w-auto"
-                >
-                  Conferir na SEFAZ
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => handleConsult(errorTarget)}
+                    className="w-full rounded-xl bg-[var(--green-600)] px-4 py-2.5 text-[13.5px] font-bold text-white hover:opacity-90 sm:w-auto"
+                  >
+                    Consultar na SEFAZ
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openReconcile(errorTarget)}
+                    className="w-full rounded-xl border border-[var(--border)] px-4 py-2.5 text-[13.5px] font-bold text-[var(--ink-soft)] hover:text-[var(--ink)] sm:w-auto"
+                  >
+                    Informar chave e protocolo
+                  </button>
+                </>
               )}
               <button
                 type="button"

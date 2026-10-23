@@ -295,6 +295,12 @@ export function cancelNfe(token: string, id: string, justificativa: string) {
 
 // Nota que a SEFAZ já autorizou mas cujo retorno não chegou (duplicidade): adota
 // a chave e o protocolo conferidos na SEFAZ.
+// Pede ao servidor de notas para conferir na SEFAZ se a nota já foi autorizada e
+// vincular o protocolo (sem transmitir de novo). O resultado chega pelo retorno de sempre.
+export function consultNfe(token: string, id: string) {
+  return apiPost<{ mensagem: string }>(`/nfe/${id}/consult`, {}, token)
+}
+
 export function reconcileNfe(
   token: string,
   id: string,
@@ -362,6 +368,7 @@ export const NFE_LOG_ACTION_LABELS: Record<string, string> = {
   job_error: 'Job com erro',
   job_done: 'Job finalizado',
   enqueue_waiting_callback: 'Aguardando retorno (não reenviado)',
+  enqueue_consult_created: 'Consulta na SEFAZ solicitada',
   delphi_callback: 'Retorno do servidor de notas',
   delphi_callback_ignored: 'Retorno ignorado (nota já autorizada)',
   manual_reconcile: 'Conferida manualmente na SEFAZ',
