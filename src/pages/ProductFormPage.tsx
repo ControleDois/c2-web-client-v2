@@ -28,7 +28,7 @@ import {
 } from '../components/product/RecipeEditor'
 import { fetchRecipe } from '../lib/stock'
 import { PopupPanel } from '../components/PopupPanel'
-import { isVidracaria } from '../lib/systemTypes'
+import { isChaveiro, isVidracaria } from '../lib/systemTypes'
 import {
   ComplementsEditor,
   complementsError,
@@ -536,7 +536,7 @@ export function ProductFormPage({ session, company, productId, defaultIngredient
             </SectionCard>
           )}
 
-          {isProduct && !isIngredient && (
+          {isProduct && !isIngredient && !isChaveiro(company.system_type) && (
             <SectionCard
               title="Ficha técnica (receita)"
               subtitle="Insumos que cada unidade gasta, custo de produção e margem"
@@ -554,7 +554,7 @@ export function ProductFormPage({ session, company, productId, defaultIngredient
             </SectionCard>
           )}
 
-          {isProduct && (
+          {isProduct && !isChaveiro(company.system_type) && (
             <SectionCard
               title="Complementos"
               subtitle="Sabores, bordas e adicionais que o cliente escolhe (delivery, iFood e PDV)"

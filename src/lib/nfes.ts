@@ -297,6 +297,15 @@ export function cancelNfe(token: string, id: string, justificativa: string) {
 // a chave e o protocolo conferidos na SEFAZ.
 // Pede ao servidor de notas para conferir na SEFAZ se a nota já foi autorizada e
 // vincular o protocolo (sem transmitir de novo). O resultado chega pelo retorno de sempre.
+// Envia o PDF da nota autorizada para o WhatsApp do cliente (fila de envio da instância escolhida).
+export function sendNfeWhatsapp(
+  token: string,
+  id: string,
+  payload: { whatsappId: string; phone: string; name?: string; message?: string }
+) {
+  return apiPost<{ message: string; fileUrl: string }>(`/nfe/${id}/send-whatsapp`, payload, token)
+}
+
 export function consultNfe(token: string, id: string) {
   return apiPost<{ mensagem: string }>(`/nfe/${id}/consult`, {}, token)
 }
@@ -372,6 +381,7 @@ export const NFE_LOG_ACTION_LABELS: Record<string, string> = {
   delphi_callback: 'Retorno do servidor de notas',
   delphi_callback_ignored: 'Retorno ignorado (nota já autorizada)',
   manual_reconcile: 'Conferida manualmente na SEFAZ',
+  whatsapp_enqueued: 'Enviada pelo WhatsApp',
 }
 
 // Tenta extrair uma mensagem de erro estruturada (como a Focus/SEFAZ devolve

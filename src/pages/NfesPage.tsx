@@ -43,6 +43,7 @@ import {
   ArrowUpCircleIcon,
   EyeIcon,
   CopyIcon,
+  WhatsappIcon,
 } from '../components/icons'
 import { SortableTh } from '../components/SortableTh'
 import { ConfirmDialog } from '../components/ConfirmDialog'
@@ -53,6 +54,7 @@ import { SelectField } from '../components/form/SelectField'
 import { DocumentViewerModal } from '../components/DocumentViewerModal'
 import { NfeXmlViewerModal } from '../components/NfeXmlViewerModal'
 import { NfeCorrectionModal } from '../components/NfeCorrectionModal'
+import { NfeSendWhatsappModal } from '../components/NfeSendWhatsappModal'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
 interface NfesPageProps {
@@ -117,6 +119,7 @@ export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) 
   const [reconcileError, setReconcileError] = useState<string | null>(null)
   const [reconciling, setReconciling] = useState(false)
   const [skipTarget, setSkipTarget] = useState<NfeRecord | null>(null)
+  const [whatsappTarget, setWhatsappTarget] = useState<NfeRecord | null>(null)
 
   function reload() {
     setLoading(true)
@@ -498,6 +501,15 @@ export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) 
       )
     }
 
+    if (nfe.status === 2) {
+      actions.push({
+        key: 'send-whatsapp',
+        label: 'Enviar PDF no WhatsApp',
+        icon: <WhatsappIcon className="h-4 w-4" />,
+        onClick: () => setWhatsappTarget(nfe),
+      })
+    }
+
     if (nfe.status === 2 && Number(nfe.modelo) === 55) {
       actions.push({
         key: 'correction',
@@ -771,6 +783,15 @@ export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) 
         loading={deleting}
         onConfirm={handleConfirmDelete}
         onCancel={() => setDeleteTarget(null)}
+      />
+
+      <NfeSendWhatsappModal
+        open={Boolean(whatsappTarget)}
+        session={session}
+        company={company}
+        nfe={whatsappTarget}
+        onClose={() => setWhatsappTarget(null)}
+        onSent={(message) => setActionMessage(message)}
       />
 
       <ConfirmDialog
