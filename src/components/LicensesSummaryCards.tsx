@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { fetchLicenseSummary, type LicenseSummary, type LicenseSummaryFilter } from '../lib/licenses'
+import { fetchLicenseSummary, type LicenseSituation, type LicenseSummary, type LicenseSummaryFilter } from '../lib/licenses'
 import { formatCurrency } from '../lib/format'
 import type { AuthSession } from '../lib/auth'
 
@@ -7,6 +7,7 @@ interface LicensesSummaryCardsProps {
   session: AuthSession
   search?: string
   representative?: string | null
+  situation?: LicenseSituation
   activeFilter: LicenseSummaryFilter | null
   onFilterChange: (filter: LicenseSummaryFilter | null) => void
   refreshKey?: number
@@ -20,7 +21,7 @@ const CARDS: { key: LicenseSummaryFilter; label: string; barVar: string; textVar
   { key: 'all', label: 'Total', barVar: '--ink', textVar: '--ink' },
 ]
 
-export function LicensesSummaryCards({ session, search, representative, activeFilter, onFilterChange, refreshKey }: LicensesSummaryCardsProps) {
+export function LicensesSummaryCards({ session, search, representative, situation, activeFilter, onFilterChange, refreshKey }: LicensesSummaryCardsProps) {
   const [summary, setSummary] = useState<LicenseSummary | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -28,7 +29,7 @@ export function LicensesSummaryCards({ session, search, representative, activeFi
     let cancelled = false
     setLoading(true)
     const timeout = setTimeout(() => {
-      fetchLicenseSummary(session.token.token, search || undefined, representative)
+      fetchLicenseSummary(session.token.token, search || undefined, representative, situation)
         .then((res) => {
           if (!cancelled) setSummary(res)
         })
@@ -43,7 +44,7 @@ export function LicensesSummaryCards({ session, search, representative, activeFi
       cancelled = true
       clearTimeout(timeout)
     }
-  }, [session.token.token, search, representative, refreshKey])
+  }, [session.token.token, search, representative, situation, refreshKey])
 
   return (
     <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-[var(--card-shadow)]">

@@ -22,6 +22,8 @@ function licenseBadge(company: AuthCompany) {
       return { label: 'Ativa', className: 'bg-[var(--green-100)] text-[var(--green-600)]' }
     case 'blocked':
       return { label: 'Bloqueada', className: 'bg-[var(--red-100)] text-[var(--red-500)]' }
+    case 'inactive':
+      return { label: 'Desativada', className: 'bg-[var(--page)] text-[var(--muted)]' }
     default:
       return null
   }

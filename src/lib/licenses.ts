@@ -1,6 +1,6 @@
 import { apiGet, apiPatch, apiPost, apiPut } from './api'
 
-export type LicenseStatus = 'trial' | 'active' | 'blocked'
+export type LicenseStatus = 'trial' | 'active' | 'blocked' | 'inactive'
 
 export interface LicenseRepresentative {
   id: string
@@ -86,8 +86,10 @@ export type LicenseSummaryFilter = 'overdue' | 'expiring' | 'billed' | 'delphi' 
 
 export type LicenseSummary = Record<LicenseSummaryFilter, { count: number; total: number }>
 
-export function fetchLicenseSummary(token: string, search?: string, representative?: string | null) {
-  return apiGet<LicenseSummary>('/license/summary', { search, representative: representative ?? undefined }, token)
+export type LicenseSituation = 'active' | 'inactive' | 'all'
+
+export function fetchLicenseSummary(token: string, search?: string, representative?: string | null, situation?: LicenseSituation) {
+  return apiGet<LicenseSummary>('/license/summary', { search, representative: representative ?? undefined, situation }, token)
 }
 
 export interface GenerateLicenseBillsPayload {
@@ -125,7 +127,7 @@ export function generateLicenseBills(token: string, payload: GenerateLicenseBill
 
 export function fetchLicenseCompanies(
   token: string,
-  options: { search?: string; page?: number; limit?: number; filter?: LicenseSummaryFilter | null; representative?: string | null } = {}
+  options: { search?: string; page?: number; limit?: number; filter?: LicenseSummaryFilter | null; representative?: string | null; situation?: LicenseSituation } = {}
 ) {
   return apiGet<Paginated<LicenseCompanyRecord>>(
     '/license/companies',
@@ -135,6 +137,7 @@ export function fetchLicenseCompanies(
       limit: options.limit ? String(options.limit) : '20',
       filter: options.filter ?? undefined,
       representative: options.representative ?? undefined,
+      situation: options.situation,
     },
     token
   )
@@ -160,6 +163,10 @@ export function updateLicenseCompany(token: string, id: string, payload: UpdateL
   return apiPatch<LicenseCompanyDetail>(`/license/companies/${id}`, payload, token)
 }
 
+export function bulkLicenseStatus(token: string, ids: string[], status: 'active' | 'inactive') {
+  return apiPost<{ updated: number }>('/license/companies/bulk-status', { ids, status }, token)
+}
+
 export function syncSaasClients(token: string) {
   return apiPost<unknown>('/license/sync-clients', {}, token)
 }
@@ -169,11 +176,14 @@ export function fetchDuplicateCompanies(token: string) {
 }
 
 export function searchRepresentatives(token: string, search: string) {
-  return apiGet<Paginated<{ id: string; userId: string; name: string }>>(
+  // A API devolve o campo como user_id (snake_case).
+  return apiGet<Paginated<{ id: string; userId?: string; user_id?: string; name: string }>>(
     '/license/representatives',
     { search, limit: '10' },
     token
-  ).then((res) => res.data.map((item) => ({ id: item.id, userId: item.userId, name: item.name })))
+  ).then((res) =>
+    res.data.map((item) => ({ id: item.id, userId: (item.userId ?? item.user_id) as string, name: item.name }))
+  )
 }
 
 // Contas a receber em aberto da matriz, para vincular à cobrança de uma licença.

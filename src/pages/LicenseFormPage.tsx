@@ -33,11 +33,13 @@ const STATUS_LABELS: Record<LicenseStatus, string> = {
   trial: 'Teste grátis',
   active: 'Ativa',
   blocked: 'Bloqueada',
+  inactive: 'Desativada',
 }
 
 function statusTone(status: LicenseStatus): string {
   if (status === 'active') return 'bg-[var(--green-100)] text-[var(--green-600)]'
   if (status === 'blocked') return 'bg-[var(--red-100)] text-[var(--red-500)]'
+  if (status === 'inactive') return 'bg-[var(--page)] text-[var(--muted)]'
   return 'bg-[var(--blue-100)] text-[var(--blue-700)]'
 }
 
@@ -68,6 +70,7 @@ export function LicenseFormPage({ session, licenseId, onBack }: LicenseFormPageP
   const [subscriptionError, setSubscriptionError] = useState<string | null>(null)
   const [subscriptionMessage, setSubscriptionMessage] = useState<string | null>(null)
 
+  const [confirmDeactivate, setConfirmDeactivate] = useState(false)
   const [savingKey, setSavingKey] = useState(false)
   const [keyError, setKeyError] = useState<string | null>(null)
 
@@ -122,7 +125,7 @@ export function LicenseFormPage({ session, licenseId, onBack }: LicenseFormPageP
     setSubscriptionMessage(null)
     try {
       const updated = await updateLicenseCompany(session.token.token, licenseId, {
-        license_status: 'active',
+        license_status: detail?.license_status === 'inactive' ? 'inactive' : 'active',
         license_expires_at: expiresAt ? new Date(expiresAt).toISOString() : null,
         plan_id: planId || null,
         plan_cycle: planCycle,
@@ -146,6 +149,22 @@ export function LicenseFormPage({ session, licenseId, onBack }: LicenseFormPageP
       setSubscriptionMessage('Empresa bloqueada.')
     } catch (err) {
       setSubscriptionError(err instanceof ApiError ? err.message : 'Não foi possível bloquear a empresa.')
+    } finally {
+      setSavingSubscription(false)
+    }
+  }
+
+  async function handleSetStatus(status: 'active' | 'inactive') {
+    setSavingSubscription(true)
+    setSubscriptionError(null)
+    setSubscriptionMessage(null)
+    try {
+      const updated = await updateLicenseCompany(session.token.token, licenseId, { license_status: status })
+      setDetail(updated)
+      setConfirmDeactivate(false)
+      setSubscriptionMessage(status === 'inactive' ? 'Empresa desativada.' : 'Empresa reativada.')
+    } catch (err) {
+      setSubscriptionError(err instanceof ApiError ? err.message : 'Não foi possível atualizar a empresa.')
     } finally {
       setSavingSubscription(false)
     }
@@ -313,6 +332,46 @@ export function LicenseFormPage({ session, licenseId, onBack }: LicenseFormPageP
                 >
                   Bloquear
                 </button>
+                {detail.license_status === 'inactive' ? (
+                  <button
+                    type="button"
+                    onClick={() => void handleSetStatus('active')}
+                    disabled={savingSubscription}
+                    className="rounded-xl bg-[var(--green-100)] px-4 py-2.5 text-[13.5px] font-bold text-[var(--green-600)] transition hover:bg-[var(--green-600)] hover:text-white disabled:opacity-60"
+                  >
+                    Reativar empresa
+                  </button>
+                ) : confirmDeactivate ? (
+                  <>
+                    <span className="text-[12.5px] font-medium text-[var(--ink-soft)]">
+                      Desativar? Ela some da lista de ativas e fica sem acesso.
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => void handleSetStatus('inactive')}
+                      disabled={savingSubscription}
+                      className="rounded-xl bg-[var(--red-500)] px-4 py-2.5 text-[13.5px] font-bold text-white disabled:opacity-60"
+                    >
+                      Confirmar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDeactivate(false)}
+                      className="rounded-xl border border-[var(--border)] px-4 py-2.5 text-[13.5px] font-semibold text-[var(--ink-soft)]"
+                    >
+                      Cancelar
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDeactivate(true)}
+                    disabled={savingSubscription}
+                    className="rounded-xl border border-[var(--border)] px-4 py-2.5 text-[13.5px] font-semibold text-[var(--ink-soft)] transition hover:text-[var(--ink)] disabled:opacity-60"
+                  >
+                    Desativar empresa
+                  </button>
+                )}
               </div>
             </div>
           </SectionCard>

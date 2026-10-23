@@ -5,7 +5,7 @@ import type { AuthCompany } from './auth'
 export function isLicenseBlocked(company: AuthCompany | null | undefined): boolean {
   if (!company || company.is_master) return false
   const expired = Boolean(company.license_expires_at) && new Date(company.license_expires_at as string) < new Date()
-  return company.license_status === 'blocked' || expired
+  return company.license_status === 'blocked' || company.license_status === 'inactive' || expired
 }
 
 // Quem se cadastrou pelo site e ainda não escolheu plano: teste com só o básico e convite para assinar.

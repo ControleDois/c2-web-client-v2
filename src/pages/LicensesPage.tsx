@@ -3,10 +3,12 @@ import {
   fetchLicenseCompanies,
   fetchLicenseSettings,
   searchRepresentatives,
+  bulkLicenseStatus,
   saveLicenseSettings,
   syncSaasClients,
   representativeName,
   type LicenseCompanyRecord,
+  type LicenseSituation,
   type LicenseStatus,
   type LicenseSummaryFilter,
 } from '../lib/licenses'
@@ -31,11 +33,13 @@ const STATUS_LABELS: Record<LicenseStatus, string> = {
   trial: 'Teste grátis',
   active: 'Ativa',
   blocked: 'Bloqueada',
+  inactive: 'Desativada',
 }
 
 function statusTone(status: LicenseStatus): string {
   if (status === 'active') return 'bg-[var(--green-100)] text-[var(--green-600)]'
   if (status === 'blocked') return 'bg-[var(--red-100)] text-[var(--red-500)]'
+  if (status === 'inactive') return 'bg-[var(--page)] text-[var(--muted)]'
   return 'bg-[var(--blue-100)] text-[var(--blue-700)]'
 }
 
@@ -51,6 +55,10 @@ export function LicensesPage({ session, company, onEdit }: LicensesPageProps) {
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const [representative, setRepresentative] = useState<{ id: string; name: string } | null>(null)
+  const [situation, setSituation] = useState<LicenseSituation>('active')
+  const [selected, setSelected] = useState<string[]>([])
+  const [bulkConfirm, setBulkConfirm] = useState<'active' | 'inactive' | null>(null)
+  const [bulkWorking, setBulkWorking] = useState(false)
   const [summaryFilter, setSummaryFilter] = useState<LicenseSummaryFilter | null>(null)
   const [summaryRefreshKey, setSummaryRefreshKey] = useState(0)
   const [billsOpen, setBillsOpen] = useState(false)
@@ -65,7 +73,7 @@ export function LicensesPage({ session, company, onEdit }: LicensesPageProps) {
 
   useEffect(() => {
     let cancelled = false
-    const cacheKey = `license-companies:${company.id}:${page}:${search}:${summaryFilter ?? ''}:${representative?.id ?? ''}:${summaryRefreshKey}`
+    const cacheKey = `license-companies:${company.id}:${page}:${search}:${summaryFilter ?? ''}:${representative?.id ?? ''}:${situation}:${summaryRefreshKey}`
     const cached = getCached<{ items: LicenseCompanyRecord[]; meta: typeof meta }>(cacheKey)
 
     if (cached) {
@@ -79,7 +87,7 @@ export function LicensesPage({ session, company, onEdit }: LicensesPageProps) {
 
     const timeout = setTimeout(
       () => {
-        fetchLicenseCompanies(session.token.token, { search, page, limit: 20, filter: summaryFilter, representative: representative?.id })
+        fetchLicenseCompanies(session.token.token, { search, page, limit: 20, filter: summaryFilter, representative: representative?.id, situation })
           .then((res) => {
             if (cancelled) return
             const nextItems = res.data || []
@@ -104,7 +112,7 @@ export function LicensesPage({ session, company, onEdit }: LicensesPageProps) {
       clearTimeout(timeout)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, page, summaryFilter, representative, summaryRefreshKey, company.id, session.token.token])
+  }, [search, page, summaryFilter, representative, situation, summaryRefreshKey, company.id, session.token.token])
 
   useEffect(() => {
     fetchLicenseSettings(session.token.token)
@@ -132,6 +140,37 @@ export function LicensesPage({ session, company, onEdit }: LicensesPageProps) {
     } finally {
       setSavingWarning(false)
       setTimeout(() => setWarningMessage(null), 4000)
+    }
+  }
+
+  useEffect(() => {
+    setSelected([])
+    setBulkConfirm(null)
+  }, [search, page, summaryFilter, representative, situation])
+
+  const allSelected = items.length > 0 && items.every((item) => selected.includes(item.id))
+
+  function toggleSelected(id: string) {
+    setSelected((current) => (current.includes(id) ? current.filter((value) => value !== id) : [...current, id]))
+  }
+
+  async function handleBulk(status: 'active' | 'inactive') {
+    setBulkWorking(true)
+    try {
+      const res = await bulkLicenseStatus(session.token.token, selected, status)
+      setSyncMessage(
+        status === 'inactive'
+          ? `${res.updated} empresa${res.updated === 1 ? '' : 's'} desativada${res.updated === 1 ? '' : 's'}.`
+          : `${res.updated} empresa${res.updated === 1 ? '' : 's'} reativada${res.updated === 1 ? '' : 's'}.`
+      )
+      setSelected([])
+      setBulkConfirm(null)
+      setSummaryRefreshKey((key) => key + 1)
+    } catch (err) {
+      setSyncMessage(err instanceof ApiError ? err.message : 'Não foi possível atualizar as empresas.')
+    } finally {
+      setBulkWorking(false)
+      setTimeout(() => setSyncMessage(null), 4000)
     }
   }
 
@@ -217,6 +256,7 @@ export function LicensesPage({ session, company, onEdit }: LicensesPageProps) {
         session={session}
         search={search}
         representative={representative?.id}
+        situation={situation}
         activeFilter={summaryFilter}
         onFilterChange={(filter) => {
           setPage(1)
@@ -260,6 +300,88 @@ export function LicensesPage({ session, company, onEdit }: LicensesPageProps) {
           }}
         />
       </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Situação</span>
+        {([
+          ['active', 'Ativas'],
+          ['inactive', 'Desativadas'],
+          ['all', 'Todas'],
+        ] as [LicenseSituation, string][]).map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            onClick={() => {
+              setPage(1)
+              setSituation(value)
+            }}
+            className={`rounded-full px-3.5 py-1.5 text-[12.5px] font-semibold transition ${
+              situation === value
+                ? 'bg-[var(--blue-500)] text-white'
+                : 'border border-[var(--border)] bg-[var(--surface)] text-[var(--ink-soft)] hover:text-[var(--ink)]'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {selected.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-[var(--blue-300)] bg-[var(--blue-100)] px-4 py-3">
+          {bulkConfirm ? (
+            <>
+              <p className="text-[13px] font-semibold text-[var(--ink)]">
+                {bulkConfirm === 'inactive'
+                  ? `Desativar ${selected.length} empresa${selected.length === 1 ? '' : 's'}? Elas saem da lista de ativas e ficam sem acesso ao sistema e ao Delphi.`
+                  : `Reativar ${selected.length} empresa${selected.length === 1 ? '' : 's'}? O acesso volta a valer pela data de validade.`}
+              </p>
+              <button
+                type="button"
+                onClick={() => void handleBulk(bulkConfirm)}
+                disabled={bulkWorking}
+                className="rounded-xl bg-[var(--blue-500)] px-4 py-2 text-[13px] font-bold text-white hover:bg-[var(--blue-700)] disabled:opacity-60"
+              >
+                {bulkWorking ? 'Salvando…' : 'Confirmar'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setBulkConfirm(null)}
+                disabled={bulkWorking}
+                className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-[13px] font-semibold text-[var(--ink-soft)]"
+              >
+                Cancelar
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="text-[13px] font-semibold text-[var(--ink)]">
+                {selected.length} selecionada{selected.length === 1 ? '' : 's'}
+              </p>
+              {situation !== 'inactive' && (
+                <button
+                  type="button"
+                  onClick={() => setBulkConfirm('inactive')}
+                  className="rounded-xl bg-[var(--red-100)] px-4 py-2 text-[13px] font-bold text-[var(--red-500)] hover:bg-[var(--red-500)] hover:text-white"
+                >
+                  Desativar selecionadas
+                </button>
+              )}
+              {situation !== 'active' && (
+                <button
+                  type="button"
+                  onClick={() => setBulkConfirm('active')}
+                  className="rounded-xl bg-[var(--green-100)] px-4 py-2 text-[13px] font-bold text-[var(--green-600)] hover:bg-[var(--green-600)] hover:text-white"
+                >
+                  Reativar selecionadas
+                </button>
+              )}
+              <button type="button" onClick={() => setSelected([])} className="text-[12.5px] font-semibold text-[var(--ink-soft)] underline">
+                Limpar seleção
+              </button>
+            </>
+          )}
+        </div>
+      )}
 
       {error && (
         <div className="rounded-2xl bg-[var(--red-100)] p-4 text-[13.5px] font-medium text-[var(--red-500)]">
@@ -314,7 +436,16 @@ export function LicensesPage({ session, company, onEdit }: LicensesPageProps) {
               <table className="w-full border-collapse text-[13px]">
                 <thead>
                   <tr className="border-b border-[var(--border)] text-left text-[11px] font-semibold tracking-wide text-[var(--muted)] uppercase">
-                    <th className="pb-2.5 pl-3">Empresa</th>
+                    <th className="w-8 pb-2.5 pl-3">
+                      <input
+                        type="checkbox"
+                        checked={allSelected}
+                        onChange={() => setSelected(allSelected ? [] : items.map((item) => item.id))}
+                        aria-label="Selecionar todas"
+                        className="h-4 w-4 accent-[var(--blue-500)]"
+                      />
+                    </th>
+                    <th className="pb-2.5 pr-4 whitespace-nowrap">Empresa</th>
                     <th className="pb-2.5 pr-4 whitespace-nowrap">CNPJ</th>
                     <th className="pb-2.5 pr-4 whitespace-nowrap">Status</th>
                     <th className="pb-2.5 pr-4 whitespace-nowrap">Vencimento</th>
@@ -334,7 +465,16 @@ export function LicensesPage({ session, company, onEdit }: LicensesPageProps) {
                         index % 2 === 1 ? 'bg-[var(--page)]' : ''
                       }`}
                     >
-                      <td className="py-2.5 pl-3 font-medium text-[var(--ink)]">{item.people?.name || 'Empresa sem nome'}</td>
+                      <td className="py-2.5 pl-3" onClick={(event) => event.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={selected.includes(item.id)}
+                          onChange={() => toggleSelected(item.id)}
+                          aria-label={`Selecionar ${item.people?.name || 'empresa'}`}
+                          className="h-4 w-4 accent-[var(--blue-500)]"
+                        />
+                      </td>
+                      <td className="py-2.5 pr-4 font-medium text-[var(--ink)]">{item.people?.name || 'Empresa sem nome'}</td>
                       <td className="py-2.5 pr-4 font-mono text-[var(--ink-soft)]">
                         {item.people?.document ? formatDocument(item.people.document) : '—'}
                       </td>
