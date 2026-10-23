@@ -358,3 +358,77 @@ export function attachManualBoleto(
 export function removeManualBoleto(token: string, companyId: string, billId: string) {
   return apiDelete<{ message: string }>(`/bill/manual-boleto/${billId}?companyId=${encodeURIComponent(companyId)}`, token)
 }
+
+export interface BillTimelineItem {
+  at: string
+  kind: 'created' | 'edited' | 'paid' | 'reopened' | 'charge' | 'document' | 'deleted' | 'other' | 'error'
+  title: string
+  detail: string | null
+  by: string | null
+  automatic: boolean
+}
+
+export interface BillCharge {
+  id: string
+  type: string
+  status: 'queued' | 'sent' | 'delivered' | 'read' | 'failed'
+  automated: boolean
+  ai_generated: boolean
+  whatsapp_name: string | null
+  text: string | null
+  attempts: number
+  last_error: string | null
+  scheduled_at: string | null
+  sent_at: string | null
+  delivered_at: string | null
+  read_at: string | null
+  failed_at: string | null
+}
+
+export interface BillDetails {
+  bill: {
+    id: string
+    code: number
+    name: string
+    role: number
+    status: number
+    amount: number
+    bill_value: number
+    fees: number
+    discount: number
+    date_due: string | null
+    date_received: string | null
+    date_competence: string | null
+    form_payment: number
+    installment_number: number | null
+    installments: number | null
+    note: string | null
+    people_name: string | null
+    category_name: string | null
+    bank_name: string | null
+    created_at: string | null
+    updated_at: string | null
+    boleto_provider: string | null
+    has_pix: boolean
+    has_boleto: boolean
+  }
+  origin: { type: string; label: string }
+  created: { at: string; by: string | null; source: 'user' | 'sale' | 'unknown' }
+  settlement: {
+    at: string | null
+    date_received: string | null
+    amount: number
+    fees: number
+    discount: number
+    via: 'user' | 'automatic' | 'import' | 'unknown'
+    by: string | null
+    detail: string | null
+    grouped: boolean
+  } | null
+  charges: BillCharge[]
+  timeline: BillTimelineItem[]
+}
+
+export function fetchBillDetails(token: string, id: string) {
+  return apiGet<BillDetails>(`/bill/${id}/details`, {}, token)
+}

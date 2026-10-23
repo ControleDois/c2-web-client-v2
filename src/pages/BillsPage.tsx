@@ -31,6 +31,7 @@ import {
   XCircleIcon,
   QrCodeIcon,
   CopyIcon,
+  EyeIcon,
   FileTextIcon,
   WhatsappIcon,
   LinkIcon,
@@ -48,6 +49,7 @@ import { Select } from '../components/form/Select'
 import { SendBillWhatsappModal } from '../components/SendBillWhatsappModal'
 import { GroupBillsModal } from '../components/GroupBillsModal'
 import { GroupDetailsModal } from '../components/GroupDetailsModal'
+import { BillDetailsModal } from '../components/BillDetailsModal'
 import { RowActionsMenu, type RowAction } from '../components/RowActionsMenu'
 import { SortableTh } from '../components/SortableTh'
 import type { BillsOrderByField } from '../lib/bills'
@@ -159,6 +161,7 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
   const [copiedBadgeId, setCopiedBadgeId] = useState<string | null>(null)
   const [groupModalOpen, setGroupModalOpen] = useState(false)
   const [groupDetailsBill, setGroupDetailsBill] = useState<BillRecord | null>(null)
+  const [detailsBillId, setDetailsBillId] = useState<string | null>(null)
   const [successToast, setSuccessToast] = useState<string | null>(null)
 
   function handleSummaryFilterChange(filter: BillsSummaryFilter | null) {
@@ -606,7 +609,14 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
   }
 
   function buildRowActions(bill: BillRecord): RowAction[] {
-    const actions: RowAction[] = []
+    const actions: RowAction[] = [
+      {
+        key: 'details',
+        label: 'Detalhes',
+        icon: <EyeIcon className="h-4 w-4" />,
+        onClick: () => setDetailsBillId(bill.id),
+      },
+    ]
     if (bill.status === 1) {
       actions.push({
         key: 'receipt',
@@ -1387,6 +1397,14 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
           setSummaryRefreshKey((key) => key + 1)
           setSuccessToast('Contas agrupadas com sucesso.')
         }}
+      />
+
+      <BillDetailsModal
+        open={Boolean(detailsBillId)}
+        session={session}
+        billId={detailsBillId}
+        role={role}
+        onClose={() => setDetailsBillId(null)}
       />
 
       <GroupDetailsModal
