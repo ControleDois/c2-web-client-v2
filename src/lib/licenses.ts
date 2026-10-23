@@ -86,8 +86,8 @@ export type LicenseSummaryFilter = 'overdue' | 'expiring' | 'billed' | 'delphi' 
 
 export type LicenseSummary = Record<LicenseSummaryFilter, { count: number; total: number }>
 
-export function fetchLicenseSummary(token: string, search?: string) {
-  return apiGet<LicenseSummary>('/license/summary', { search }, token)
+export function fetchLicenseSummary(token: string, search?: string, representative?: string | null) {
+  return apiGet<LicenseSummary>('/license/summary', { search, representative: representative ?? undefined }, token)
 }
 
 export interface GenerateLicenseBillsPayload {
@@ -125,7 +125,7 @@ export function generateLicenseBills(token: string, payload: GenerateLicenseBill
 
 export function fetchLicenseCompanies(
   token: string,
-  options: { search?: string; page?: number; limit?: number; filter?: LicenseSummaryFilter | null } = {}
+  options: { search?: string; page?: number; limit?: number; filter?: LicenseSummaryFilter | null; representative?: string | null } = {}
 ) {
   return apiGet<Paginated<LicenseCompanyRecord>>(
     '/license/companies',
@@ -134,6 +134,7 @@ export function fetchLicenseCompanies(
       page: options.page ? String(options.page) : '1',
       limit: options.limit ? String(options.limit) : '20',
       filter: options.filter ?? undefined,
+      representative: options.representative ?? undefined,
     },
     token
   )

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import {
   fetchLicenseCompanies,
   fetchLicenseSettings,
+  searchRepresentatives,
   saveLicenseSettings,
   syncSaasClients,
   representativeName,
@@ -15,6 +16,7 @@ import { ApiError } from '../lib/api'
 import { getCached, setCached } from '../lib/cache'
 import { SearchIcon, PencilIcon, RefreshIcon, AlertTriangleIcon, DollarSignIcon } from '../components/icons'
 import { DuplicateCompaniesModal } from '../components/DuplicateCompaniesModal'
+import { SearchSelectField } from '../components/form/SearchSelectField'
 import { LicensesSummaryCards } from '../components/LicensesSummaryCards'
 import { GenerateLicenseBillsModal } from '../components/GenerateLicenseBillsModal'
 import type { AuthSession, AuthCompany } from '../lib/auth'
@@ -48,6 +50,7 @@ export function LicensesPage({ session, company, onEdit }: LicensesPageProps) {
   const [warningMessage, setWarningMessage] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
+  const [representative, setRepresentative] = useState<{ id: string; name: string } | null>(null)
   const [summaryFilter, setSummaryFilter] = useState<LicenseSummaryFilter | null>(null)
   const [summaryRefreshKey, setSummaryRefreshKey] = useState(0)
   const [billsOpen, setBillsOpen] = useState(false)
@@ -62,7 +65,7 @@ export function LicensesPage({ session, company, onEdit }: LicensesPageProps) {
 
   useEffect(() => {
     let cancelled = false
-    const cacheKey = `license-companies:${company.id}:${page}:${search}:${summaryFilter ?? ''}:${summaryRefreshKey}`
+    const cacheKey = `license-companies:${company.id}:${page}:${search}:${summaryFilter ?? ''}:${representative?.id ?? ''}:${summaryRefreshKey}`
     const cached = getCached<{ items: LicenseCompanyRecord[]; meta: typeof meta }>(cacheKey)
 
     if (cached) {
@@ -76,7 +79,7 @@ export function LicensesPage({ session, company, onEdit }: LicensesPageProps) {
 
     const timeout = setTimeout(
       () => {
-        fetchLicenseCompanies(session.token.token, { search, page, limit: 20, filter: summaryFilter })
+        fetchLicenseCompanies(session.token.token, { search, page, limit: 20, filter: summaryFilter, representative: representative?.id })
           .then((res) => {
             if (cancelled) return
             const nextItems = res.data || []
@@ -101,7 +104,7 @@ export function LicensesPage({ session, company, onEdit }: LicensesPageProps) {
       clearTimeout(timeout)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, page, summaryFilter, summaryRefreshKey, company.id, session.token.token])
+  }, [search, page, summaryFilter, representative, summaryRefreshKey, company.id, session.token.token])
 
   useEffect(() => {
     fetchLicenseSettings(session.token.token)
@@ -213,6 +216,7 @@ export function LicensesPage({ session, company, onEdit }: LicensesPageProps) {
       <LicensesSummaryCards
         session={session}
         search={search}
+        representative={representative?.id}
         activeFilter={summaryFilter}
         onFilterChange={(filter) => {
           setPage(1)
@@ -221,17 +225,39 @@ export function LicensesPage({ session, company, onEdit }: LicensesPageProps) {
         refreshKey={summaryRefreshKey}
       />
 
-      <div className="flex min-w-[240px] items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2.5">
-        <SearchIcon className="h-4 w-4 flex-none text-[var(--muted)]" />
-        <input
-          type="text"
-          placeholder="Buscar por nome ou CNPJ"
-          value={search}
-          onChange={(event) => {
-            setPage(1)
-            setSearch(event.target.value)
+      <div className="grid gap-3 sm:grid-cols-[1fr_minmax(240px,320px)]">
+        <div className="flex min-w-[240px] items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2.5">
+          <SearchIcon className="h-4 w-4 flex-none text-[var(--muted)]" />
+          <input
+            type="text"
+            placeholder="Buscar por nome ou CNPJ"
+            value={search}
+            onChange={(event) => {
+              setPage(1)
+              setSearch(event.target.value)
+            }}
+            className="w-full bg-transparent text-[13.5px] text-[var(--ink)] placeholder:text-[var(--muted)] focus:outline-none"
+          />
+        </div>
+        <SearchSelectField
+          label="Representante"
+          variant="surface"
+          placeholder="Todos os representantes"
+          selectedLabel={representative?.name ?? null}
+          onSearch={async (query) => {
+            const reps = await searchRepresentatives(session.token.token, query)
+            const withoutOption = { id: 'none', userId: 'none', name: 'Sem representante' }
+            return !query || 'sem representante'.includes(query.toLowerCase()) ? [withoutOption, ...reps] : reps
           }}
-          className="w-full bg-transparent text-[13.5px] text-[var(--ink)] placeholder:text-[var(--muted)] focus:outline-none"
+          getOptionLabel={(item) => item.name}
+          onSelect={(item) => {
+            setPage(1)
+            setRepresentative({ id: item.userId, name: item.name })
+          }}
+          onClear={() => {
+            setPage(1)
+            setRepresentative(null)
+          }}
         />
       </div>
 

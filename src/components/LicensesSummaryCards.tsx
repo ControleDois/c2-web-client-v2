@@ -6,6 +6,7 @@ import type { AuthSession } from '../lib/auth'
 interface LicensesSummaryCardsProps {
   session: AuthSession
   search?: string
+  representative?: string | null
   activeFilter: LicenseSummaryFilter | null
   onFilterChange: (filter: LicenseSummaryFilter | null) => void
   refreshKey?: number
@@ -19,7 +20,7 @@ const CARDS: { key: LicenseSummaryFilter; label: string; barVar: string; textVar
   { key: 'all', label: 'Total', barVar: '--ink', textVar: '--ink' },
 ]
 
-export function LicensesSummaryCards({ session, search, activeFilter, onFilterChange, refreshKey }: LicensesSummaryCardsProps) {
+export function LicensesSummaryCards({ session, search, representative, activeFilter, onFilterChange, refreshKey }: LicensesSummaryCardsProps) {
   const [summary, setSummary] = useState<LicenseSummary | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -27,7 +28,7 @@ export function LicensesSummaryCards({ session, search, activeFilter, onFilterCh
     let cancelled = false
     setLoading(true)
     const timeout = setTimeout(() => {
-      fetchLicenseSummary(session.token.token, search || undefined)
+      fetchLicenseSummary(session.token.token, search || undefined, representative)
         .then((res) => {
           if (!cancelled) setSummary(res)
         })
@@ -42,7 +43,7 @@ export function LicensesSummaryCards({ session, search, activeFilter, onFilterCh
       cancelled = true
       clearTimeout(timeout)
     }
-  }, [session.token.token, search, refreshKey])
+  }, [session.token.token, search, representative, refreshKey])
 
   return (
     <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-[var(--card-shadow)]">
