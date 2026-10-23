@@ -7,13 +7,16 @@ import {
   representativeName,
   type LicenseCompanyRecord,
   type LicenseStatus,
+  type LicenseSummaryFilter,
 } from '../lib/licenses'
 import { formatDocument } from '../lib/formatDocument'
 import { formatCurrency, formatDate } from '../lib/format'
 import { ApiError } from '../lib/api'
 import { getCached, setCached } from '../lib/cache'
-import { SearchIcon, PencilIcon, RefreshIcon, AlertTriangleIcon } from '../components/icons'
+import { SearchIcon, PencilIcon, RefreshIcon, AlertTriangleIcon, DollarSignIcon } from '../components/icons'
 import { DuplicateCompaniesModal } from '../components/DuplicateCompaniesModal'
+import { LicensesSummaryCards } from '../components/LicensesSummaryCards'
+import { GenerateLicenseBillsModal } from '../components/GenerateLicenseBillsModal'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
 interface LicensesPageProps {
@@ -45,6 +48,9 @@ export function LicensesPage({ session, company, onEdit }: LicensesPageProps) {
   const [warningMessage, setWarningMessage] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
+  const [summaryFilter, setSummaryFilter] = useState<LicenseSummaryFilter | null>(null)
+  const [summaryRefreshKey, setSummaryRefreshKey] = useState(0)
+  const [billsOpen, setBillsOpen] = useState(false)
   const [items, setItems] = useState<LicenseCompanyRecord[]>([])
   const [meta, setMeta] = useState({ total: 0, lastPage: 1 })
   const [loading, setLoading] = useState(true)
@@ -56,7 +62,7 @@ export function LicensesPage({ session, company, onEdit }: LicensesPageProps) {
 
   useEffect(() => {
     let cancelled = false
-    const cacheKey = `license-companies:${company.id}:${page}:${search}`
+    const cacheKey = `license-companies:${company.id}:${page}:${search}:${summaryFilter ?? ''}:${summaryRefreshKey}`
     const cached = getCached<{ items: LicenseCompanyRecord[]; meta: typeof meta }>(cacheKey)
 
     if (cached) {
@@ -70,7 +76,7 @@ export function LicensesPage({ session, company, onEdit }: LicensesPageProps) {
 
     const timeout = setTimeout(
       () => {
-        fetchLicenseCompanies(session.token.token, { search, page, limit: 20 })
+        fetchLicenseCompanies(session.token.token, { search, page, limit: 20, filter: summaryFilter })
           .then((res) => {
             if (cancelled) return
             const nextItems = res.data || []
@@ -95,7 +101,7 @@ export function LicensesPage({ session, company, onEdit }: LicensesPageProps) {
       clearTimeout(timeout)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, page, company.id, session.token.token])
+  }, [search, page, summaryFilter, summaryRefreshKey, company.id, session.token.token])
 
   useEffect(() => {
     fetchLicenseSettings(session.token.token)
@@ -158,6 +164,14 @@ export function LicensesPage({ session, company, onEdit }: LicensesPageProps) {
           </button>
           <button
             type="button"
+            onClick={() => setBillsOpen(true)}
+            className="flex items-center gap-2 rounded-xl border border-[var(--blue-500)] bg-[var(--surface)] px-3.5 py-2.5 text-[13px] font-bold text-[var(--blue-700)] transition hover:bg-[var(--blue-100)]"
+          >
+            <DollarSignIcon className="h-4 w-4" />
+            Gerar cobranças
+          </button>
+          <button
+            type="button"
             onClick={handleSync}
             disabled={syncing}
             className="flex items-center gap-2 rounded-xl bg-[var(--blue-500)] px-4 py-2.5 text-[13.5px] font-bold text-white transition hover:bg-[var(--blue-700)] disabled:opacity-60"
@@ -195,6 +209,17 @@ export function LicensesPage({ session, company, onEdit }: LicensesPageProps) {
         </button>
         {warningMessage && <span className="text-[12.5px] font-medium text-[var(--ink-soft)]">{warningMessage}</span>}
       </div>
+
+      <LicensesSummaryCards
+        session={session}
+        search={search}
+        activeFilter={summaryFilter}
+        onFilterChange={(filter) => {
+          setPage(1)
+          setSummaryFilter(filter)
+        }}
+        refreshKey={summaryRefreshKey}
+      />
 
       <div className="flex min-w-[240px] items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2.5">
         <SearchIcon className="h-4 w-4 flex-none text-[var(--muted)]" />
@@ -264,11 +289,13 @@ export function LicensesPage({ session, company, onEdit }: LicensesPageProps) {
                 <thead>
                   <tr className="border-b border-[var(--border)] text-left text-[11px] font-semibold tracking-wide text-[var(--muted)] uppercase">
                     <th className="pb-2.5 pl-3">Empresa</th>
-                    <th className="pb-2.5">CNPJ</th>
-                    <th className="pb-2.5">Status</th>
-                    <th className="pb-2.5">Vencimento</th>
-                    <th className="pb-2.5">Representante</th>
-                    <th className="pb-2.5">Mensalidade</th>
+                    <th className="pb-2.5 pr-4 whitespace-nowrap">CNPJ</th>
+                    <th className="pb-2.5 pr-4 whitespace-nowrap">Status</th>
+                    <th className="pb-2.5 pr-4 whitespace-nowrap">Vencimento</th>
+                    <th className="pb-2.5 pr-4 whitespace-nowrap">Representante</th>
+                    <th className="pb-2.5 pr-4 whitespace-nowrap">Mensalidade</th>
+                    <th className="pb-2.5 pr-4 whitespace-nowrap">Chave Delphi</th>
+                    <th className="pb-2.5 pr-4 whitespace-nowrap">Cobrança</th>
                     <th className="pb-2.5 pr-3 text-right">Ações</th>
                   </tr>
                 </thead>
@@ -282,15 +309,15 @@ export function LicensesPage({ session, company, onEdit }: LicensesPageProps) {
                       }`}
                     >
                       <td className="py-2.5 pl-3 font-medium text-[var(--ink)]">{item.people?.name || 'Empresa sem nome'}</td>
-                      <td className="py-2.5 font-mono text-[var(--ink-soft)]">
+                      <td className="py-2.5 pr-4 font-mono text-[var(--ink-soft)]">
                         {item.people?.document ? formatDocument(item.people.document) : '—'}
                       </td>
-                      <td className="py-2.5">
+                      <td className="py-2.5 pr-4">
                         <span className={`rounded-full px-2 py-0.5 text-[10.5px] font-bold uppercase ${statusTone(item.license_status)}`}>
                           {STATUS_LABELS[item.license_status] ?? item.license_status}
                         </span>
                       </td>
-                      <td className="py-2.5 text-[var(--ink-soft)]">
+                      <td className="py-2.5 pr-4 text-[var(--ink-soft)]">
                         <div className="flex items-center gap-1.5">
                           {formatDate(item.license_expires_at)}
                           {isExpired(item) && (
@@ -300,9 +327,19 @@ export function LicensesPage({ session, company, onEdit }: LicensesPageProps) {
                           )}
                         </div>
                       </td>
-                      <td className="py-2.5 text-[var(--ink-soft)]">{representativeName(item.representative) || '—'}</td>
-                      <td className="py-2.5 text-[var(--ink-soft)]">
+                      <td className="py-2.5 pr-4 text-[var(--ink-soft)]">{representativeName(item.representative) || '—'}</td>
+                      <td className="py-2.5 pr-4 text-[var(--ink-soft)]">
                         {item.monthly_fee != null ? formatCurrency(item.monthly_fee) : '—'}
+                      </td>
+                      <td className="py-2.5 pr-4">
+                        {item.has_delphi_key ? (
+                          <span className="rounded-full bg-[var(--green-100)] px-2 py-0.5 text-[10.5px] font-bold text-[var(--green-600)]">Gerada</span>
+                        ) : (
+                          <span className="text-[var(--muted)]">—</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 pr-4 text-[var(--ink-soft)]">
+                        {item.license_bill ? `${formatCurrency(item.license_bill.amount)} · ${formatDate(item.license_bill.date_due)}` : '—'}
                       </td>
                       <td className="py-2.5 pr-3 text-right">
                         <button
@@ -359,6 +396,13 @@ export function LicensesPage({ session, company, onEdit }: LicensesPageProps) {
         </div>
       )}
 
+      <GenerateLicenseBillsModal
+        open={billsOpen}
+        session={session}
+        company={company}
+        onClose={() => setBillsOpen(false)}
+        onGenerated={() => setSummaryRefreshKey((key) => key + 1)}
+      />
       <DuplicateCompaniesModal open={duplicatesOpen} session={session} onClose={() => setDuplicatesOpen(false)} />
     </div>
   )

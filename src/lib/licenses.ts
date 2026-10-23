@@ -36,6 +36,9 @@ export interface LicenseCompanyRecord {
   plan_cycle?: string | null
   people: LicenseCompanyPeople | null
   createdAt?: string
+  has_delphi_key?: boolean
+  // Cobrança vinculada à licença (a próxima em aberto do cliente).
+  license_bill?: { amount: number; date_due: string; status?: number } | null
 }
 
 // Conta a receber da matriz vinculada à cobrança da licença do cliente.
@@ -79,9 +82,50 @@ export interface RepresentativeOption {
   name: string
 }
 
+export type LicenseSummaryFilter = 'overdue' | 'expiring' | 'billed' | 'delphi' | 'all'
+
+export type LicenseSummary = Record<LicenseSummaryFilter, { count: number; total: number }>
+
+export function fetchLicenseSummary(token: string, search?: string) {
+  return apiGet<LicenseSummary>('/license/summary', { search }, token)
+}
+
+export interface GenerateLicenseBillsPayload {
+  simulate: boolean
+  until: string
+  due_day: number
+  min_expiry: string
+  category_id: string
+  bank_account_id?: string | null
+}
+
+export interface LicenseBillingRow {
+  company_id: string
+  name: string
+  monthly_fee: number
+  expires_on: string | null
+  first_due: string | null
+  last_due: string | null
+  to_create: number
+  already_exists: number
+  total_to_create: number
+  skipped: string | null
+}
+
+export interface GenerateLicenseBillsResult {
+  simulate: boolean
+  created: number
+  totals: { clients: number; bills: number; amount: number; skipped: number }
+  rows: LicenseBillingRow[]
+}
+
+export function generateLicenseBills(token: string, payload: GenerateLicenseBillsPayload) {
+  return apiPost<GenerateLicenseBillsResult>('/license/generate-bills', payload, token)
+}
+
 export function fetchLicenseCompanies(
   token: string,
-  options: { search?: string; page?: number; limit?: number } = {}
+  options: { search?: string; page?: number; limit?: number; filter?: LicenseSummaryFilter | null } = {}
 ) {
   return apiGet<Paginated<LicenseCompanyRecord>>(
     '/license/companies',
@@ -89,6 +133,7 @@ export function fetchLicenseCompanies(
       search: options.search,
       page: options.page ? String(options.page) : '1',
       limit: options.limit ? String(options.limit) : '20',
+      filter: options.filter ?? undefined,
     },
     token
   )
