@@ -6,6 +6,8 @@ import {
   forceSendNfe,
   cancelNfe,
   skipNfeNumber,
+  reconcileNfe,
+  isDuplicateNfe,
   duplicateNfe,
   fetchNfeLogs,
   downloadNfeFile,
@@ -43,6 +45,7 @@ import {
 } from '../components/icons'
 import { SortableTh } from '../components/SortableTh'
 import { ConfirmDialog } from '../components/ConfirmDialog'
+import { TextField } from '../components/form/TextField'
 import { RowActionsMenu, type RowAction } from '../components/RowActionsMenu'
 import { SearchSelectField } from '../components/form/SearchSelectField'
 import { SelectField } from '../components/form/SelectField'
@@ -107,6 +110,12 @@ export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) 
   const [correctionTarget, setCorrectionTarget] = useState<NfeRecord | null>(null)
 
   const [errorTarget, setErrorTarget] = useState<NfeRecord | null>(null)
+  const [reconcileTarget, setReconcileTarget] = useState<NfeRecord | null>(null)
+  const [reconcileKey, setReconcileKey] = useState('')
+  const [reconcileProtocol, setReconcileProtocol] = useState('')
+  const [reconcileError, setReconcileError] = useState<string | null>(null)
+  const [reconciling, setReconciling] = useState(false)
+  const [skipTarget, setSkipTarget] = useState<NfeRecord | null>(null)
 
   function reload() {
     setLoading(true)
@@ -232,6 +241,33 @@ export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) 
       showActionError(err, 'Não foi possível forçar o reenvio da NF-e.')
     } finally {
       setBusyId(null)
+    }
+  }
+
+  function openReconcile(nfe: NfeRecord) {
+    setReconcileKey('')
+    setReconcileProtocol('')
+    setReconcileError(null)
+    setErrorTarget(null)
+    setReconcileTarget(nfe)
+  }
+
+  async function handleReconcile() {
+    if (!reconcileTarget) return
+    setReconciling(true)
+    setReconcileError(null)
+    try {
+      await reconcileNfe(session.token.token, reconcileTarget.id, {
+        chave_nfe: reconcileKey,
+        protocolo: reconcileProtocol,
+      })
+      setReconcileTarget(null)
+      setActionMessage('Nota conferida e marcada como autorizada.')
+      reload()
+    } catch (err) {
+      setReconcileError(err instanceof ApiError ? err.message : 'Não foi possível conferir a nota.')
+    } finally {
+      setReconciling(false)
     }
   }
 
@@ -382,7 +418,16 @@ export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) 
       )
     }
 
-    if (nfe.status === 1 || nfe.status === 3) {
+    if (isDuplicateNfe(nfe)) {
+      actions.push({
+        key: 'reconcile',
+        label: 'Conferir na SEFAZ',
+        icon: <ClipboardCheckIcon className="h-4 w-4" />,
+        onClick: () => openReconcile(nfe),
+      })
+    }
+
+    if (nfe.status === 1 || (nfe.status === 3 && !isDuplicateNfe(nfe))) {
       actions.push({
         key: 'force-send',
         label: 'Forçar reenvio',
@@ -397,7 +442,7 @@ export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) 
         label: 'Pular numeração',
         icon: <AlertTriangleIcon className="h-4 w-4" />,
         tone: 'warning',
-        onClick: () => handleSkipNumber(nfe),
+        onClick: () => (isDuplicateNfe(nfe) ? setSkipTarget(nfe) : handleSkipNumber(nfe)),
       })
     }
 
@@ -703,6 +748,74 @@ export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) 
         onCancel={() => setDeleteTarget(null)}
       />
 
+      <ConfirmDialog
+        open={Boolean(skipTarget)}
+        title="Pular a numeração?"
+        message={`A nota nº ${skipTarget?.numero ?? ''} já existe na SEFAZ. Pular a numeração cria OUTRA nota para esta venda e pode deixar duas notas válidas. Só faça isso se você conferiu na SEFAZ que aquela nota não é desta venda. Deseja pular mesmo assim?`}
+        confirmLabel="Pular mesmo assim"
+        onConfirm={() => {
+          const target = skipTarget
+          setSkipTarget(null)
+          if (target) void handleSkipNumber(target)
+        }}
+        onCancel={() => setSkipTarget(null)}
+      />
+
+      {reconcileTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => !reconciling && setReconcileTarget(null)}>
+          <div
+            className="max-h-[92vh] w-full max-w-[520px] overflow-y-auto rounded-2xl bg-[var(--surface)] p-6 shadow-[var(--card-shadow)]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 className="text-[16px] font-bold text-[var(--ink)]">Conferir na SEFAZ — nota nº {reconcileTarget.numero}</h2>
+            <p className="mt-1 text-[12.5px] leading-relaxed text-[var(--ink-soft)]">
+              A SEFAZ respondeu que esta nota já existe: um envio anterior foi aceito e o retorno não chegou aqui. Consulte a nota no portal da
+              SEFAZ (série {reconcileTarget.serie}, número {reconcileTarget.numero}) e copie a <strong>chave de acesso</strong> e o{' '}
+              <strong>protocolo de autorização</strong>. Se ela não aparecer na SEFAZ, use “Pular numeração”.
+            </p>
+            <div className="mt-4 flex flex-col gap-4">
+              <TextField
+                label="Chave de acesso (44 números)"
+                icon={<ClipboardCheckIcon className="h-4 w-4" />}
+                placeholder="Só números"
+                inputMode="numeric"
+                value={reconcileKey}
+                onChange={(event) => setReconcileKey(event.target.value.replace(/\D/g, '').slice(0, 44))}
+              />
+              <TextField
+                label="Protocolo de autorização"
+                icon={<ClipboardCheckIcon className="h-4 w-4" />}
+                placeholder="Só números"
+                inputMode="numeric"
+                value={reconcileProtocol}
+                onChange={(event) => setReconcileProtocol(event.target.value.replace(/\D/g, ''))}
+              />
+            </div>
+            {reconcileError && (
+              <p className="mt-3 rounded-xl bg-[var(--red-100)] px-4 py-2.5 text-[13px] font-medium text-[var(--red-500)]">{reconcileError}</p>
+            )}
+            <div className="mt-5 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setReconcileTarget(null)}
+                disabled={reconciling}
+                className="rounded-xl px-4 py-2.5 text-[14px] font-semibold text-[var(--ink-soft)] hover:text-[var(--ink)]"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleReconcile}
+                disabled={reconciling || reconcileKey.length !== 44 || reconcileProtocol.length < 10}
+                className="rounded-xl bg-[var(--blue-500)] px-5 py-2.5 text-[14px] font-bold text-white hover:bg-[var(--blue-700)] disabled:opacity-60"
+              >
+                {reconciling ? 'Conferindo…' : 'Marcar como autorizada'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {cancelTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setCancelTarget(null)}>
           <div
@@ -813,7 +926,16 @@ export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) 
               </div>
             </div>
 
-            <div className="border-t border-[var(--border)] p-4">
+            <div className="flex flex-wrap gap-2 border-t border-[var(--border)] p-4">
+              {isDuplicateNfe(errorTarget) && (
+                <button
+                  type="button"
+                  onClick={() => openReconcile(errorTarget)}
+                  className="w-full rounded-xl bg-[var(--green-600)] px-4 py-2.5 text-[13.5px] font-bold text-white hover:opacity-90 sm:w-auto"
+                >
+                  Conferir na SEFAZ
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setErrorTarget(null)}

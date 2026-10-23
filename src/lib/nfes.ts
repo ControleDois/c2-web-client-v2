@@ -293,6 +293,24 @@ export function cancelNfe(token: string, id: string, justificativa: string) {
   )
 }
 
+// Nota que a SEFAZ já autorizou mas cujo retorno não chegou (duplicidade): adota
+// a chave e o protocolo conferidos na SEFAZ.
+export function reconcileNfe(
+  token: string,
+  id: string,
+  payload: { chave_nfe: string; protocolo: string; data_emissao?: string }
+) {
+  return apiPost<NfeRecord>(`/nfe/${id}/reconcile`, payload, token)
+}
+
+// Duplicidade da MESMA nota (a SEFAZ já tem a chave): reenviar não resolve.
+export function isDuplicateNfe(nfe: { status: number; status_sefaz?: number | null; mensagem_sefaz?: unknown }): boolean {
+  if (nfe.status !== 3) return false
+  const text = String(nfe.mensagem_sefaz ?? '')
+  if (/diferen[çc]a na chave/i.test(text) || Number(nfe.status_sefaz) === 539) return false
+  return Number(nfe.status_sefaz) === 204 || /duplicidade/i.test(text)
+}
+
 export function skipNfeNumber(token: string, id: string) {
   return apiPost<NfeRecord>(`/nfe/skip-number/${id}`, {}, token)
 }
@@ -343,6 +361,10 @@ export const NFE_LOG_ACTION_LABELS: Record<string, string> = {
   job_already_processed: 'Já processada',
   job_error: 'Job com erro',
   job_done: 'Job finalizado',
+  enqueue_waiting_callback: 'Aguardando retorno (não reenviado)',
+  delphi_callback: 'Retorno do servidor de notas',
+  delphi_callback_ignored: 'Retorno ignorado (nota já autorizada)',
+  manual_reconcile: 'Conferida manualmente na SEFAZ',
 }
 
 // Tenta extrair uma mensagem de erro estruturada (como a Focus/SEFAZ devolve
