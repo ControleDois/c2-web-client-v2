@@ -34,6 +34,7 @@ export function IfoodApiLogsPage({ session }: IfoodApiLogsPageProps) {
   const [from, setFrom] = useState(() => toLocalInput(new Date(Date.now() - 2 * 3600 * 1000)))
   const [to, setTo] = useState('')
   const [rows, setRows] = useState<IfoodApiLog[]>([])
+  const [client, setClient] = useState<{ id: string | null; mode: string } | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [auto, setAuto] = useState(false)
@@ -45,7 +46,10 @@ export function IfoodApiLogsPage({ session }: IfoodApiLogsPageProps) {
       if (!silent) setLoading(true)
       setError(null)
       fetchIfoodApiLogs(token, from, to)
-        .then((data) => setRows([...data].reverse()))
+        .then((res) => {
+          setRows([...res.data].reverse())
+          setClient({ id: res.client_id, mode: res.mode })
+        })
         .catch((err) => setError(err instanceof ApiError ? err.message : 'Não foi possível carregar o log.'))
         .finally(() => setLoading(false))
     },
@@ -82,6 +86,15 @@ export function IfoodApiLogsPage({ session }: IfoodApiLogsPageProps) {
           Toda chamada do sistema ao iFood fica registrada aqui, com endpoint, horário, código HTTP e resposta. Na homologação: grave a tela com o
           relógio visível, faça os testes, abra esta página, ajuste o período para o horário do teste e baixe o arquivo para anexar.
         </p>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-1 rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-[13px]">
+        <span className="text-[var(--muted)]">
+          Aplicativo em uso: <b className="font-mono text-[var(--ink)]">{client?.id ?? '—'}</b>
+        </span>
+        <span className="text-[var(--muted)]">
+          Ambiente: <b className="text-[var(--ink)]">{client?.mode === 'test' ? 'teste (homologação)' : client ? 'produção' : '—'}</b>
+        </span>
       </div>
 
       <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">

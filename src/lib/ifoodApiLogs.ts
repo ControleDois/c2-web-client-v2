@@ -17,8 +17,14 @@ function query(from: string, to: string, extra: Record<string, string> = {}) {
   return { from: from ? new Date(from).toISOString() : undefined, to: to ? new Date(to).toISOString() : undefined, ...extra }
 }
 
+export interface IfoodApiLogsResult {
+  data: IfoodApiLog[]
+  client_id: string | null
+  mode: 'production' | 'test'
+}
+
 export function fetchIfoodApiLogs(token: string, from: string, to: string) {
-  return apiGet<{ data: IfoodApiLog[] }>('/ifood/api-logs', { ...query(from, to), limit: '1000' }, token).then((res) => res.data)
+  return apiGet<IfoodApiLogsResult>('/ifood/api-logs', { ...query(from, to), limit: '1000' }, token)
 }
 
 export function downloadIfoodApiLogs(token: string, from: string, to: string, format: 'txt' | 'csv') {
