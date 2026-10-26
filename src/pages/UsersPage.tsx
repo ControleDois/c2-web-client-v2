@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react'
 import { fetchUsers, type UserRecord } from '../lib/users'
 import { ApiError } from '../lib/api'
 import { getCached, setCached } from '../lib/cache'
-import { SearchIcon, PlusIcon, PencilIcon, ChevronLeftIcon, UserIcon } from '../components/icons'
-import type { AuthSession, AuthCompany } from '../lib/auth'
+import { SearchIcon, PlusIcon, PencilIcon, ChevronLeftIcon, UserIcon, KeyIcon } from '../components/icons'
+import { ResetPasswordModal } from '../components/ResetPasswordModal'
+import { getUserCompanies, type AuthSession, type AuthCompany } from '../lib/auth'
 
 interface UsersPageProps {
   session: AuthSession
@@ -15,6 +16,9 @@ interface UsersPageProps {
 
 export function UsersPage({ session, company, onBack, onCreate, onEdit }: UsersPageProps) {
   const [search, setSearch] = useState('')
+  // Só quem é da equipe da matriz redefine a senha dos outros usuários.
+  const isMatrixUser = getUserCompanies(session).some((item) => item.is_master)
+  const [resetTarget, setResetTarget] = useState<UserRecord | null>(null)
   const [page, setPage] = useState(1)
   const [items, setItems] = useState<UserRecord[]>([])
   const [meta, setMeta] = useState({ total: 0, lastPage: 1 })
@@ -149,6 +153,16 @@ export function UsersPage({ session, company, onBack, onCreate, onEdit }: UsersP
                           <PencilIcon className="h-3.5 w-3.5" />
                           Editar
                         </button>
+                        {isMatrixUser && item.user?.id && (
+                          <button
+                            type="button"
+                            onClick={() => setResetTarget(item)}
+                            className="flex items-center gap-1.5 rounded-lg bg-[var(--page)] px-3 py-1.5 text-[12px] font-semibold text-[var(--ink-soft)]"
+                          >
+                            <KeyIcon className="h-3.5 w-3.5" />
+                            Alterar senha
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -191,6 +205,17 @@ export function UsersPage({ session, company, onBack, onCreate, onEdit }: UsersP
                       <td className="py-2.5 text-[var(--ink-soft)]">{item.user?.email ?? '—'}</td>
                       <td className="py-2.5 text-[var(--ink-soft)]">{item.role?.name ?? '—'}</td>
                       <td className="py-2.5 pr-3 text-right">
+                        {isMatrixUser && item.user?.id && (
+                          <button
+                            type="button"
+                            onClick={() => setResetTarget(item)}
+                            className="mr-1 inline-flex h-7 items-center gap-1.5 rounded-lg px-2 text-[12px] font-semibold text-[var(--muted)] hover:bg-[var(--page)] hover:text-[var(--ink)]"
+                            aria-label={`Alterar senha de ${item.name}`}
+                          >
+                            <KeyIcon className="h-3.5 w-3.5" />
+                            Senha
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => onEdit(item)}
@@ -235,6 +260,13 @@ export function UsersPage({ session, company, onBack, onCreate, onEdit }: UsersP
           </div>
         )}
       </div>
+      <ResetPasswordModal
+        open={Boolean(resetTarget)}
+        session={session}
+        companyId={company.id}
+        user={resetTarget && resetTarget.user ? { id: resetTarget.user.id, name: resetTarget.name, email: resetTarget.user.email } : null}
+        onClose={() => setResetTarget(null)}
+      />
     </div>
   )
 }

@@ -98,6 +98,7 @@ export type AppPage =
   | 'printers'
   | 'sale-tokens'
   | 'app-releases'
+  | 'ifood-api-logs'
   | 'blog-posts'
   | 'subscription'
   | 'plans'

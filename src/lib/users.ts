@@ -1,4 +1,4 @@
-import { apiGet, apiPostForm, apiPutForm } from './api'
+import { apiGet, apiPost, apiPostForm, apiPutForm } from './api'
 
 export interface UserRecord {
   id: string
@@ -89,6 +89,15 @@ export function updateUser(token: string, id: string, companyId: string, payload
   return apiPutForm<UserDetail>(
     `/user/${id}?companyId=${encodeURIComponent(companyId)}`,
     buildUserFormData(payload),
+    token
+  )
+}
+
+// Só a equipe da matriz: sem senha informada, o servidor gera uma e devolve uma única vez.
+export function resetUserPassword(token: string, userId: string, companyId: string, password?: string) {
+  return apiPost<{ ok: boolean; email: string; password: string | null }>(
+    `/user/${userId}/reset-password?companyId=${encodeURIComponent(companyId)}`,
+    password ? { password } : {},
     token
   )
 }
