@@ -18,8 +18,10 @@ interface NfseFormPageProps {
   onSaved: () => void
 }
 
+// Data local: toISOString() usa UTC e, depois das 21h no Brasil, já devolve o dia seguinte.
 function todayISO(): string {
-  return new Date().toISOString().slice(0, 10)
+  const now = new Date()
+  return new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10)
 }
 
 function onlyNumbers(value?: string | null): string {
