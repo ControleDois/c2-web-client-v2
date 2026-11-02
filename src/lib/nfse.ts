@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiPut, apiDelete } from './api'
+import { apiGet, apiPost, apiPut, apiDelete, apiFetchBlob, apiDownload } from './api'
 
 export interface NfsePerson {
   id: string
@@ -178,4 +178,33 @@ export interface NfseSendLogRecord {
 
 export function fetchNfseLogs(token: string, id: string) {
   return apiGet<NfseSendLogRecord[]>(`/nfse/${id}/logs`, {}, token)
+}
+
+export type NfseFileType = 'xml' | 'danfse'
+
+// Motivos do evento de cancelamento do Padrão Nacional (e101101).
+export const NFSE_CANCEL_REASONS: Record<number, string> = {
+  1: 'Erro na emissão',
+  2: 'Serviço não prestado',
+  9: 'Outros',
+}
+
+export async function fetchNfseFileUrl(token: string, id: string, type: NfseFileType): Promise<string> {
+  const blob = await apiFetchBlob(`/nfse/${id}/file/${type}`, {}, token)
+  return URL.createObjectURL(blob)
+}
+
+export async function fetchNfseXmlText(token: string, id: string): Promise<string> {
+  const blob = await apiFetchBlob(`/nfse/${id}/file/xml`, {}, token)
+  return blob.text()
+}
+
+export function downloadNfseFile(token: string, nfse: NfseRecord, type: NfseFileType) {
+  const extension = type === 'danfse' ? 'pdf' : 'xml'
+  const filename = `${nfse.chave_nfse || nfse.numero_nfse || nfse.id}-nfse.${extension}`
+  return apiDownload(`/nfse/${nfse.id}/file/${type}`, token, filename)
+}
+
+export function cancelNfse(token: string, id: string, codigoMotivo: number, justificativa: string) {
+  return apiPost<{ mensagem: string }>(`/nfse/cancel/${id}`, { codigo_motivo: codigoMotivo, justificativa }, token)
 }

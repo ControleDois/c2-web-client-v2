@@ -5,6 +5,11 @@ import {
   sendNfse,
   forceSendNfse,
   fetchNfseLogs,
+  fetchNfseFileUrl,
+  fetchNfseXmlText,
+  downloadNfseFile,
+  cancelNfse,
+  NFSE_CANCEL_REASONS,
   NFSE_STATUS_LABELS,
   type NfseRecord,
   type NfseSendLogRecord,
@@ -26,7 +31,11 @@ import {
   AlertTriangleIcon,
   XCircleIcon,
   CopyIcon,
+  EyeIcon,
+  DownloadIcon,
 } from '../components/icons'
+import { DocumentViewerModal } from '../components/DocumentViewerModal'
+import { NfeXmlViewerModal } from '../components/NfeXmlViewerModal'
 import { Select } from '../components/form/Select'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { RowActionsMenu, type RowAction } from '../components/RowActionsMenu'
@@ -66,6 +75,13 @@ export function NfsesPage({ session, company, onCreate, onEdit }: NfsesPageProps
   const [logs, setLogs] = useState<NfseSendLogRecord[]>([])
   const [loadingLogs, setLoadingLogs] = useState(false)
   const [errorTarget, setErrorTarget] = useState<NfseRecord | null>(null)
+  const [danfseView, setDanfseView] = useState<{ nfse: NfseRecord; url: string } | null>(null)
+  const [xmlView, setXmlView] = useState<{ nfse: NfseRecord; xml: string } | null>(null)
+  const [cancelTarget, setCancelTarget] = useState<NfseRecord | null>(null)
+  const [cancelReasonCode, setCancelReasonCode] = useState(1)
+  const [cancelReason, setCancelReason] = useState('')
+  const [cancelling, setCancelling] = useState(false)
+  const [cancelError, setCancelError] = useState<string | null>(null)
 
   function load() {
     setLoading(true)
@@ -139,6 +155,70 @@ export function NfsesPage({ session, company, onCreate, onEdit }: NfsesPageProps
     }
   }
 
+  async function handleViewDanfse(nfse: NfseRecord) {
+    setBusyId(nfse.id)
+    setActionError(null)
+    try {
+      const url = await fetchNfseFileUrl(token, nfse.id, 'danfse')
+      setDanfseView({ nfse, url })
+    } catch (err) {
+      showActionError(err, 'Não foi possível abrir o DANFSe.')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  async function handleViewXml(nfse: NfseRecord) {
+    setBusyId(nfse.id)
+    setActionError(null)
+    try {
+      const xml = await fetchNfseXmlText(token, nfse.id)
+      setXmlView({ nfse, xml })
+    } catch (err) {
+      showActionError(err, 'Não foi possível abrir o XML.')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  async function handleDownload(nfse: NfseRecord, type: 'xml' | 'danfse') {
+    setBusyId(nfse.id)
+    setActionError(null)
+    try {
+      await downloadNfseFile(token, nfse, type)
+    } catch (err) {
+      showActionError(err, `Não foi possível baixar o ${type === 'xml' ? 'XML' : 'DANFSe'}.`)
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  function closeCancel() {
+    setCancelTarget(null)
+    setCancelReasonCode(1)
+    setCancelReason('')
+    setCancelError(null)
+  }
+
+  async function handleConfirmCancel() {
+    if (!cancelTarget) return
+    if (cancelReason.trim().length < 15) {
+      setCancelError('A justificativa precisa ter pelo menos 15 caracteres.')
+      return
+    }
+    setCancelling(true)
+    setCancelError(null)
+    try {
+      await cancelNfse(token, cancelTarget.id, cancelReasonCode, cancelReason.trim())
+      closeCancel()
+      load()
+    } catch (err) {
+      setCancelError(formatNfeProviderError(err, 'Não foi possível cancelar a NFS-e.'))
+    } finally {
+      setCancelling(false)
+    }
+  }
+
   function openLogs(nfse: NfseRecord) {
     setLogsTarget(nfse)
     setLoadingLogs(true)
@@ -174,6 +254,23 @@ export function NfsesPage({ session, company, onCreate, onEdit }: NfsesPageProps
         label: 'Forçar reenvio',
         icon: <RefreshIcon className="h-4 w-4" />,
         onClick: () => handleForceSend(nfse),
+      })
+    }
+    if ([2, 4].includes(nfse.status)) {
+      actions.push(
+        { key: 'view-danfse', label: 'Visualizar DANFSe', icon: <EyeIcon className="h-4 w-4" />, onClick: () => handleViewDanfse(nfse) },
+        { key: 'view-xml', label: 'Visualizar XML', icon: <EyeIcon className="h-4 w-4" />, onClick: () => handleViewXml(nfse) },
+        { key: 'danfse', label: 'Baixar DANFSe', icon: <DownloadIcon className="h-4 w-4" />, onClick: () => handleDownload(nfse, 'danfse') },
+        { key: 'xml', label: 'Baixar XML', icon: <DownloadIcon className="h-4 w-4" />, onClick: () => handleDownload(nfse, 'xml') }
+      )
+    }
+    if (nfse.status === 2) {
+      actions.push({
+        key: 'cancel',
+        label: 'Cancelar',
+        icon: <XCircleIcon className="h-4 w-4" />,
+        tone: 'danger',
+        onClick: () => setCancelTarget(nfse),
       })
     }
     actions.push({
@@ -363,6 +460,87 @@ export function NfsesPage({ session, company, onCreate, onEdit }: NfsesPageProps
           </div>
         )}
       </div>
+
+      {cancelTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={closeCancel}>
+          <div
+            className="w-full max-w-[440px] rounded-2xl bg-[var(--surface)] p-6 shadow-[var(--card-shadow)]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 className="text-[15px] font-bold text-[var(--ink)]">
+              Cancelar NFS-e nº {cancelTarget.numero_nfse ?? cancelTarget.code}
+            </h2>
+            <p className="mt-1 text-[12.5px] text-[var(--muted)]">
+              O cancelamento é enviado ao Ambiente Nacional da NFS-e e não pode ser desfeito.
+            </p>
+            <label className="mt-3 flex flex-col gap-1.5">
+              <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Motivo</span>
+              <Select value={String(cancelReasonCode)} onChange={(value) => setCancelReasonCode(Number(value))}>
+                {Object.entries(NFSE_CANCEL_REASONS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </Select>
+            </label>
+            <textarea
+              value={cancelReason}
+              onChange={(event) => setCancelReason(event.target.value)}
+              rows={3}
+              placeholder="Justificativa (mínimo 15 caracteres)"
+              className="mt-3 w-full rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[13.5px] text-[var(--ink)] ring-1 ring-transparent transition placeholder:text-[var(--muted)] focus:outline-none focus:ring-[var(--blue-300)]"
+            />
+            {cancelError && (
+              <p className="mt-2 whitespace-pre-wrap text-[12.5px] font-medium text-[var(--red-500)]">{cancelError}</p>
+            )}
+            <div className="mt-4 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handleConfirmCancel}
+                disabled={cancelling}
+                className="rounded-xl bg-[var(--red-500)] px-5 py-2.5 text-[13.5px] font-bold text-white transition hover:opacity-90 disabled:opacity-60"
+              >
+                {cancelling ? 'Cancelando…' : 'Confirmar cancelamento'}
+              </button>
+              <button
+                type="button"
+                onClick={closeCancel}
+                className="rounded-xl px-4 py-2.5 text-[13.5px] font-semibold text-[var(--ink-soft)] hover:text-[var(--ink)]"
+              >
+                Voltar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {danfseView && (
+        <DocumentViewerModal
+          documents={[
+            {
+              title: `DANFSe — NFS-e nº ${danfseView.nfse.numero_nfse ?? danfseView.nfse.code ?? ''}`,
+              url: danfseView.url,
+              fileName: `${danfseView.nfse.chave_nfse || danfseView.nfse.id}-nfse.pdf`,
+              type: 'pdf',
+            },
+          ]}
+          index={0}
+          onIndexChange={() => {}}
+          onClose={() => {
+            URL.revokeObjectURL(danfseView.url)
+            setDanfseView(null)
+          }}
+        />
+      )}
+
+      {xmlView && (
+        <NfeXmlViewerModal
+          title={`XML — NFS-e nº ${xmlView.nfse.numero_nfse ?? xmlView.nfse.code ?? ''}`}
+          xml={xmlView.xml}
+          onDownload={() => handleDownload(xmlView.nfse, 'xml')}
+          onClose={() => setXmlView(null)}
+        />
+      )}
 
       <ConfirmDialog
         open={Boolean(deleteTarget)}

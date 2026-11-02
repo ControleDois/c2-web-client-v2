@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { downloadFromUrl, isImageUrl, isPdfUrl } from '../lib/download'
-import { CloseIcon, ChevronLeftIcon, ChevronRightIcon, DownloadIcon, FileTextIcon } from './icons'
+import { CloseIcon, ChevronLeftIcon, ChevronRightIcon, DownloadIcon, FileTextIcon, PrinterIcon } from './icons'
 
 export interface DocumentViewerItem {
   title: string
@@ -20,6 +20,7 @@ interface DocumentViewerModalProps {
 export function DocumentViewerModal({ documents, index, onClose, onIndexChange }: DocumentViewerModalProps) {
   const [downloading, setDownloading] = useState(false)
   const [downloadError, setDownloadError] = useState<string | null>(null)
+  const frameRef = useRef<HTMLIFrameElement>(null)
 
   const doc = documents[index]
 
@@ -47,6 +48,12 @@ export function DocumentViewerModal({ documents, index, onClose, onIndexChange }
     }
   }
 
+  // Imprime o PDF que já está no iframe (blob da mesma origem), sem abrir outra aba.
+  function handlePrint() {
+    frameRef.current?.contentWindow?.focus()
+    frameRef.current?.contentWindow?.print()
+  }
+
   const isPdf = doc.type === 'pdf' || (!doc.type && isPdfUrl(doc.url))
   const isImage = doc.type === 'image' || (!doc.type && isImageUrl(doc.url))
 
@@ -58,6 +65,16 @@ export function DocumentViewerModal({ documents, index, onClose, onIndexChange }
           {doc.description && <p className="truncate text-[12px] text-white/60">{doc.description}</p>}
         </div>
         <div className="flex flex-none items-center gap-2">
+          {isPdf && (
+            <button
+              type="button"
+              onClick={handlePrint}
+              className="flex items-center gap-2 rounded-full bg-white/10 px-3.5 py-2 text-[12.5px] font-semibold text-white transition hover:bg-white/20"
+            >
+              <PrinterIcon className="h-4 w-4" />
+              Imprimir
+            </button>
+          )}
           <button
             type="button"
             onClick={handleDownload}
@@ -92,7 +109,7 @@ export function DocumentViewerModal({ documents, index, onClose, onIndexChange }
         {isImage ? (
           <img src={doc.url} alt={doc.title} className="max-h-full max-w-full rounded-lg object-contain" />
         ) : isPdf ? (
-          <iframe title={doc.title} src={doc.url} className="h-full w-full max-w-4xl rounded-lg bg-white" />
+          <iframe ref={frameRef} title={doc.title} src={doc.url} className="h-full w-full max-w-4xl rounded-lg bg-white" />
         ) : (
           <div className="flex flex-col items-center gap-3 text-white/70">
             <FileTextIcon className="h-12 w-12" />
