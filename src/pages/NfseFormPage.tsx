@@ -182,8 +182,9 @@ export function NfseFormPage({ session, company, nfseId, onBack, onSaved }: Nfse
           bairroPrestador: issuer.address?.district || undefined,
           telefonePrestador: issuer.phone || undefined,
           emailPrestador: issuer.email || undefined,
-          codigoOpcaoSimplesNacional: Number(issuer.crt) === 1 ? 1 : 2,
-          regimeTributarioSimplesNacional: Number(issuer.crt) === 1 ? 1 : undefined,
+          // DPS nacional: 1 não optante, 2 MEI, 3 ME/EPP (CRT 1/2 = Simples, 4 = MEI).
+          codigoOpcaoSimplesNacional: Number(issuer.crt) === 4 ? 2 : [1, 2].includes(Number(issuer.crt)) ? 3 : 1,
+          regimeTributarioSimplesNacional: [1, 2].includes(Number(issuer.crt)) ? Number(issuer.crt) : undefined,
           regimeEspecialTributacao: 0,
           tributacaoIss: 1,
           tipoRetencaoIss: 1,
