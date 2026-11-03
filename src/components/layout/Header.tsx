@@ -25,6 +25,7 @@ import {
   TargetIcon,
   KeyIcon,
   PrinterIcon,
+  CoinIcon,
 } from '../icons'
 
 interface HeaderProps {
@@ -45,6 +46,7 @@ interface HeaderProps {
       | 'licenses'
       | 'app-releases'
       | 'ifood-api-logs'
+      | 'ai-usage'
       | 'blog-posts'
       | 'subscription'
       | 'plans'
@@ -400,6 +402,17 @@ export function Header({
                 >
                   <PrinterIcon className="h-4 w-4 flex-none text-[var(--muted)]" />
                   Aplicativos
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUserMenuOpen(false)
+                    onNavigate('ai-usage')
+                  }}
+                  className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-[13px] font-semibold text-[var(--ink)] hover:bg-[var(--page)]"
+                >
+                  <CoinIcon className="h-4 w-4 flex-none text-[var(--muted)]" />
+                  Consumo de IA
                 </button>
                 <button
                   type="button"

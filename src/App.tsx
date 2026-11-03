@@ -69,6 +69,7 @@ import { MerceariaDashboardPage } from './pages/MerceariaDashboardPage'
 import { PrintersPage } from './pages/PrintersPage'
 import { AppReleasesPage } from './pages/AppReleasesPage'
 import { IfoodApiLogsPage } from './pages/IfoodApiLogsPage'
+import { AiUsagePage } from './pages/AiUsagePage'
 import { BlogPostsPage } from './pages/BlogPostsPage'
 import { OnboardingPage } from './pages/OnboardingPage'
 import { LicenseBlockedPage } from './pages/LicenseBlockedPage'
@@ -965,6 +966,8 @@ function App() {
       pageContent = <AppReleasesPage session={session} />
     } else if (page === 'ifood-api-logs') {
       pageContent = <IfoodApiLogsPage session={session} />
+    } else if (page === 'ai-usage') {
+      pageContent = <AiUsagePage session={session} />
     } else if (page === 'subscription') {
       pageContent = (
         <SubscriptionPage

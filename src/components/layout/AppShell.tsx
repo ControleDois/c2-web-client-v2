@@ -99,6 +99,7 @@ export type AppPage =
   | 'sale-tokens'
   | 'app-releases'
   | 'ifood-api-logs'
+  | 'ai-usage'
   | 'blog-posts'
   | 'subscription'
   | 'plans'
