@@ -9,6 +9,9 @@ export interface IfoodMerchantRecord {
   status: IfoodMerchantStatus
   user_code: string | null
   authorized_at: string | null
+  // Só vêm quando a lista é conferida no iFood: null = não deu para consultar.
+  on_ifood?: boolean | null
+  ifood_name?: string | null
 }
 
 export interface IfoodConnectResult {
@@ -25,8 +28,12 @@ export interface IfoodCatalogSyncResult {
   failed: { productId: string; name: string; error: string }[]
 }
 
-export function fetchIfoodMerchants(token: string, companyId: string) {
-  return apiGet<IfoodMerchantRecord[]>('/ifood/merchants', { company_id: companyId }, token)
+export function fetchIfoodMerchants(token: string, companyId: string, checkIfood = false) {
+  return apiGet<IfoodMerchantRecord[]>(
+    '/ifood/merchants',
+    checkIfood ? { company_id: companyId, check_ifood: '1' } : { company_id: companyId },
+    token
+  )
 }
 
 export function connectIfoodMerchant(token: string, companyId: string) {

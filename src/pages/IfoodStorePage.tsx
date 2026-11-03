@@ -192,16 +192,22 @@ export function IfoodStorePage({ session, company }: IfoodStorePageProps) {
   const [editingHours, setEditingHours] = useState(false)
   const [draft, setDraft] = useState<IfoodOpeningDay[]>(EMPTY_DAYS)
 
+  // A lista vem do sistema e é conferida no iFood (GET /merchants) a cada abertura e "Atualizar".
+  const loadMerchants = useCallback(
+    () =>
+      fetchIfoodMerchants(token, company.id, true)
+        .then((list) => {
+          const authorized = list.filter((merchant) => merchant.status === 'authorized')
+          setMerchants(authorized)
+          setMerchantId((current) => current ?? authorized[0]?.id ?? null)
+        })
+        .catch((err) => setError(err instanceof ApiError ? friendlyIfoodMessage(err.message) : 'Não foi possível carregar as lojas.')),
+    [token, company.id]
+  )
+
   useEffect(() => {
-    fetchIfoodMerchants(token, company.id)
-      .then((list) => {
-        const authorized = list.filter((merchant) => merchant.status === 'authorized')
-        setMerchants(authorized)
-        setMerchantId((current) => current ?? authorized[0]?.id ?? null)
-      })
-      .catch((err) => setError(err instanceof ApiError ? friendlyIfoodMessage(err.message) : 'Não foi possível carregar as lojas.'))
-      .finally(() => setLoading(false))
-  }, [token, company.id])
+    void loadMerchants().finally(() => setLoading(false))
+  }, [loadMerchants])
 
   const refreshAll = useCallback(
     async (id: string) => {
@@ -392,6 +398,13 @@ export function IfoodStorePage({ session, company }: IfoodStorePageProps) {
                   <span className={`block text-[11.5px] ${entry.id === merchantId ? 'text-white/80' : 'text-[var(--muted)]'}`}>
                     Código no iFood: {entry.merchant_id}
                   </span>
+                  <span className={`mt-0.5 block text-[11.5px] font-semibold ${entry.id === merchantId ? 'text-white' : 'text-[var(--ink-soft)]'}`}>
+                    {entry.on_ifood === true
+                      ? '✔️ Autorizada no iFood'
+                      : entry.on_ifood === false
+                        ? '❗ Não aparece no iFood: autorize de novo'
+                        : 'Não foi possível conferir no iFood'}
+                  </span>
                 </button>
               ))}
             </div>
@@ -427,7 +440,10 @@ export function IfoodStorePage({ session, company }: IfoodStorePageProps) {
               </div>
               <button
                 type="button"
-                onClick={() => merchantId && refreshAll(merchantId)}
+                onClick={() => {
+                  void loadMerchants()
+                  if (merchantId) void refreshAll(merchantId)
+                }}
                 disabled={checking}
                 className={buttonSecondary + ' bg-[var(--surface)]'}
               >
