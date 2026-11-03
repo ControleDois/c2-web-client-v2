@@ -6,6 +6,7 @@ import {
   FUEL_LEVEL_OPTIONS,
   fetchSales,
   updateVehicleRentalOperation,
+  lateReturnPending,
   VEHICLE_RENTAL_STATUS_LABELS,
   type SaleRecord,
 } from '../lib/sales'
@@ -453,9 +454,11 @@ export function StandaloneInspectionPage({ session, company, onBack, onSaved }: 
           // Avisa e deixa na tela pra não perder o contexto (o operador pode
           // tentar de novo pela tela do aluguel, vinculando essa vistoria).
           setError(
-            `Vistoria salva, mas não foi possível atualizar o aluguel: ${
-              linkErr instanceof ApiError ? linkErr.message : 'erro desconhecido'
-            }`
+            lateReturnPending(linkErr)
+              ? 'Vistoria salva, mas a devolução está em atraso: registre a devolução pela tela do aluguel (usando esta vistoria) para informar se os dias a mais serão cobrados.'
+              : `Vistoria salva, mas não foi possível atualizar o aluguel: ${
+                  linkErr instanceof ApiError ? linkErr.message : 'erro desconhecido'
+                }`
           )
           setSubmitting(false)
           return

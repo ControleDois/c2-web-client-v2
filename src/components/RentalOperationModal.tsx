@@ -2,9 +2,13 @@ import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type T
 import {
   updateVehicleRentalOperation,
   recalculateRentalBills,
+  lateReturnPending,
   FUEL_LEVEL_OPTIONS,
+  type LateReturnDecision,
+  type LateReturnPreview,
   type SaleRecord,
   type VehicleRentalContractRecord,
+  type VehicleRentalOperationPayload,
 } from '../lib/sales'
 import { createVehicleInspection, fetchVehicleInspections, type VehicleInspectionRecord } from '../lib/vehicleInspections'
 import { ApiError } from '../lib/api'
@@ -13,6 +17,7 @@ import { CameraIcon, PaperclipIcon, CheckCircleIcon, CloseIcon, TrashIcon } from
 import { useMyCompanyPerson } from '../hooks/useMyCompanyPerson'
 import { SelectField } from './form/SelectField'
 import { ConfirmDialog } from './ConfirmDialog'
+import { LateReturnDecisionModal } from './LateReturnDecisionModal'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
 export type OperationMode = 'pickup' | 'return'
@@ -87,6 +92,15 @@ export function RentalOperationModal({ session, company, sale, mode, detailedReq
   // acontecer. Fica pendente de resposta do usuário antes de fechar o modal.
   const [lateReturnInfo, setLateReturnInfo] = useState<NonNullable<VehicleRentalContractRecord['lateReturn']> | null>(null)
   const [earlyReturnInfo, setEarlyReturnInfo] = useState<NonNullable<VehicleRentalContractRecord['earlyReturn']> | null>(null)
+  // Devolução em atraso ainda sem decisão: o servidor não gravou nada e
+  // devolveu quanto passou do contratado. Guarda a devolução já montada (com
+  // a vistoria criada) pra reenviar junto com a decisão, sem refazer a vistoria.
+  const [lateReturnPreview, setLateReturnPreview] = useState<{
+    info: LateReturnPreview
+    payload: VehicleRentalOperationPayload
+  } | null>(null)
+  const [lateDecisionError, setLateDecisionError] = useState<string | null>(null)
+  const createdInspectionIdRef = useRef<string | null>(null)
   const [recalculating, setRecalculating] = useState(false)
   const [recalculateError, setRecalculateError] = useState<string | null>(null)
 
@@ -386,6 +400,9 @@ export function RentalOperationModal({ session, company, sale, mode, detailedReq
 
       if (inspectionMode === 'existing') {
         inspectionId = selectedInspectionId || undefined
+      } else if (createdInspectionIdRef.current) {
+        // Voltou da pergunta da devolução em atraso: a vistoria já foi criada.
+        inspectionId = createdInspectionIdRef.current
       } else {
         const photos = slots
           .filter((slot) => slot.file)
@@ -413,6 +430,7 @@ export function RentalOperationModal({ session, company, sale, mode, detailedReq
             driver_signer_name: driverSignerName || undefined,
           })
           inspectionId = result.data.id
+          createdInspectionIdRef.current = inspectionId
         }
       }
 
@@ -431,36 +449,69 @@ export function RentalOperationModal({ session, company, sale, mode, detailedReq
         // horário local - new Date(...) já interpreta certo (sem o bug de
         // data pura tratada como UTC) e toISOString() converte pra gravar.
         const returnDateISO = returnDateInput ? new Date(returnDateInput).toISOString() : nowISO
-        const updated = await updateVehicleRentalOperation(session.token.token, sale.id, {
+        const payload: VehicleRentalOperationPayload = {
           returnDate: returnDateISO,
           returnOdometer: odometer ? Number(odometer) : undefined,
           returnFuelLevel: fuelLevel || undefined,
           returnLocation: location || undefined,
           returnInspectionId: inspectionId,
           status: 2,
-        })
-
-        // Devolução antecipada com parcelas pendentes de dias que não vão
-        // mais acontecer - pergunta antes de fechar, em vez de sair
-        // direto (ver handleConfirmRecalculate/handleSkipRecalculate).
-        // Devolução em atraso: o servidor já estendeu o aluguel e gerou as
-        // contas dos períodos a mais — só avisa o que foi feito.
-        if (updated.lateReturn && updated.lateReturn.extraPeriods > 0) {
-          setLateReturnInfo(updated.lateReturn)
-          setSubmitting(false)
+        }
+        let updated: VehicleRentalContractRecord
+        try {
+          updated = await updateVehicleRentalOperation(session.token.token, sale.id, payload)
+        } catch (err) {
+          const pending = lateReturnPending(err)
+          if (!pending) throw err
+          setLateDecisionError(null)
+          setLateReturnPreview({ info: pending, payload })
           return
         }
-
-        if (updated.earlyReturn && updated.earlyReturn.pendingBillsCount > 0) {
-          setEarlyReturnInfo(updated.earlyReturn)
-          setSubmitting(false)
-          return
-        }
+        if (finishReturn(updated)) return
       }
 
       onCompleted()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Não foi possível registrar a operação.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  // Avisos depois da devolução gravada. Retorna true quando ainda tem
+  // pergunta/aviso aberto (o modal não fecha sozinho).
+  function finishReturn(updated: VehicleRentalContractRecord): boolean {
+    // Devolução em atraso: mostra o que foi lançado (ou abonado).
+    if (updated.lateReturn) {
+      setLateReturnInfo(updated.lateReturn)
+      return true
+    }
+    // Devolução antecipada com parcelas pendentes de dias que não vão
+    // mais acontecer - pergunta antes de fechar, em vez de sair
+    // direto (ver handleConfirmRecalculate/handleSkipRecalculate).
+    if (updated.earlyReturn && updated.earlyReturn.pendingBillsCount > 0) {
+      setEarlyReturnInfo(updated.earlyReturn)
+      return true
+    }
+    return false
+  }
+
+  async function handleLateDecision(decision: LateReturnDecision) {
+    if (!lateReturnPreview) return
+    setSubmitting(true)
+    setLateDecisionError(null)
+    try {
+      const updated = await updateVehicleRentalOperation(session.token.token, sale.id, {
+        ...lateReturnPreview.payload,
+        lateReturnDecision: decision,
+      })
+      setLateReturnPreview(null)
+      if (!finishReturn(updated)) onCompleted()
+    } catch (err) {
+      const pending = lateReturnPending(err)
+      // A data mudou do outro lado (ex: outra conta lançada nesse meio-tempo): atualiza o resumo.
+      if (pending) setLateReturnPreview({ info: pending, payload: lateReturnPreview.payload })
+      setLateDecisionError(err instanceof ApiError ? err.message : 'Não foi possível registrar a devolução.')
     } finally {
       setSubmitting(false)
     }
@@ -900,11 +951,15 @@ export function RentalOperationModal({ session, company, sale, mode, detailedReq
         lateReturnInfo
           ? `O veículo foi devolvido em ${formatDate(lateReturnInfo.actualReturnDate)} — depois do fim contratado (${formatDate(
               lateReturnInfo.contractedEndDate
-            )}). O aluguel foi estendido até a devolução e ${lateReturnInfo.extraPeriods} período${
-              lateReturnInfo.extraPeriods === 1 ? '' : 's'
-            } a mais ${lateReturnInfo.extraPeriods === 1 ? 'foi lançado' : 'foram lançados'} em Contas a Receber, totalizando ${formatCurrency(
-              lateReturnInfo.extraTotal
-            )}.`
+            )}). O aluguel foi estendido até a devolução e ${
+              lateReturnInfo.mode === 'waive'
+                ? `os períodos a mais (${formatCurrency(lateReturnInfo.waivedTotal)}) não foram cobrados; o motivo ficou registrado no aluguel.`
+                : `${lateReturnInfo.extraPeriods} período${lateReturnInfo.extraPeriods === 1 ? '' : 's'} a mais ${
+                    lateReturnInfo.extraPeriods === 1 ? 'foi lançado' : 'foram lançados'
+                  } ${lateReturnInfo.mode === 'paid' ? 'como recebido' : 'em Contas a Receber'}, totalizando ${formatCurrency(
+                    lateReturnInfo.extraTotal
+                  )}.`
+            }`
           : ''
       }
       confirmLabel="OK"
@@ -919,6 +974,18 @@ export function RentalOperationModal({ session, company, sale, mode, detailedReq
         onCompleted()
       }}
     />
+
+    {lateReturnPreview && (
+      <LateReturnDecisionModal
+        token={session.token.token}
+        companyId={company.id}
+        info={lateReturnPreview.info}
+        submitting={submitting}
+        error={lateDecisionError}
+        onCancel={() => setLateReturnPreview(null)}
+        onSubmit={handleLateDecision}
+      />
+    )}
 
     <ConfirmDialog
       open={Boolean(earlyReturnInfo)}

@@ -1,5 +1,5 @@
 import type { SendTimeline, SignatureEvidence } from './supportContracts'
-import { apiGet, apiPost, apiPut, apiDelete } from './api'
+import { apiGet, apiPost, apiPut, apiDelete, ApiError } from './api'
 
 export const FUEL_LEVEL_OPTIONS = ['Vazio', 'Reserva', '1/4', '1/2', '3/4', 'Cheio']
 
@@ -62,13 +62,43 @@ export interface VehicleRentalContractRecord {
     pendingBillsTotal: number
   } | null
   // Devolução depois do fim contratado: o servidor estende o aluguel até a
-  // devolução e já cria as contas a receber dos períodos a mais.
+  // devolução e grava o que o operador decidiu sobre os períodos a mais.
   lateReturn?: {
+    mode: LateReturnMode
     contractedEndDate: string
     actualReturnDate: string
     extraPeriods: number
     extraTotal: number
+    waivedTotal: number
   } | null
+}
+
+export type LateReturnMode = 'charge' | 'paid' | 'waive'
+
+// Devolução em atraso ainda sem decisão: o servidor recusa a devolução (422
+// late_return_decision_required) e manda quanto passou do contratado.
+export interface LateReturnPreview {
+  contractedEndDate: string
+  actualReturnDate: string
+  frequency: string
+  extraPeriods: number
+  dueDates: string[]
+  rate: number
+  extraTotal: number
+}
+
+export interface LateReturnDecision {
+  mode: LateReturnMode
+  reason?: string
+  amountPerPeriod?: number
+  formPayment?: number
+  bankAccountId?: string
+}
+
+export function lateReturnPending(err: unknown): LateReturnPreview | null {
+  if (!(err instanceof ApiError) || err.status !== 422) return null
+  const body = err.body as { code?: string; lateReturn?: LateReturnPreview } | undefined
+  return body?.code === 'late_return_decision_required' && body.lateReturn ? body.lateReturn : null
 }
 
 export interface VehicleSaleContractRecord {
@@ -256,6 +286,7 @@ export interface VehicleRentalOperationPayload {
   returnInspectionId?: string
   status: number
   notes?: string
+  lateReturnDecision?: LateReturnDecision
 }
 
 export interface VehicleSaleOperationPayload {
