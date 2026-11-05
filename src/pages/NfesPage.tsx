@@ -76,9 +76,67 @@ function statusTone(status: number): string {
   return 'bg-[var(--amber-100)] text-[var(--amber-500)]'
 }
 
+// A listagem traz até FETCH_LIMIT notas; acima disso os totais ficam parciais.
+const FETCH_LIMIT = 500
+
+type TypeFilter = 'all' | '55' | '65'
+
+function modelLabel(modelo: number | undefined): string {
+  return Number(modelo) === 65 ? 'NFC-e' : 'NF-e'
+}
+
+function modelTone(modelo: number | undefined): string {
+  return Number(modelo) === 65
+    ? 'bg-[var(--amber-100)] text-[var(--amber-500)]'
+    : 'bg-[var(--blue-100)] text-[var(--blue-700)]'
+}
+
+interface TotalsBucket {
+  count: number
+  value: number
+  nfe: number
+  nfce: number
+}
+
+function emptyBucket(): TotalsBucket {
+  return { count: 0, value: 0, nfe: 0, nfce: 0 }
+}
+
+function TotalCard({
+  label,
+  bucket,
+  tone,
+  active,
+  onClick,
+}: {
+  label: string
+  bucket: TotalsBucket
+  tone: string
+  active: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex flex-col gap-1 rounded-2xl border bg-[var(--surface)] p-4 text-left transition hover:border-[var(--blue-300)] ${
+        active ? 'border-[var(--blue-500)] ring-2 ring-[var(--blue-100)]' : 'border-[var(--border)]'
+      }`}
+    >
+      <span className="text-[11px] font-semibold tracking-wide text-[var(--muted)] uppercase">{label}</span>
+      <span className={`text-[20px] font-bold ${tone}`}>{formatCurrency(bucket.value)}</span>
+      <span className="text-[12px] text-[var(--ink-soft)]">
+        {bucket.count} {bucket.count === 1 ? 'nota' : 'notas'}
+        {bucket.count > 0 && ` · ${bucket.nfe} NF-e · ${bucket.nfce} NFC-e`}
+      </span>
+    </button>
+  )
+}
+
 export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all')
   const [personFilter, setPersonFilter] = useState<{ id: string; label: string } | null>(null)
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
@@ -125,7 +183,7 @@ export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) 
     setLoading(true)
     setError(null)
     fetchNfes(session.token.token, company.id, {
-      limit: 500,
+      limit: FETCH_LIMIT,
       dateStart: dateFrom || undefined,
       dateEnd: dateTo || undefined,
       peopleId: personFilter?.id,
@@ -142,7 +200,7 @@ export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) 
 
   useEffect(() => {
     setPage(1)
-  }, [search, statusFilter, dateFrom, dateTo, personFilter, sortField, sortDirection])
+  }, [search, statusFilter, typeFilter, dateFrom, dateTo, personFilter, sortField, sortDirection])
 
   // O envio/consulta roda em segundo plano no backend — sem isso, o status
   // final (autorizada/erro) só aparece depois de recarregar a página na mão.
@@ -153,14 +211,44 @@ export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) 
     setErrorTarget((prev) => (prev && prev.id === updatedId ? { ...prev, ...updated } : prev))
   })
 
-  const filtered = useMemo(() => {
+  // Tipo e busca valem para os totais; o status não, para os cartões mostrarem todas as situações.
+  const typed = useMemo(() => {
     const term = search.trim().toLowerCase()
     return nfes.filter((nfe) => {
-      if (statusFilter !== 'all' && String(nfe.status) !== statusFilter) return false
+      if (typeFilter !== 'all' && String(nfe.modelo) !== typeFilter) return false
       if (!term) return true
-      return String(nfe.code ?? '').includes(term) || (nfe.people?.name ?? '').toLowerCase().includes(term)
+      return (
+        String(nfe.code ?? '').includes(term) ||
+        String(nfe.numero ?? '').includes(term) ||
+        (nfe.chave_nfe ?? '').includes(term) ||
+        (nfe.people?.name ?? '').toLowerCase().includes(term)
+      )
     })
-  }, [nfes, search, statusFilter])
+  }, [nfes, search, typeFilter])
+
+  // 'pending' é o cartão "Aguardando": junta aguardando envio (0) e em processamento (1).
+  const filtered = useMemo(() => {
+    if (statusFilter === 'all') return typed
+    if (statusFilter === 'pending') return typed.filter((nfe) => nfe.status === 0 || nfe.status === 1)
+    return typed.filter((nfe) => String(nfe.status) === statusFilter)
+  }, [typed, statusFilter])
+
+  const totals = useMemo(() => {
+    const result = { issued: emptyBucket(), pending: emptyBucket(), error: emptyBucket(), cancelled: emptyBucket() }
+    for (const nfe of typed) {
+      const bucket =
+        nfe.status === 2 ? result.issued : nfe.status === 3 ? result.error : nfe.status === 4 ? result.cancelled : result.pending
+      bucket.count += 1
+      bucket.value += Number(nfe.valor_total ?? 0)
+      if (Number(nfe.modelo) === 65) bucket.nfce += 1
+      else bucket.nfe += 1
+    }
+    return result
+  }, [typed])
+
+  function toggleStatus(status: string) {
+    setStatusFilter((current) => (current === status ? 'all' : status))
+  }
 
   const sorted = useMemo(() => {
     const items = [...filtered]
@@ -589,7 +677,7 @@ export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) 
           <SearchIcon className="h-4 w-4 flex-none text-[var(--muted)]" />
           <input
             type="text"
-            placeholder="Buscar por código ou cliente"
+            placeholder="Buscar por número, chave ou cliente"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             className="w-full bg-transparent text-[13.5px] text-[var(--ink)] placeholder:text-[var(--muted)] focus:outline-none"
@@ -597,11 +685,23 @@ export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) 
         </div>
         <SelectField label="Status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} variant="surface" className="w-44">
           <option value="all">Todos</option>
+          <option value="pending">Aguardando ou em processamento</option>
           {Object.entries(NFE_STATUS_LABELS).map(([value, label]) => (
             <option key={value} value={value}>
               {label}
             </option>
           ))}
+        </SelectField>
+        <SelectField
+          label="Tipo"
+          value={typeFilter}
+          onChange={(event) => setTypeFilter(event.target.value as TypeFilter)}
+          variant="surface"
+          className="w-36"
+        >
+          <option value="all">Todas</option>
+          <option value="55">NF-e</option>
+          <option value="65">NFC-e</option>
         </SelectField>
         <div className="min-w-[220px] flex-1">
           <SearchSelectField
@@ -635,7 +735,7 @@ export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) 
             className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2.5 text-[13.5px] text-[var(--ink)] focus:outline-none"
           />
         </label>
-        {(personFilter || dateFrom || dateTo || statusFilter !== 'all') && (
+        {(personFilter || dateFrom || dateTo || statusFilter !== 'all' || typeFilter !== 'all') && (
           <button
             type="button"
             onClick={() => {
@@ -643,6 +743,7 @@ export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) 
               setDateFrom('')
               setDateTo('')
               setStatusFilter('all')
+              setTypeFilter('all')
             }}
             className="rounded-xl px-3.5 py-2.5 text-[12.5px] font-semibold text-[var(--blue-700)] hover:underline"
           >
@@ -653,6 +754,46 @@ export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) 
 
       {error && (
         <div className="rounded-2xl bg-[var(--red-100)] p-4 text-[13.5px] font-medium text-[var(--red-500)]">{error}</div>
+      )}
+
+      {!loading && !error && (
+        <div className="flex flex-col gap-2">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <TotalCard
+              label="Emitidas"
+              bucket={totals.issued}
+              tone="text-[var(--green-600)]"
+              active={statusFilter === '2'}
+              onClick={() => toggleStatus('2')}
+            />
+            <TotalCard
+              label="Aguardando / processando"
+              bucket={totals.pending}
+              tone="text-[var(--amber-500)]"
+              active={statusFilter === 'pending'}
+              onClick={() => toggleStatus('pending')}
+            />
+            <TotalCard
+              label="Com erro"
+              bucket={totals.error}
+              tone="text-[var(--red-500)]"
+              active={statusFilter === '3'}
+              onClick={() => toggleStatus('3')}
+            />
+            <TotalCard
+              label="Canceladas"
+              bucket={totals.cancelled}
+              tone="text-[var(--muted)]"
+              active={statusFilter === '4'}
+              onClick={() => toggleStatus('4')}
+            />
+          </div>
+          {nfes.length >= FETCH_LIMIT && (
+            <p className="text-[12px] text-[var(--amber-500)]">
+              Mostrando as {FETCH_LIMIT} notas mais recentes: escolha um período (De / Até) para os totais ficarem completos.
+            </p>
+          )}
+        </div>
       )}
 
       <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
@@ -679,7 +820,8 @@ export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) 
                     direction={sortDirection}
                     onSort={handleSort}
                   />
-                  <th className="w-[28%] px-2 pb-2.5">Cliente</th>
+                  <th className="w-[9%] px-2 pb-2.5">Tipo</th>
+                  <th className="w-[23%] px-2 pb-2.5">Cliente</th>
                   <SortableTh
                     label="Emissão"
                     field="data_emissao"
@@ -722,6 +864,11 @@ export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) 
                       </span>
                     </td>
                     <td className="px-2 py-2.5">
+                      <span className={`rounded-full px-2 py-1 text-[10.5px] font-bold leading-tight ${modelTone(nfe.modelo)}`}>
+                        {modelLabel(nfe.modelo)}
+                      </span>
+                    </td>
+                    <td className="px-2 py-2.5">
                       <p className="truncate text-[13.5px] font-semibold text-[var(--ink)]" title={nfe.people?.name}>
                         {nfe.people?.name || '—'}
                       </p>
@@ -747,30 +894,35 @@ export function NfesPage({ session, company, onCreate, onEdit }: NfesPageProps) 
           </div>
         )}
 
-        {!loading && lastPage > 1 && (
+        {!loading && filtered.length > 0 && (
           <div className="mt-4 flex items-center justify-between">
-            <p className="text-[12px] text-[var(--muted)]">{filtered.length} NF-e no total</p>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-[12.5px] font-semibold text-[var(--ink-soft)] disabled:opacity-40"
-              >
-                Anterior
-              </button>
-              <span className="text-[12.5px] text-[var(--ink-soft)]">
-                {page} / {lastPage}
-              </span>
-              <button
-                type="button"
-                disabled={page >= lastPage}
-                onClick={() => setPage((p) => Math.min(lastPage, p + 1))}
-                className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-[12.5px] font-semibold text-[var(--ink-soft)] disabled:opacity-40"
-              >
-                Próxima
-              </button>
-            </div>
+            <p className="text-[12px] text-[var(--muted)]">
+              {filtered.length} {filtered.length === 1 ? 'nota' : 'notas'} ·{' '}
+              {formatCurrency(filtered.reduce((sum, nfe) => sum + Number(nfe.valor_total ?? 0), 0))}
+            </p>
+            {lastPage > 1 && (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-[12.5px] font-semibold text-[var(--ink-soft)] disabled:opacity-40"
+                >
+                  Anterior
+                </button>
+                <span className="text-[12.5px] text-[var(--ink-soft)]">
+                  {page} / {lastPage}
+                </span>
+                <button
+                  type="button"
+                  disabled={page >= lastPage}
+                  onClick={() => setPage((p) => Math.min(lastPage, p + 1))}
+                  className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-[12.5px] font-semibold text-[var(--ink-soft)] disabled:opacity-40"
+                >
+                  Próxima
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
