@@ -22,6 +22,7 @@ import {
   CoinIcon as SaleIcon,
   WrenchIcon,
   FileTextIcon,
+  DownloadIcon,
   MailIcon,
   ClockIcon,
   ArrowUpRightIcon,
@@ -85,6 +86,7 @@ export type AppPage =
   | 'nfe-nature-operations'
   | 'nfe-taxations'
   | 'nfses'
+  | 'sped-fiscal'
   | 'licenses'
   | 'time-clock'
   | 'support-contracts'
@@ -348,6 +350,7 @@ function buildNavGroups(
               { page: 'nfe-manifests' as const, label: 'Manifesto NF-e', icon: MailIcon },
               { page: 'nfe-nature-operations' as const, label: 'Natureza de Operação', icon: TagIcon },
               { page: 'nfe-taxations' as const, label: 'Tributação', icon: TargetIcon },
+              { page: 'sped-fiscal' as const, label: 'SPED Fiscal', icon: DownloadIcon },
             ]
           : []),
         ...(nfseModuleEnabled

@@ -93,6 +93,7 @@ import { NfesPage } from './pages/NfesPage'
 import { NfeFormPage } from './pages/NfeFormPage'
 import { TasksPage } from './pages/TasksPage'
 import { NfsesPage } from './pages/NfsesPage'
+import { SpedFiscalPage } from './pages/SpedFiscalPage'
 import { NfseFormPage } from './pages/NfseFormPage'
 import { InvestmentsPage } from './pages/InvestmentsPage'
 import { InvestmentFormPage } from './pages/InvestmentFormPage'
@@ -1119,6 +1120,8 @@ function App() {
         ) : (
           <NfesPage session={session} company={activeCompany} onCreate={nfesView.create} onEdit={(nfe) => nfesView.edit(nfe.id)} />
         )
+    } else if (page === 'sped-fiscal') {
+      pageContent = <SpedFiscalPage session={session} company={activeCompany} />
     } else if (page === 'nfses') {
       pageContent =
         nfsesView.view.mode === 'form' ? (
