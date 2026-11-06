@@ -70,6 +70,7 @@ import { PrintersPage } from './pages/PrintersPage'
 import { AppReleasesPage } from './pages/AppReleasesPage'
 import { IfoodApiLogsPage } from './pages/IfoodApiLogsPage'
 import { AiUsagePage } from './pages/AiUsagePage'
+import { FinancialGoalsPage } from './pages/FinancialGoalsPage'
 import { BlogPostsPage } from './pages/BlogPostsPage'
 import { OnboardingPage } from './pages/OnboardingPage'
 import { LicenseBlockedPage } from './pages/LicenseBlockedPage'
@@ -969,6 +970,8 @@ function App() {
       pageContent = <IfoodApiLogsPage session={session} />
     } else if (page === 'ai-usage') {
       pageContent = <AiUsagePage session={session} />
+    } else if (page === 'financial-goals') {
+      pageContent = <FinancialGoalsPage session={session} />
     } else if (page === 'subscription') {
       pageContent = (
         <SubscriptionPage

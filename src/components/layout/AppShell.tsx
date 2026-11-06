@@ -102,6 +102,7 @@ export type AppPage =
   | 'app-releases'
   | 'ifood-api-logs'
   | 'ai-usage'
+  | 'financial-goals'
   | 'blog-posts'
   | 'subscription'
   | 'plans'

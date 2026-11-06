@@ -26,6 +26,7 @@ import {
   KeyIcon,
   PrinterIcon,
   CoinIcon,
+  TrendUpIcon,
 } from '../icons'
 
 interface HeaderProps {
@@ -47,6 +48,7 @@ interface HeaderProps {
       | 'app-releases'
       | 'ifood-api-logs'
       | 'ai-usage'
+      | 'financial-goals'
       | 'blog-posts'
       | 'subscription'
       | 'plans'
@@ -413,6 +415,17 @@ export function Header({
                 >
                   <CoinIcon className="h-4 w-4 flex-none text-[var(--muted)]" />
                   Consumo de IA
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUserMenuOpen(false)
+                    onNavigate('financial-goals')
+                  }}
+                  className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-[13px] font-semibold text-[var(--ink)] hover:bg-[var(--page)]"
+                >
+                  <TrendUpIcon className="h-4 w-4 flex-none text-[var(--muted)]" />
+                  Metas financeiras
                 </button>
                 <button
                   type="button"
