@@ -14,6 +14,7 @@ import {
   fetchPixBanks,
   cancelBillBoleto,
   removeManualBoleto,
+  FORM_PAYMENT_LABELS,
   type BillRecord,
   type BoletoBank,
 } from '../lib/bills'
@@ -35,6 +36,10 @@ import {
   FileTextIcon,
   WhatsappIcon,
   LinkIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  CloseIcon,
+  SlidersIcon,
 } from '../components/icons'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { BoletoBankPickerModal } from '../components/BoletoBankPickerModal'
@@ -95,6 +100,37 @@ function getPeriodRange(key: PeriodKey): { start?: string; end?: string } {
   return {}
 }
 
+const MONTH_LABELS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+
+// Primeiro e último dia do mês em AAAA-MM-DD, no horário local (sem o desvio do toISOString).
+function monthRange(year: number, month: number): { start: string; end: string } {
+  const pad = (value: number) => String(value).padStart(2, '0')
+  const lastDay = new Date(year, month + 1, 0).getDate()
+  return { start: `${year}-${pad(month + 1)}-01`, end: `${year}-${pad(month + 1)}-${pad(lastDay)}` }
+}
+
+// Detalhes da linha como na versão antiga: atraso, encargos, valor atualizado, parcela e datas.
+function billDetails(bill: BillRecord) {
+  const pending = bill.status === 0
+  const daysLate = pending ? Number(bill.days_late || 0) : 0
+  const charges = pending ? Number(bill.fees_calculated || 0) + Number(bill.fine_calculated || 0) : 0
+  const updated = Number(bill.total_updated || 0)
+  const createdAt = bill.created_at ?? bill.createdAt
+  return {
+    daysLate,
+    charges,
+    updatedTotal: pending && updated > 0 && Math.abs(updated - Number(bill.amount)) >= 0.01 ? updated : null,
+    installment: bill.installments && bill.installments > 1 ? `Parcela ${bill.installment_number ?? '?'}/${bill.installments}` : null,
+    createdAt: createdAt ? formatDate(createdAt) : null,
+    receivedAt: bill.status === 1 && bill.date_received ? formatDate(bill.date_received) : null,
+    formPayment: FORM_PAYMENT_LABELS[bill.form_payment] ?? null,
+  }
+}
+
+function countBillsMoreFilters(filters: BillsMoreFilters): number {
+  return [filters.peopleId, filters.categoryId, filters.bankAccountId].filter(Boolean).length
+}
+
 type BillsDateType = 'date_due' | 'date_received' | 'created_at'
 
 function dateTypeOptions(role: 0 | 1): { value: BillsDateType; label: string }[] {
@@ -117,6 +153,8 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
   const [period, setPeriod] = useState<PeriodKey>('month')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
+  const [monthsYear, setMonthsYear] = useState(() => new Date().getFullYear())
+  const [showMoreFilters, setShowMoreFilters] = useState(false)
   const [search, setSearch] = useState('')
   const [statusType, setStatusType] = useState('')
   const [dateType, setDateType] = useState<BillsDateType>('date_due')
@@ -881,8 +919,59 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
         refreshKey={summaryRefreshKey}
       />
 
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex min-w-[240px] flex-1 items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2.5">
+      {/* Atalho discreto por mês: um clique filtra o mês inteiro pela data escolhida ao lado. */}
+      <div className="-mb-2 flex items-center gap-x-1 overflow-x-auto whitespace-nowrap [scrollbar-width:none]">
+        <div className="mr-2 flex flex-none items-center gap-0.5">
+          <button
+            type="button"
+            onClick={() => setMonthsYear((year) => year - 1)}
+            aria-label="Ano anterior"
+            className="rounded-md p-1 text-[var(--muted)] hover:bg-[var(--surface)] hover:text-[var(--ink)]"
+          >
+            <ChevronLeftIcon className="h-3.5 w-3.5" />
+          </button>
+          <span className="w-10 text-center text-[12.5px] font-bold text-[var(--ink-soft)]">{monthsYear}</span>
+          <button
+            type="button"
+            onClick={() => setMonthsYear((year) => year + 1)}
+            aria-label="Próximo ano"
+            className="rounded-md p-1 text-[var(--muted)] hover:bg-[var(--surface)] hover:text-[var(--ink)]"
+          >
+            <ChevronRightIcon className="h-3.5 w-3.5" />
+          </button>
+        </div>
+        {MONTH_LABELS.map((label, month) => {
+          const range = monthRange(monthsYear, month)
+          const now = new Date()
+          const isCurrentMonthPeriod =
+            !dateFrom && !dateTo && period === 'month' && monthsYear === now.getFullYear() && month === now.getMonth()
+          const active = (dateFrom === range.start && dateTo === range.end) || isCurrentMonthPeriod
+          return (
+            <button
+              key={label}
+              type="button"
+              onClick={() => {
+                if (active) {
+                  setDateFrom('')
+                  setDateTo('')
+                  if (isCurrentMonthPeriod) setPeriod('all')
+                  return
+                }
+                setDateFrom(range.start)
+                setDateTo(range.end)
+              }}
+              className={`flex-none rounded-lg px-2.5 py-1 text-[12.5px] font-semibold transition ${
+                active ? 'bg-[var(--blue-500)] text-white' : 'text-[var(--muted)] hover:bg-[var(--surface)] hover:text-[var(--ink)]'
+              }`}
+            >
+              {label}
+            </button>
+          )
+        })}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex w-full min-w-[200px] items-center gap-2 rounded-xl border sm:w-auto sm:flex-1 border-[var(--border)] bg-[var(--surface)] px-3.5 py-2.5">
           <SearchIcon className="h-4 w-4 flex-none text-[var(--muted)]" />
           <input
             type="text"
@@ -892,7 +981,7 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
             className="w-full bg-transparent text-[13.5px] text-[var(--ink)] placeholder:text-[var(--muted)] focus:outline-none"
           />
         </div>
-        <div className="w-[200px] flex-none">
+        <div className="w-[calc(50%-5px)] flex-none sm:w-[180px]">
           <Select
             value={statusType}
             onChange={(value) => {
@@ -905,7 +994,7 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
             <option value="1">{role === 1 ? 'Recebido' : 'Pago'}</option>
           </Select>
         </div>
-        <div className="w-[200px] flex-none">
+        <div className="w-[calc(50%-5px)] flex-none sm:w-[180px]">
           <Select value={dateType} onChange={(value) => setDateType(value as BillsDateType)}>
             {dateTypeOptions(role).map((option) => (
               <option key={option.value} value={option.value}>
@@ -914,39 +1003,59 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
             ))}
           </Select>
         </div>
-        <label className="flex flex-col gap-1.5">
-          <span className="text-[12px] font-semibold text-[var(--ink-soft)]">De</span>
+        <div className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 sm:flex-none">
+          <span className="text-[12px] font-semibold text-[var(--muted)]">De</span>
           <input
             type="date"
             value={dateFrom}
             onChange={(event) => setDateFrom(event.target.value)}
-            className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2.5 text-[13.5px] text-[var(--ink)] focus:outline-none"
+            aria-label="Data inicial"
+            className="min-w-0 flex-1 bg-transparent text-[13.5px] text-[var(--ink)] focus:outline-none sm:flex-none"
           />
-        </label>
-        <label className="flex flex-col gap-1.5">
-          <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Até</span>
+          <span className="text-[12px] font-semibold text-[var(--muted)]">até</span>
           <input
             type="date"
             value={dateTo}
             onChange={(event) => setDateTo(event.target.value)}
-            className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2.5 text-[13.5px] text-[var(--ink)] focus:outline-none"
+            aria-label="Data final"
+            className="min-w-0 flex-1 bg-transparent text-[13.5px] text-[var(--ink)] focus:outline-none sm:flex-none"
           />
-        </label>
-        {(dateFrom || dateTo) && (
-          <button
-            type="button"
-            onClick={() => {
-              setDateFrom('')
-              setDateTo('')
-            }}
-            className="rounded-xl px-3.5 py-2.5 text-[12.5px] font-semibold text-[var(--blue-700)] hover:underline"
-          >
-            Limpar datas
-          </button>
-        )}
+          {(dateFrom || dateTo) && (
+            <button
+              type="button"
+              onClick={() => {
+                setDateFrom('')
+                setDateTo('')
+              }}
+              aria-label="Limpar datas"
+              className="rounded-md p-0.5 text-[var(--muted)] hover:text-[var(--red-500)]"
+            >
+              <CloseIcon className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowMoreFilters((open) => !open)}
+          className={`flex items-center gap-2 rounded-xl border px-3.5 py-2.5 text-[13px] font-semibold transition ${
+            showMoreFilters || countBillsMoreFilters(moreFilters) > 0
+              ? 'border-[var(--blue-500)] bg-[var(--blue-100)] text-[var(--blue-700)]'
+              : 'border-[var(--border)] bg-[var(--surface)] text-[var(--ink-soft)] hover:text-[var(--ink)]'
+          }`}
+        >
+          <SlidersIcon className="h-4 w-4" />
+          Filtros
+          {countBillsMoreFilters(moreFilters) > 0 && (
+            <span className="rounded-full bg-[var(--blue-500)] px-1.5 text-[11px] font-bold text-white">
+              {countBillsMoreFilters(moreFilters)}
+            </span>
+          )}
+        </button>
       </div>
 
-      <BillsMoreFiltersPanel session={session} company={company} role={role} filters={moreFilters} onChange={setMoreFilters} />
+      {showMoreFilters && (
+        <BillsMoreFiltersPanel session={session} company={company} role={role} filters={moreFilters} onChange={setMoreFilters} />
+      )}
 
       {selected.size > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-[var(--blue-100)] px-4 py-3">
@@ -1027,7 +1136,7 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
         </div>
       )}
 
-      <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
+      <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-2.5 sm:p-5">
         {loading ? (
           <div className="flex flex-col gap-2.5">
             {Array.from({ length: 6 }).map((_, index) => (
@@ -1040,56 +1149,82 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
           </p>
         ) : (
           <>
-            <div className="flex flex-col gap-2.5 sm:hidden">
-              {bills.map((bill) => (
-                <div
-                  key={bill.id}
-                  className={`rounded-xl border border-[var(--border)] p-3 ${
-                    selected.has(bill.id) ? 'bg-[var(--blue-100)]' : 'bg-[var(--surface)]'
-                  }`}
-                >
-                  <div className="flex items-start gap-2.5">
-                    <input
-                      type="checkbox"
-                      checked={selected.has(bill.id)}
-                      onChange={() => toggle(bill.id)}
-                      className="mt-0.5 h-4 w-4 flex-none accent-[var(--blue-500)]"
-                      aria-label={`Selecionar ${bill.name}`}
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="min-w-0 truncate text-[13.5px] font-bold text-[var(--ink)]">
-                          {bill.name}
+            <div className="flex flex-col gap-2.5 md:hidden">
+              {bills.map((bill) => {
+                const details = billDetails(bill)
+                return (
+                  <div
+                    key={bill.id}
+                    className={`rounded-xl border p-3 ${details.daysLate > 0 ? 'border-[var(--red-500)]/40' : 'border-[var(--border)]'} ${
+                      selected.has(bill.id) ? 'bg-[var(--blue-100)]' : 'bg-[var(--surface)]'
+                    }`}
+                  >
+                    <div className="flex items-start gap-2.5">
+                      <input
+                        type="checkbox"
+                        checked={selected.has(bill.id)}
+                        onChange={() => toggle(bill.id)}
+                        className="mt-0.5 h-4 w-4 flex-none accent-[var(--blue-500)]"
+                        aria-label={`Selecionar ${bill.name}`}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="min-w-0 text-[13.5px] font-bold text-[var(--ink)]">{bill.people?.name ?? '—'}</p>
+                          <div className="flex-none text-right">
+                            <p className="font-mono text-[13px] font-bold text-[var(--ink)]">{formatCurrency(bill.amount)}</p>
+                            {details.updatedTotal !== null && (
+                              <p className="font-mono text-[11px] font-semibold text-[var(--red-500)]">{formatCurrency(details.updatedTotal)}</p>
+                            )}
+                          </div>
+                        </div>
+                        <p className="mt-0.5 text-[12.5px] text-[var(--ink-soft)]">
+                          #{bill.code} · {bill.name}
+                          {details.installment ? ` · ${details.installment}` : ''}
                           {renderBillBadges(bill)}
                         </p>
-                        <span className="flex-none font-mono text-[12px] font-semibold text-[var(--ink)]">
-                          {formatCurrency(bill.amount)}
-                        </span>
-                      </div>
-                      <p className="mt-0.5 text-[12px] text-[var(--muted)]">
-                        #{bill.code} · {bill.people?.name ?? '—'}
-                      </p>
-                      <p className="text-[12px] text-[var(--ink-soft)]">
-                        {bill.category?.name ?? '—'} · Vence em {formatDate(bill.date_due)}
-                      </p>
-                      {Boolean(bill.interest_amount) && (
-                        <p className="mt-0.5 text-[11px] text-[var(--muted)]">
-                          Capital {formatCurrency(bill.principal_amount ?? 0)} · Juros{' '}
-                          {formatCurrency(bill.interest_amount ?? 0)}
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
+                          <span className="rounded-md bg-[var(--page)] px-1.5 py-0.5 font-semibold text-[var(--ink-soft)]">
+                            Vence {formatDate(bill.date_due)}
+                          </span>
+                          {details.daysLate > 0 && (
+                            <span className="rounded-md bg-[var(--red-100)] px-1.5 py-0.5 font-bold text-[var(--red-500)]">
+                              {details.daysLate} {details.daysLate === 1 ? 'dia' : 'dias'} em atraso
+                            </span>
+                          )}
+                          {details.charges > 0 && (
+                            <span className="rounded-md bg-[var(--red-100)] px-1.5 py-0.5 font-semibold text-[var(--red-500)]">
+                              Juros/multa {formatCurrency(details.charges)}
+                            </span>
+                          )}
+                          {details.receivedAt && (
+                            <span className="rounded-md bg-[var(--green-100)] px-1.5 py-0.5 font-semibold text-[var(--green-600)]">
+                              {role === 1 ? 'Recebido' : 'Pago'} {details.receivedAt}
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-1.5 text-[11px] text-[var(--muted)]">
+                          {[bill.category?.name, details.formPayment, details.createdAt ? `cadastro ${details.createdAt}` : null]
+                            .filter(Boolean)
+                            .join(' · ')}
                         </p>
-                      )}
-                      <div className="mt-2 flex items-center justify-between gap-2">
-                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${statusTone(bill.status)}`}>
-                          {billStatusLabel(bill.status, role)}
-                        </span>
-                        <RowActionsMenu actions={buildRowActions(bill)} />
+                        {Boolean(bill.interest_amount) && (
+                          <p className="mt-0.5 text-[11px] text-[var(--muted)]">
+                            Capital {formatCurrency(bill.principal_amount ?? 0)} · Juros contratado {formatCurrency(bill.interest_amount ?? 0)}
+                          </p>
+                        )}
+                        <div className="mt-2 flex items-center justify-between gap-2">
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${statusTone(bill.status)}`}>
+                            {billStatusLabel(bill.status, role)}
+                          </span>
+                          <RowActionsMenu actions={buildRowActions(bill)} />
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
-            <div className="hidden overflow-x-auto sm:block">
+            <div className="hidden overflow-x-auto md:block">
               <table className="w-full border-collapse text-[13px]">
                 <thead>
                   <tr className="border-b border-[var(--border)] text-left text-[11px] font-semibold tracking-wide text-[var(--muted)] uppercase">
@@ -1102,10 +1237,8 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
                         aria-label="Selecionar todos"
                       />
                     </th>
-                    <SortableTh label="Código" field="code" className="pb-2.5" activeField={sortField} direction={sortDirection} onSort={handleSort} />
-                    <SortableTh label="Descrição" field="name" className="pb-2.5" activeField={sortField} direction={sortDirection} onSort={handleSort} />
+                    <SortableTh label="Conta" field="code" className="pb-2.5" activeField={sortField} direction={sortDirection} onSort={handleSort} />
                     <th className="pb-2.5">{personLabel}</th>
-                    <th className="pb-2.5">Categoria</th>
                     <SortableTh
                       label="Vencimento"
                       field="date_due"
@@ -1114,7 +1247,6 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
                       direction={sortDirection}
                       onSort={handleSort}
                     />
-                    <SortableTh label="Status" field="status" className="pb-2.5" activeField={sortField} direction={sortDirection} onSort={handleSort} />
                     <SortableTh
                       label="Valor"
                       field="amount"
@@ -1124,18 +1256,21 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
                       direction={sortDirection}
                       onSort={handleSort}
                     />
+                    <SortableTh label="Status" field="status" className="pb-2.5 pl-4" activeField={sortField} direction={sortDirection} onSort={handleSort} />
                     <th className="pb-2.5 pr-3 text-right">Ações</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {bills.map((bill, index) => (
+                  {bills.map((bill, index) => {
+                    const details = billDetails(bill)
+                    return (
                     <tr
                       key={bill.id}
                       className={`border-b border-[var(--border)] transition-colors last:border-none hover:bg-[var(--blue-100)] ${
                         index % 2 === 1 ? 'bg-[var(--page)]' : ''
                       } ${selected.has(bill.id) ? 'bg-[var(--blue-100)]' : ''}`}
                     >
-                      <td className="py-2.5 pl-3">
+                      <td className="py-3 pl-3 align-top">
                         <input
                           type="checkbox"
                           checked={selected.has(bill.id)}
@@ -1144,34 +1279,63 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
                           aria-label={`Selecionar ${bill.name}`}
                         />
                       </td>
-                      <td className="py-2.5 font-mono text-[var(--ink-soft)]">#{bill.code}</td>
-                      <td className="py-2.5 font-medium text-[var(--ink)]">
-                        {bill.name}
-                        {renderBillBadges(bill)}
+                      <td className="py-3 pr-3 align-top">
+                        <p className="font-semibold text-[var(--ink)]">
+                          {bill.name}
+                          {renderBillBadges(bill)}
+                        </p>
+                        <p className="mt-0.5 text-[11.5px] text-[var(--muted)]">
+                          <span className="font-mono">#{bill.code}</span>
+                          {details.installment ? ` · ${details.installment}` : ''}
+                          {details.createdAt ? ` · cadastro ${details.createdAt}` : ''}
+                        </p>
                       </td>
-                      <td className="py-2.5 text-[var(--ink-soft)]">{bill.people?.name ?? '—'}</td>
-                      <td className="py-2.5 text-[var(--ink-soft)]">{bill.category?.name ?? '—'}</td>
-                      <td className="py-2.5 text-[var(--ink-soft)]">{formatDate(bill.date_due)}</td>
-                      <td className="py-2.5">
+                      <td className="py-3 pr-3 align-top">
+                        <p className="font-semibold text-[var(--ink)]">{bill.people?.name ?? '—'}</p>
+                        <p className="mt-0.5 text-[11.5px] text-[var(--muted)]">
+                          {[bill.category?.name, details.formPayment].filter(Boolean).join(' · ') || '—'}
+                        </p>
+                      </td>
+                      <td className="whitespace-nowrap py-3 pr-3 align-top">
+                        <p className="text-[var(--ink)]">{formatDate(bill.date_due)}</p>
+                        {details.daysLate > 0 && (
+                          <span className="mt-1 inline-block rounded-md bg-[var(--red-100)] px-1.5 py-0.5 text-[10.5px] font-bold text-[var(--red-500)]">
+                            {details.daysLate} {details.daysLate === 1 ? 'dia' : 'dias'} em atraso
+                          </span>
+                        )}
+                        {details.receivedAt && (
+                          <p className="mt-0.5 text-[11.5px] text-[var(--green-600)]">
+                            {role === 1 ? 'recebido' : 'pago'} em {details.receivedAt}
+                          </p>
+                        )}
+                      </td>
+                      <td className="whitespace-nowrap py-3 text-right align-top font-mono">
+                        <p className="font-semibold text-[var(--ink)]">{formatCurrency(bill.amount)}</p>
+                        {details.charges > 0 && (
+                          <p className="mt-0.5 text-[10.5px] text-[var(--red-500)]">+ juros/multa {formatCurrency(details.charges)}</p>
+                        )}
+                        {details.updatedTotal !== null && (
+                          <p className="text-[11.5px] font-bold text-[var(--red-500)]">{formatCurrency(details.updatedTotal)}</p>
+                        )}
+                        {Boolean(bill.interest_amount) && (
+                          <p className="mt-0.5 text-[10.5px] font-normal text-[var(--muted)]">
+                            juros contratado {formatCurrency(bill.interest_amount ?? 0)}
+                          </p>
+                        )}
+                      </td>
+                      <td className="py-3 pl-4 align-top">
                         <span className={`rounded-full px-2 py-0.5 text-[10.5px] font-bold uppercase ${statusTone(bill.status)}`}>
                           {billStatusLabel(bill.status, role)}
                         </span>
                       </td>
-                      <td className="py-2.5 text-right font-mono font-semibold text-[var(--ink)]">
-                        {formatCurrency(bill.amount)}
-                        {Boolean(bill.interest_amount) && (
-                          <p className="mt-0.5 text-[10.5px] font-normal text-[var(--muted)]">
-                            juros {formatCurrency(bill.interest_amount ?? 0)}
-                          </p>
-                        )}
-                      </td>
-                      <td className="py-2.5 pr-3 text-right">
+                      <td className="py-3 pr-3 text-right align-top">
                         <div className="flex items-center justify-end">
                           <RowActionsMenu actions={buildRowActions(bill)} />
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    )
+                  })}
                 </tbody>
               </table>
             </div>

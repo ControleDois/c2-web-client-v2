@@ -98,18 +98,18 @@ export function BillsSummaryCards({
               key={card.key}
               type="button"
               onClick={() => onFilterChange(isActive ? null : card.key)}
-              className={`relative py-5 text-center transition-all duration-300 hover:bg-[var(--page)] ${
+              className={`relative py-2.5 text-center transition-all duration-300 hover:bg-[var(--page)] ${
                 dimmed ? 'opacity-40' : ''
               }`}
             >
               <span
                 className="absolute left-0 right-0 top-0 transition-all duration-300"
-                style={{ height: isActive ? 6 : 0, backgroundColor: `var(${card.barVar})` }}
+                style={{ height: isActive ? 4 : 0, backgroundColor: `var(${card.barVar})` }}
               />
-              <dt className="text-[12px] font-semibold text-[var(--muted)]">
+              <dt className="text-[11.5px] font-semibold text-[var(--muted)]">
                 {card.label} ({loading ? '…' : card.count})
               </dt>
-              <dd className="mt-1 text-[17px] font-bold tracking-tight" style={{ color: `var(${card.textVar})` }}>
+              <dd className="mt-0.5 text-[15.5px] font-bold tracking-tight" style={{ color: `var(${card.textVar})` }}>
                 {loading ? '—' : formatCurrency(card.total)}
               </dd>
             </button>

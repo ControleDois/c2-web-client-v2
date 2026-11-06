@@ -435,6 +435,16 @@ export function DownloadIcon(props: SVGProps<SVGSVGElement>) {
   )
 }
 
+export function SlidersIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" {...props}>
+      <path d="M3.5 6h8M15 6h1.5M3.5 14h1.5M8.5 14h8" />
+      <circle cx="13.2" cy="6" r="1.8" />
+      <circle cx="6.8" cy="14" r="1.8" />
+    </svg>
+  )
+}
+
 export function ShieldIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" {...props}>

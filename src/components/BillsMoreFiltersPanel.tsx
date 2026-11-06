@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react'
-import { SectionCard } from './SectionCard'
 import { SearchSelectField } from './form/SearchSelectField'
 import { SelectField } from './form/SelectField'
 import { fetchPeople, type PersonRecord } from '../lib/people'
@@ -50,26 +49,20 @@ export function BillsMoreFiltersPanel({ session, company, role, filters, onChang
 
   const activeCount = [filters.peopleId, filters.categoryId, filters.bankAccountId].filter(Boolean).length
 
+  // Abre pelo botão "Filtros" da linha de busca (BillsPage); aqui só os campos.
   return (
-    <SectionCard
-      title="Mais filtros"
-      subtitle={activeCount > 0 ? `${activeCount} filtro${activeCount === 1 ? '' : 's'} ativo${activeCount === 1 ? '' : 's'}` : undefined}
-      defaultCollapsed
-      headerExtra={
-        activeCount > 0 ? (
+    <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4">
+      {activeCount > 0 && (
+        <div className="mb-3 flex justify-end">
           <button
             type="button"
-            onClick={(event) => {
-              event.stopPropagation()
-              onChange({})
-            }}
+            onClick={() => onChange({})}
             className="rounded-lg px-2.5 py-1 text-[12px] font-semibold text-[var(--blue-700)] hover:underline"
           >
-            Limpar
+            Limpar filtros
           </button>
-        ) : null
-      }
-    >
+        </div>
+      )}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <SearchSelectField
           label={role === 1 ? 'Cliente' : 'Fornecedor'}
@@ -106,6 +99,6 @@ export function BillsMoreFiltersPanel({ session, company, role, filters, onChang
           ))}
         </SelectField>
       </div>
-    </SectionCard>
+    </div>
   )
 }
