@@ -22,6 +22,7 @@ export const SYSTEM_TYPE_LABELS: Record<number, string> = {
   20: 'Vidraçaria',
   21: 'Mercearia',
   22: 'Chaveiro',
+  23: 'Contabilidade',
 }
 
 export const SYSTEM_TYPE_PROTECAO_VEICULAR = 1
@@ -37,6 +38,7 @@ export const SYSTEM_TYPE_GARAGEM_INVESTIDOR = 19
 export const SYSTEM_TYPE_VIDRACARIA = 20
 export const SYSTEM_TYPE_MERCEARIA = 21
 export const SYSTEM_TYPE_CHAVEIRO = 22
+export const SYSTEM_TYPE_CONTABILIDADE = 23
 // Loja Online cobre qualquer nicho com delivery/cardápio próprio (inclui os
 // 4 nichos de comida - Pizzaria/Lanchonete ficavam de fora antes por omissão,
 // não por design; corrigido junto da criação de Hamburgeria/Padaria).
@@ -95,6 +97,12 @@ export function isChaveiro(systemType?: number): boolean {
   return systemType === SYSTEM_TYPE_CHAVEIRO
 }
 
+// Contabilidade: escritório contábil do ecossistema. Cadastra os contadores dele e as empresas
+// clientes se vinculam a ele (Configurações → Contabilidade). Sem veículos, sem delivery.
+export function isContabilidade(systemType?: number): boolean {
+  return systemType === SYSTEM_TYPE_CONTABILIDADE
+}
+
 // Não confundir com o nicho 0 "Padrão Geral" (default histórico usado por
 // dezenas de empresas sem niche definido, de ramos bem diferentes) - esse
 // aqui é um nicho próprio e isolado, só pra empresa que presta serviço de
@@ -117,6 +125,7 @@ export function isNoVehicleNiche(systemType?: number): boolean {
     isVidracaria(systemType) ||
     isMercearia(systemType) ||
     isChaveiro(systemType) ||
+    isContabilidade(systemType) ||
     isDistribuidoraBebidas(systemType)
   )
 }

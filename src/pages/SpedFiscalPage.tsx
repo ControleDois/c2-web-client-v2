@@ -1,8 +1,9 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import type { AuthCompany, AuthSession } from '../lib/auth'
 import { ApiError } from '../lib/api'
 import { fetchCepData } from '../lib/cepLookup'
 import { formatCurrency } from '../lib/format'
+import { fetchAccountingLink, type AccountingLink } from '../lib/accounting'
 import {
   downloadSpedFile,
   generateSpedFiscal,
@@ -56,6 +57,13 @@ export function SpedFiscalPage({ session, company }: SpedFiscalPageProps) {
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<SpedFiscalResult | null>(null)
+  const [linkedAccountant, setLinkedAccountant] = useState<AccountingLink | null>(null)
+
+  useEffect(() => {
+    fetchAccountingLink(session.token.token, company.id)
+      .then((res) => setLinkedAccountant(res.link))
+      .catch(() => setLinkedAccountant(null))
+  }, [session.token.token, company.id])
 
   function patchAccountant(patch: Partial<SpedAccountant>) {
     setAccountant((current) => ({ ...current, ...patch }))
@@ -79,7 +87,7 @@ export function SpedFiscalPage({ session, company }: SpedFiscalPageProps) {
     setError(null)
     setResult(null)
     setGenerating(true)
-    saveAccountant(company.id, accountant)
+    if (!linkedAccountant?.accountant) saveAccountant(company.id, accountant)
     try {
       const generated = await generateSpedFiscal(session.token.token, {
         company_id: company.id,
@@ -148,33 +156,49 @@ export function SpedFiscalPage({ session, company }: SpedFiscalPageProps) {
         )}
       </SectionCard>
 
-      <SectionCard title="Contador (registro 0100)" subtitle="Fica salvo neste navegador para os próximos meses">
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          <TextField label="Nome" icon={<UserIcon className="h-4 w-4" />} value={accountant.name} onChange={(event) => patchAccountant({ name: event.target.value })} required />
-          <TextField label="CPF" icon={<BadgeIcon className="h-4 w-4" />} value={accountant.cpf} onChange={(event) => patchAccountant({ cpf: event.target.value })} required />
-          <TextField label="CRC" icon={<BadgeIcon className="h-4 w-4" />} value={accountant.crc} onChange={(event) => patchAccountant({ crc: event.target.value })} required />
-          <TextField label="CNPJ do escritório (opcional)" icon={<BuildingIcon className="h-4 w-4" />} value={accountant.cnpj} onChange={(event) => patchAccountant({ cnpj: event.target.value })} />
-          <TextField label="E-mail" icon={<MailIcon className="h-4 w-4" />} type="email" value={accountant.email} onChange={(event) => patchAccountant({ email: event.target.value })} required />
-          <TextField label="Telefone" icon={<PhoneIcon className="h-4 w-4" />} value={accountant.phone} onChange={(event) => patchAccountant({ phone: event.target.value })} />
-          <TextField
-            label="CEP" icon={<MapPinIcon className="h-4 w-4" />}
-            value={accountant.zip_code}
-            onChange={(event) => patchAccountant({ zip_code: event.target.value })}
-            onBlur={lookupCep}
-            action={cepLoading ? <span className="text-[11px] text-[var(--muted)]">Buscando…</span> : undefined}
-          />
-          <TextField label="Endereço" icon={<MapPinIcon className="h-4 w-4" />} value={accountant.address} onChange={(event) => patchAccountant({ address: event.target.value })} />
-          <TextField label="Número" icon={<MapPinIcon className="h-4 w-4" />} value={accountant.number} onChange={(event) => patchAccountant({ number: event.target.value })} />
-          <TextField label="Bairro" icon={<MapPinIcon className="h-4 w-4" />} value={accountant.district} onChange={(event) => patchAccountant({ district: event.target.value })} />
-          <TextField label="Complemento" icon={<MapPinIcon className="h-4 w-4" />} value={accountant.complement} onChange={(event) => patchAccountant({ complement: event.target.value })} />
-          <TextField
-            label="Código IBGE do município" icon={<MapPinIcon className="h-4 w-4" />}
-            value={accountant.code_ibge}
-            onChange={(event) => patchAccountant({ code_ibge: event.target.value })}
-            required
-          />
-        </div>
-      </SectionCard>
+      {linkedAccountant?.accountant ? (
+        <SectionCard title="Contador (registro 0100)" subtitle="Vem da contabilidade vinculada em Configurações → Contabilidade">
+          <div className="mt-4 rounded-xl bg-[var(--page)] px-4 py-3">
+            <p className="text-[14px] font-bold text-[var(--ink)]">
+              {linkedAccountant.accountant.name} · CRC {linkedAccountant.accountant.crc}
+            </p>
+            <p className="text-[12.5px] text-[var(--ink-soft)]">{linkedAccountant.firm?.name}</p>
+          </div>
+        </SectionCard>
+      ) : (
+        <>
+          <p className="-mb-3 text-[12.5px] text-[var(--ink-soft)]">
+            Dica: vincule a contabilidade em Configurações → Contabilidade e o contador passa a vir de lá.
+          </p>
+        <SectionCard title="Contador (registro 0100)" subtitle="Fica salvo neste navegador para os próximos meses">
+          <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <TextField label="Nome" icon={<UserIcon className="h-4 w-4" />} value={accountant.name} onChange={(event) => patchAccountant({ name: event.target.value })} required />
+            <TextField label="CPF" icon={<BadgeIcon className="h-4 w-4" />} value={accountant.cpf} onChange={(event) => patchAccountant({ cpf: event.target.value })} required />
+            <TextField label="CRC" icon={<BadgeIcon className="h-4 w-4" />} value={accountant.crc} onChange={(event) => patchAccountant({ crc: event.target.value })} required />
+            <TextField label="CNPJ do escritório (opcional)" icon={<BuildingIcon className="h-4 w-4" />} value={accountant.cnpj} onChange={(event) => patchAccountant({ cnpj: event.target.value })} />
+            <TextField label="E-mail" icon={<MailIcon className="h-4 w-4" />} type="email" value={accountant.email} onChange={(event) => patchAccountant({ email: event.target.value })} required />
+            <TextField label="Telefone" icon={<PhoneIcon className="h-4 w-4" />} value={accountant.phone} onChange={(event) => patchAccountant({ phone: event.target.value })} />
+            <TextField
+              label="CEP" icon={<MapPinIcon className="h-4 w-4" />}
+              value={accountant.zip_code}
+              onChange={(event) => patchAccountant({ zip_code: event.target.value })}
+              onBlur={lookupCep}
+              action={cepLoading ? <span className="text-[11px] text-[var(--muted)]">Buscando…</span> : undefined}
+            />
+            <TextField label="Endereço" icon={<MapPinIcon className="h-4 w-4" />} value={accountant.address} onChange={(event) => patchAccountant({ address: event.target.value })} />
+            <TextField label="Número" icon={<MapPinIcon className="h-4 w-4" />} value={accountant.number} onChange={(event) => patchAccountant({ number: event.target.value })} />
+            <TextField label="Bairro" icon={<MapPinIcon className="h-4 w-4" />} value={accountant.district} onChange={(event) => patchAccountant({ district: event.target.value })} />
+            <TextField label="Complemento" icon={<MapPinIcon className="h-4 w-4" />} value={accountant.complement} onChange={(event) => patchAccountant({ complement: event.target.value })} />
+            <TextField
+              label="Código IBGE do município" icon={<MapPinIcon className="h-4 w-4" />}
+              value={accountant.code_ibge}
+              onChange={(event) => patchAccountant({ code_ibge: event.target.value })}
+              required
+            />
+          </div>
+        </SectionCard>
+        </>
+      )}
 
       <SectionCard
         title="Apuração do ICMS (regime normal)"

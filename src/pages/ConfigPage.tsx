@@ -7,7 +7,7 @@ import {
   type ConfigPayload,
   type ConfigRecord,
 } from '../lib/config'
-import { isProtecaoVeicular, isEmprestimo, isLojaOnline, isVistoriasNiche } from '../lib/systemTypes'
+import { isContabilidade, isProtecaoVeicular, isEmprestimo, isLojaOnline, isVistoriasNiche } from '../lib/systemTypes'
 import { ApiError } from '../lib/api'
 import { CompanyFormPage } from './CompanyFormPage'
 import { ConfVendaSection } from './config/ConfVendaSection'
@@ -20,6 +20,7 @@ import { IntegracoesSection } from './config/IntegracoesSection'
 import { IntegracoesApisSection } from './config/IntegracoesApisSection'
 import { ApiTokenCard } from './config/ApiTokenCard'
 import { LojaOnlineSection } from './config/LojaOnlineSection'
+import { ContabilidadeSection } from './config/ContabilidadeSection'
 import { ComprasSection } from './config/ComprasSection'
 import { PontoSection } from './config/PontoSection'
 import { FiscalSection } from './config/FiscalSection'
@@ -49,6 +50,7 @@ type ConfigTab =
   | 'loja-online'
   | 'compras'
   | 'categorias-produto'
+  | 'contabilidade'
   | 'fiscal'
   | 'terminais'
   | 'ponto'
@@ -266,6 +268,7 @@ export function ConfigPage({ session, company, onNavigate, onSaved }: ConfigPage
       { key: 'compras', label: 'Compras', visible: true },
       { key: 'categorias-produto', label: 'Categorias de Produto', visible: true },
       { key: 'fiscal', label: 'Fiscal', visible: true },
+      { key: 'contabilidade', label: isContabilidade(systemType) ? 'Contadores' : 'Contabilidade', visible: true },
       { key: 'terminais', label: 'Terminais (PDV)', visible: true },
       { key: 'ponto', label: 'Ponto', visible: true },
     ],
@@ -342,7 +345,7 @@ export function ConfigPage({ session, company, onNavigate, onSaved }: ConfigPage
           <p className="text-[12px] font-semibold tracking-wide text-[var(--blue-700)] uppercase">Conta</p>
           <h1 className="mt-0.5 text-[22px] font-bold tracking-tight text-[var(--ink)]">Configurações</h1>
         </div>
-        {activeTab !== 'dados-empresa' && activeTab !== 'categorias-produto' && (
+        {activeTab !== 'dados-empresa' && activeTab !== 'categorias-produto' && activeTab !== 'contabilidade' && (
           <button
             type="button"
             onClick={handleSave}
@@ -448,6 +451,7 @@ export function ConfigPage({ session, company, onNavigate, onSaved }: ConfigPage
               {activeTab === 'categorias-produto' && (
                 <CategoriasProdutoSection session={session} company={company} />
               )}
+              {activeTab === 'contabilidade' && <ContabilidadeSection session={session} company={company} />}
               {activeTab === 'fiscal' && (
                 <FiscalSection value={formState} onChange={handleChange} config={config} session={session} company={company} />
               )}
