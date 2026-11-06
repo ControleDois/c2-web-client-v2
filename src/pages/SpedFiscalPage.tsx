@@ -2,14 +2,17 @@ import { useEffect, useState, type FormEvent } from 'react'
 import type { AuthCompany, AuthSession } from '../lib/auth'
 import { ApiError } from '../lib/api'
 import { fetchCepData } from '../lib/cepLookup'
-import { formatCurrency } from '../lib/format'
+import { formatCurrency, formatDateTime } from '../lib/format'
 import { fetchAccountingLink, type AccountingLink } from '../lib/accounting'
 import {
   downloadSpedFile,
+  downloadStoredSped,
+  fetchSpedFiles,
   generateSpedFiscal,
   loadSavedAccountant,
   saveAccountant,
   type SpedAccountant,
+  type SpedFiscalFile,
   type SpedFiscalResult,
 } from '../lib/spedFiscal'
 import { TextField } from '../components/form/TextField'
@@ -65,6 +68,28 @@ export function SpedFiscalPage({ session, company }: SpedFiscalPageProps) {
       .catch(() => setLinkedAccountant(null))
   }, [session.token.token, company.id])
 
+  const [files, setFiles] = useState<SpedFiscalFile[] | null>(null)
+  const [downloadingId, setDownloadingId] = useState<string | null>(null)
+
+  function loadFiles() {
+    fetchSpedFiles(session.token.token, company.id)
+      .then(setFiles)
+      .catch(() => setFiles([]))
+  }
+
+  useEffect(loadFiles, [session.token.token, company.id])
+
+  async function handleDownloadStored(file: SpedFiscalFile) {
+    setDownloadingId(file.id)
+    try {
+      await downloadStoredSped(session.token.token, company.id, file)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Não foi possível baixar o arquivo.')
+    } finally {
+      setDownloadingId(null)
+    }
+  }
+
   function patchAccountant(patch: Partial<SpedAccountant>) {
     setAccountant((current) => ({ ...current, ...patch }))
   }
@@ -103,6 +128,7 @@ export function SpedFiscalPage({ session, company }: SpedFiscalPageProps) {
       })
       setResult(generated)
       downloadSpedFile(generated)
+      loadFiles()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Não foi possível gerar o SPED Fiscal.')
     } finally {
@@ -269,6 +295,53 @@ export function SpedFiscalPage({ session, company }: SpedFiscalPageProps) {
           )}
         </SectionCard>
       )}
+
+      <SectionCard title="Arquivos gerados" subtitle="Todo SPED gerado fica guardado aqui para baixar de novo quando precisar">
+        {files === null ? (
+          <p className="mt-4 text-[13px] text-[var(--muted)]">Carregando…</p>
+        ) : files.length === 0 ? (
+          <p className="mt-4 text-[13px] text-[var(--muted)]">Nenhum SPED gerado ainda.</p>
+        ) : (
+          <ul className="mt-4 flex flex-col gap-2">
+            {files.map((file, index) => {
+              const latest = files.findIndex((item) => item.month === file.month) === index
+              const [year, month] = file.month.split('-')
+              return (
+                <li key={file.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-[var(--page)] px-4 py-3">
+                  <div>
+                    <p className="flex flex-wrap items-center gap-2 text-[14px] font-bold text-[var(--ink)]">
+                      {month}/{year}
+                      {latest ? (
+                        <span className="rounded-full bg-[var(--green-100)] px-2 py-0.5 text-[10.5px] font-bold text-[var(--green-600)]">Mais recente</span>
+                      ) : (
+                        <span className="rounded-full bg-[var(--surface)] px-2 py-0.5 text-[10.5px] font-bold text-[var(--muted)]">Versão anterior</span>
+                      )}
+                      {file.origin === 'auto' && (
+                        <span className="rounded-full bg-[var(--blue-100)] px-2 py-0.5 text-[10.5px] font-bold text-[var(--blue-700)]">Automático</span>
+                      )}
+                    </p>
+                    <p className="text-[12.5px] text-[var(--ink-soft)]">
+                      Gerado em {formatDateTime(file.created_at)}
+                      {file.generated_by_name ? ` por ${file.generated_by_name}` : ''}
+                      {file.summary
+                        ? ` · ${file.summary.outputs.nfe + file.summary.outputs.nfce} saídas · ${file.summary.inputs.notes} entradas${file.summary.inventory ? ' · com inventário' : ''}`
+                        : ''}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadStored(file)}
+                    disabled={downloadingId === file.id}
+                    className="rounded-xl px-4 py-2 text-[13px] font-semibold text-[var(--blue-700)] ring-1 ring-[var(--border)] hover:bg-[var(--surface)] disabled:opacity-50"
+                  >
+                    {downloadingId === file.id ? 'Baixando…' : 'Baixar'}
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </SectionCard>
     </form>
   )
 }

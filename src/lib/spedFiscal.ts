@@ -1,4 +1,4 @@
-import { apiPost } from './api'
+import { apiDownload, apiGet, apiPost } from './api'
 
 export interface SpedAccountant {
   name: string
@@ -39,6 +39,7 @@ export interface SpedFiscalSummary {
 }
 
 export interface SpedFiscalResult {
+  id: string
   file_name: string
   content_base64: string
   summary: SpedFiscalSummary
@@ -94,4 +95,23 @@ export function saveAccountant(companyId: string, accountant: SpedAccountant) {
   } catch {
     // Sem armazenamento local (aba anônima): só não lembra na próxima vez.
   }
+}
+
+export interface SpedFiscalFile {
+  id: string
+  month: string
+  file_name: string
+  file_size: number
+  summary: SpedFiscalSummary | null
+  origin: 'manual' | 'auto'
+  generated_by_name: string | null
+  created_at: string
+}
+
+export function fetchSpedFiles(token: string, companyId: string) {
+  return apiGet<SpedFiscalFile[]>('/sped-fiscal/files', { company_id: companyId }, token)
+}
+
+export function downloadStoredSped(token: string, companyId: string, file: SpedFiscalFile) {
+  return apiDownload(`/sped-fiscal/files/${file.id}/download?company_id=${companyId}`, token, file.file_name)
 }
