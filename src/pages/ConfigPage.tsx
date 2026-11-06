@@ -21,6 +21,7 @@ import { IntegracoesApisSection } from './config/IntegracoesApisSection'
 import { ApiTokenCard } from './config/ApiTokenCard'
 import { LojaOnlineSection } from './config/LojaOnlineSection'
 import { ContabilidadeSection } from './config/ContabilidadeSection'
+import { VerbaAlimentacaoSection } from './config/VerbaAlimentacaoSection'
 import { ComprasSection } from './config/ComprasSection'
 import { PontoSection } from './config/PontoSection'
 import { FiscalSection } from './config/FiscalSection'
@@ -51,6 +52,7 @@ type ConfigTab =
   | 'compras'
   | 'categorias-produto'
   | 'contabilidade'
+  | 'verba-alimentacao'
   | 'fiscal'
   | 'terminais'
   | 'ponto'
@@ -226,6 +228,8 @@ function buildConfigPayload(companyId: string, config: ConfigRecord | null): Con
     ifood_use_test: config?.ifood_use_test ?? false,
 
     time_clock_enabled: config?.time_clock_enabled ?? false,
+    meal_allowance_enabled: config?.meal_allowance_enabled ?? false,
+    meal_allowance_daily_value: config?.meal_allowance_daily_value !== undefined ? Number(config.meal_allowance_daily_value) : 0,
     time_clock_default_work_days: config?.time_clock_default_work_days ?? '1,2,3,4,5',
     time_clock_default_start_time: config?.time_clock_default_start_time ?? '08:00',
     time_clock_default_end_time: config?.time_clock_default_end_time ?? '18:00',
@@ -271,6 +275,7 @@ export function ConfigPage({ session, company, onNavigate, onSaved }: ConfigPage
       { key: 'contabilidade', label: isContabilidade(systemType) ? 'Contadores' : 'Contabilidade', visible: true },
       { key: 'terminais', label: 'Terminais (PDV)', visible: true },
       { key: 'ponto', label: 'Ponto', visible: true },
+      { key: 'verba-alimentacao', label: 'Verba de alimentação', visible: true },
     ],
     [systemType, company.is_master]
   )
@@ -457,6 +462,9 @@ export function ConfigPage({ session, company, onNavigate, onSaved }: ConfigPage
               )}
               {activeTab === 'terminais' && (
                 <TerminaisSection value={formState} onChange={handleChange} config={config} session={session} company={company} />
+              )}
+              {activeTab === 'verba-alimentacao' && (
+                <VerbaAlimentacaoSection value={formState} onChange={handleChange} onOpen={() => onNavigate('meal-allowance')} />
               )}
               {activeTab === 'ponto' && (
                 <PontoSection

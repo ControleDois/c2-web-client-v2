@@ -268,6 +268,9 @@ export interface ConfigRecord {
 
   // Controle de Ponto - disponível pra qualquer nicho
   time_clock_enabled?: boolean
+  // Verba de alimentação em viagem (app do colaborador + aprovação do financeiro)
+  meal_allowance_enabled?: boolean
+  meal_allowance_daily_value?: number | string
   time_clock_default_work_days?: string
   time_clock_default_start_time?: string
   time_clock_default_end_time?: string
@@ -559,6 +562,9 @@ export interface ConfigPayload {
   ifood_use_test?: boolean
 
   time_clock_enabled?: boolean
+  // Verba de alimentação em viagem (app do colaborador + aprovação do financeiro)
+  meal_allowance_enabled?: boolean
+  meal_allowance_daily_value?: number | string
   time_clock_default_work_days?: string
   time_clock_default_start_time?: string
   time_clock_default_end_time?: string

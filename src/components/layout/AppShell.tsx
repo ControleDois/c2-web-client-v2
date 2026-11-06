@@ -103,6 +103,7 @@ export type AppPage =
   | 'ifood-api-logs'
   | 'ai-usage'
   | 'financial-goals'
+  | 'meal-allowance'
   | 'blog-posts'
   | 'subscription'
   | 'plans'
@@ -128,6 +129,7 @@ interface AppShellProps {
   nfeModuleEnabled?: boolean
   nfseModuleEnabled?: boolean
   timeClockEnabled?: boolean
+  mealAllowanceEnabled?: boolean
   children: ReactNode
 }
 
@@ -143,7 +145,8 @@ function buildNavGroups(
   purchaseManagementEnabled?: boolean,
   nfeModuleEnabled?: boolean,
   timeClockEnabled?: boolean,
-  nfseModuleEnabled?: boolean
+  nfseModuleEnabled?: boolean,
+  mealAllowanceEnabled?: boolean
 ): NavGroup[] {
   const emprestimo = isEmprestimo(systemType)
   const padaria = isPadaria(systemType)
@@ -341,6 +344,13 @@ function buildNavGroups(
     })
   }
 
+  if (mealAllowanceEnabled) {
+    groups.push({
+      title: 'Colaboradores',
+      items: [{ page: 'meal-allowance', label: 'Verba de alimentação', icon: WalletIcon }],
+    })
+  }
+
   if (nfeModuleEnabled || nfseModuleEnabled) {
     groups.push({
       title: 'Fiscal',
@@ -387,6 +397,7 @@ export function AppShell({
   nfeModuleEnabled,
   nfseModuleEnabled,
   timeClockEnabled,
+  mealAllowanceEnabled,
   children,
 }: AppShellProps) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
@@ -395,7 +406,8 @@ export function AppShell({
     purchaseManagementEnabled,
     nfeModuleEnabled,
     timeClockEnabled,
-    nfseModuleEnabled
+    nfseModuleEnabled,
+    mealAllowanceEnabled
   )
 
   function handleNavigate(page: AppPage) {

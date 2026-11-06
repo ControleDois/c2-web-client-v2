@@ -71,6 +71,7 @@ import { AppReleasesPage } from './pages/AppReleasesPage'
 import { IfoodApiLogsPage } from './pages/IfoodApiLogsPage'
 import { AiUsagePage } from './pages/AiUsagePage'
 import { FinancialGoalsPage } from './pages/FinancialGoalsPage'
+import { MealAllowancePage } from './pages/MealAllowancePage'
 import { BlogPostsPage } from './pages/BlogPostsPage'
 import { OnboardingPage } from './pages/OnboardingPage'
 import { LicenseBlockedPage } from './pages/LicenseBlockedPage'
@@ -167,6 +168,7 @@ function App() {
   const [nfeModuleEnabled, setNfeModuleEnabled] = useState(false)
   const [nfseModuleEnabled, setNfseModuleEnabled] = useState(false)
   const [timeClockEnabled, setTimeClockEnabled] = useState(false)
+  const [mealAllowanceEnabled, setMealAllowanceEnabled] = useState(false)
   const [configVersion, setConfigVersion] = useState(0)
 
   useEffect(() => {
@@ -175,6 +177,7 @@ function App() {
       setNfeModuleEnabled(false)
       setNfseModuleEnabled(false)
       setTimeClockEnabled(false)
+      setMealAllowanceEnabled(false)
       return
     }
     let cancelled = false
@@ -185,6 +188,7 @@ function App() {
           setNfeModuleEnabled(Boolean(config.nfe_module_enabled))
           setNfseModuleEnabled(Boolean(config.nfse_module_enabled))
           setTimeClockEnabled(Boolean(config.time_clock_enabled))
+          setMealAllowanceEnabled(Boolean(config.meal_allowance_enabled))
         }
       })
       .catch(() => {
@@ -193,6 +197,7 @@ function App() {
           setNfeModuleEnabled(false)
           setNfseModuleEnabled(false)
           setTimeClockEnabled(false)
+          setMealAllowanceEnabled(false)
         }
       })
     return () => {
@@ -970,6 +975,8 @@ function App() {
       pageContent = <IfoodApiLogsPage session={session} />
     } else if (page === 'ai-usage') {
       pageContent = <AiUsagePage session={session} />
+    } else if (page === 'meal-allowance') {
+      pageContent = <MealAllowancePage session={session} company={activeCompany} />
     } else if (page === 'financial-goals') {
       pageContent = <FinancialGoalsPage session={session} />
     } else if (page === 'subscription') {
@@ -1352,6 +1359,7 @@ function App() {
         nfeModuleEnabled={nfeModuleEnabled}
         nfseModuleEnabled={nfseModuleEnabled}
         timeClockEnabled={timeClockEnabled}
+        mealAllowanceEnabled={mealAllowanceEnabled}
       >
         <TrialBanner company={activeCompany} onOpenPlans={() => handleNavigate('subscription')} />
         <LicenseNotice session={session} company={activeCompany} />
