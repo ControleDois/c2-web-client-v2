@@ -323,6 +323,24 @@ export interface GlassOrderPayload {
   items: GlassOrderItemRecord[]
 }
 
+// Especificação do vidro (tipo · espessura · cor), sem repetir o que já está no nome.
+export function glassTypeSpec(item: Pick<GlassTypeRecord, 'name' | 'kind' | 'thickness_mm' | 'color'>) {
+  const name = item.name.toLowerCase()
+  return [
+    item.kind && !name.includes(item.kind.toLowerCase()) ? item.kind : null,
+    item.thickness_mm ? `${item.thickness_mm} mm` : null,
+    item.color && !name.includes(item.color.toLowerCase()) ? item.color : null,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+}
+
+// Nome do vidro com a especificação, para listas de escolha (ex: "Fumê — temperado · 6 mm").
+export function glassTypeLabel(item: Pick<GlassTypeRecord, 'name' | 'kind' | 'thickness_mm' | 'color'>) {
+  const spec = glassTypeSpec(item)
+  return spec ? `${item.name} — ${spec}` : item.name
+}
+
 export const GLASS_ORDER_STATUS = {
   QUOTE: 0,
   SALE: 1,

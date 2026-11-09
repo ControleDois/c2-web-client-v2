@@ -34,6 +34,21 @@ interface GlassListProps<T extends { id: string }> {
   deleteItem: (item: T) => Promise<unknown>
   deleteTitle: string
   deleteLabel: (item: T) => string
+  // Com renderCard, a lista ganha a visão em cartões (padrão) e um botão para alternar com a tabela.
+  renderCard?: (item: T, actions: ReactNode) => ReactNode
+  // Chave para lembrar a visão escolhida (cartões ou lista) neste navegador.
+  viewStorageKey?: string
+}
+
+type ListView = 'cards' | 'table'
+
+function readView(key?: string): ListView {
+  if (!key) return 'cards'
+  try {
+    return localStorage.getItem(key) === 'table' ? 'table' : 'cards'
+  } catch {
+    return 'cards'
+  }
 }
 
 export function GlassList<T extends { id: string }>({
@@ -55,7 +70,22 @@ export function GlassList<T extends { id: string }>({
   deleteItem,
   deleteTitle,
   deleteLabel,
+  renderCard,
+  viewStorageKey,
 }: GlassListProps<T>) {
+  const [view, setView] = useState<ListView>(() => readView(viewStorageKey))
+  const showCards = Boolean(renderCard) && view === 'cards'
+
+  function changeView(next: ListView) {
+    setView(next)
+    if (!viewStorageKey) return
+    try {
+      localStorage.setItem(viewStorageKey, next)
+    } catch {
+      // Sem armazenamento local: a escolha vale só nesta visita.
+    }
+  }
+
   const [items, setItems] = useState<T[]>([])
   const [meta, setMeta] = useState({ total: 0, lastPage: 1 })
   const [search, setSearch] = useState('')
@@ -151,24 +181,61 @@ export function GlassList<T extends { id: string }>({
           />
         </div>
         {filters}
+        {renderCard && (
+          <div className="flex rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1">
+            {(
+              [
+                ['cards', 'Cartões'],
+                ['table', 'Lista'],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => changeView(value)}
+                className={`rounded-lg px-3 py-1.5 text-[12.5px] font-semibold transition ${
+                  view === value ? 'bg-[var(--blue-500)] text-white' : 'text-[var(--ink-soft)] hover:text-[var(--ink)]'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {error && (
         <div className="rounded-2xl bg-[var(--red-100)] p-4 text-[13.5px] font-medium text-[var(--red-500)]">{error}</div>
       )}
 
-      <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
-        {loading ? (
+      <div className={showCards ? '' : 'rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5'}>
+        {loading && showCards ? (
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div key={index} className="h-40 animate-pulse rounded-2xl bg-[var(--surface)]" />
+            ))}
+          </div>
+        ) : loading ? (
           <div className="flex flex-col gap-2.5">
             {Array.from({ length: 5 }).map((_, index) => (
               <div key={index} className="h-11 animate-pulse rounded-xl bg-[var(--page)]" />
             ))}
           </div>
         ) : items.length === 0 ? (
-          <p className="py-10 text-center text-[13.5px] text-[var(--muted)]">
+          <p
+            className={`py-10 text-center text-[13.5px] text-[var(--muted)] ${
+              showCards ? 'rounded-2xl border border-[var(--border)] bg-[var(--surface)]' : ''
+            }`}
+          >
             {emptyLabel}
             {search ? ` para "${search}"` : ''}.
           </p>
+        ) : showCards && renderCard ? (
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+            {items.map((item) => (
+              <div key={item.id}>{renderCard(item, <RowActionsMenu actions={actions(item, helpers)} />)}</div>
+            ))}
+          </div>
         ) : (
           <>
             <div className="flex flex-col gap-2.5 sm:hidden">

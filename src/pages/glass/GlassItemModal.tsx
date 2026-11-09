@@ -9,6 +9,7 @@ import {
   type GlassVariableValues,
   type GlassOrderItemRecord,
   type GlassPricePreview,
+  glassTypeLabel,
   type GlassTypeRecord,
 } from '../../lib/glass'
 import { formatCurrency } from '../../lib/format'
@@ -70,7 +71,6 @@ export function GlassItemModal({ open, token, companyId, item, prefill, models, 
   const [colors, setColors] = useState<GlassColorRecord[]>([])
   const [supplierFilter, setSupplierFilter] = useState('')
   const [lineFilter, setLineFilter] = useState('')
-  const [gaugeFilter, setGaugeFilter] = useState('')
   const [showAllGlass, setShowAllGlass] = useState(false)
   const [preview, setPreview] = useState<GlassPricePreview | null>(null)
   const [previewing, setPreviewing] = useState(false)
@@ -103,7 +103,6 @@ export function GlassItemModal({ open, token, companyId, item, prefill, models, 
     setDefaultsNotice(null)
     setSupplierFilter('')
     setLineFilter('')
-    setGaugeFilter('')
     setShowAllGlass(false)
     setPreview(null)
     setError(null)
@@ -160,33 +159,26 @@ export function GlassItemModal({ open, token, companyId, item, prefill, models, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, token, companyId, modelId, typeId, widthMm, heightMm, qty, variableValues, aluminumColor, accessoryColor])
 
-  // Filtros em cascata do catálogo (fornecedor, linha, bitola) e vidros da bitola do modelo.
+  // Filtros em cascata do catálogo (fornecedor, linha) e vidros da bitola do modelo.
   const suppliers = [...new Set(models.map((model) => model.supplier).filter(Boolean))] as string[]
   const lines = [
     ...new Set(
       models.filter((model) => !supplierFilter || model.supplier === supplierFilter).map((model) => model.line).filter(Boolean)
     ),
   ] as string[]
-  const gauges = [
-    ...new Set(
-      models
-        .filter((model) => (!supplierFilter || model.supplier === supplierFilter) && (!lineFilter || model.line === lineFilter))
-        .map((model) => model.gauge_mm)
-        .filter(Boolean)
-    ),
-  ] as number[]
   const visibleModels = models.filter(
     (model) =>
       model.id === modelId ||
       ((!supplierFilter || model.supplier === supplierFilter) &&
-        (!lineFilter || model.line === lineFilter) &&
-        (!gaugeFilter || String(model.gauge_mm) === gaugeFilter))
+        (!lineFilter || model.line === lineFilter))
   )
   const gaugeGlass = selectedModel?.gauge_mm
     ? glassTypes.filter((type) => type.thickness_mm === selectedModel.gauge_mm || type.id === typeId)
     : []
   const glassFiltered = Boolean(selectedModel?.gauge_mm) && gaugeGlass.length > 1 && !showAllGlass
-  const visibleGlassTypes = glassFiltered ? gaugeGlass : glassTypes
+  const visibleGlassTypes = [...(glassFiltered ? gaugeGlass : glassTypes)].sort(
+    (a, b) => a.name.localeCompare(b.name, 'pt-BR') || (a.thickness_mm ?? 0) - (b.thickness_mm ?? 0)
+  )
 
   // Cores cadastradas (com o acréscimo de preço); sem cadastro, campo livre.
   function colorField(kind: 'profile' | 'accessory', label: string, value: string, set: (value: string) => void) {
@@ -280,8 +272,8 @@ export function GlassItemModal({ open, token, companyId, item, prefill, models, 
         <p className="mt-0.5 text-[12px] text-[var(--muted)]">As medidas são em milímetros. O preço é calculado pelo modelo e pelo vidro.</p>
 
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          {(suppliers.length > 0 || lines.length > 0 || gauges.length > 0) && (
-            <div className="grid gap-4 sm:col-span-2 sm:grid-cols-3">
+          {(suppliers.length > 0 || lines.length > 0) && (
+            <div className="grid gap-4 sm:col-span-2 sm:grid-cols-2">
               {suppliers.length > 0 && (
                 <SelectField label="Fornecedor" variant="surface" value={supplierFilter} onChange={(event) => setSupplierFilter(event.target.value)}>
                   <option value="">Todos</option>
@@ -302,16 +294,6 @@ export function GlassItemModal({ open, token, companyId, item, prefill, models, 
                   ))}
                 </SelectField>
               )}
-              {gauges.length > 0 && (
-                <SelectField label="Bitola" variant="surface" value={gaugeFilter} onChange={(event) => setGaugeFilter(event.target.value)}>
-                  <option value="">Todas</option>
-                  {gauges.map((value) => (
-                    <option key={value} value={String(value)}>
-                      {value} mm
-                    </option>
-                  ))}
-                </SelectField>
-              )}
             </div>
           )}
           <SelectField label="Modelo" variant="surface" value={modelId} onChange={(event) => handleModelChange(event.target.value)}>
@@ -328,7 +310,7 @@ export function GlassItemModal({ open, token, companyId, item, prefill, models, 
               <option value="">Sem vidro</option>
               {visibleGlassTypes.map((type) => (
                 <option key={type.id} value={type.id}>
-                  {type.name}
+                  {glassTypeLabel(type)}
                 </option>
               ))}
             </SelectField>

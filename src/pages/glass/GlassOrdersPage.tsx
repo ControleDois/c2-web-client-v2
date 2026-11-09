@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import {
   changeGlassOrderStatus,
   deleteGlassOrder,
@@ -42,14 +42,25 @@ interface GlassOrdersPageProps {
   onEdit: (item: GlassOrderRecord) => void
 }
 
-const STATUS_TONES: Record<number, string> = {
-  0: 'bg-[var(--page)] text-[var(--ink-soft)]',
-  1: 'bg-[var(--blue-100)] text-[var(--blue-700)]',
-  2: 'bg-[var(--amber-100)] text-[var(--amber-500)]',
-  3: 'bg-[var(--blue-100)] text-[var(--blue-700)]',
-  4: 'bg-[var(--blue-100)] text-[var(--blue-700)]',
-  5: 'bg-[var(--blue-100)] text-[var(--blue-700)]',
-  8: 'bg-[var(--red-100)] text-[var(--red-500)]',
+// Cores por situação: orçamento em aberto = amarelo/laranja, venda aprovada (e etapas seguintes) = verde, cancelado = vermelho.
+type StatusTone = 'quote' | 'sale' | 'canceled'
+
+function statusTone(status: number): StatusTone {
+  if (status === GLASS_ORDER_STATUS.CANCELED) return 'canceled'
+  if (status === GLASS_ORDER_STATUS.QUOTE) return 'quote'
+  return 'sale'
+}
+
+const BADGE_TONES: Record<StatusTone, string> = {
+  quote: 'bg-[var(--amber-100)] text-[var(--amber-500)]',
+  sale: 'bg-[var(--green-100)] text-[var(--green-600)]',
+  canceled: 'bg-[var(--red-100)] text-[var(--red-500)]',
+}
+
+const CARD_TONES: Record<StatusTone, string> = {
+  quote: 'border-[var(--amber-500)] bg-[var(--amber-100)]',
+  sale: 'border-[var(--green-600)] bg-[var(--green-100)]',
+  canceled: 'border-[var(--red-500)] bg-[var(--red-100)]',
 }
 
 // Próximo passo do fluxo: Orçamento → Venda → Produção → Pronto → Instalado → Faturado.
@@ -63,9 +74,60 @@ const NEXT_STEP: Record<number, { status: number; label: string } | undefined> =
 
 export function GlassStatusBadge({ status }: { status: number }) {
   return (
-    <span className={`rounded-full px-2.5 py-0.5 text-[11.5px] font-bold ${STATUS_TONES[status] ?? STATUS_TONES[0]}`}>
+    <span className={`rounded-full px-2.5 py-0.5 text-[11.5px] font-bold ${BADGE_TONES[statusTone(status)]}`}>
       {GLASS_ORDER_STATUS_LABELS[status] ?? status}
     </span>
+  )
+}
+
+function contractLabel(item: GlassOrderRecord) {
+  const contract = item.meta?.contract
+  if (!contract) return null
+  return contract.status === 2 ? 'Contrato assinado' : 'Contrato aguardando assinatura'
+}
+
+function GlassOrderCard({ item, actions, onOpen }: { item: GlassOrderRecord; actions: ReactNode; onOpen: () => void }) {
+  const contract = contractLabel(item)
+  const nfe = item.meta?.nfe
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') onOpen()
+      }}
+      className={`flex h-full cursor-pointer flex-col gap-3 rounded-2xl border border-l-[6px] p-4 transition hover:shadow-[var(--card-shadow)] ${
+        CARD_TONES[statusTone(item.status)]
+      }`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="font-mono text-[12px] text-[var(--ink-soft)]">#{item.code}</p>
+          <p className="truncate text-[15px] font-bold text-[var(--ink)]">{item.people?.name ?? 'Sem cliente'}</p>
+          {item.reference && <p className="truncate text-[12.5px] text-[var(--ink-soft)]">{item.reference}</p>}
+        </div>
+        <div onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}>
+          {actions}
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <GlassStatusBadge status={item.status} />
+        <span className="text-[12px] text-[var(--ink-soft)]">{formatDate(item.created_at)}</span>
+      </div>
+      {(contract || nfe) && (
+        <div className="flex flex-col gap-0.5 text-[11.5px] text-[var(--ink-soft)]">
+          {contract && <span>{contract}</span>}
+          {nfe && (
+            <span>
+              NF-e: {NFE_STATUS_LABELS[nfe.status] ?? nfe.status}
+              {nfe.numero ? ` nº ${nfe.numero}` : ''}
+            </span>
+          )}
+        </div>
+      )}
+      <p className="mt-auto text-right text-[17px] font-bold text-[var(--ink)]">{formatCurrency(item.total)}</p>
+    </div>
   )
 }
 
@@ -129,7 +191,7 @@ export function GlassOrdersPage({ session, company, onCreate, onEdit }: GlassOrd
             </SelectField>
           </div>
         }
-        fetchPage={(search, page) => fetchGlassOrders(token, company.id, { search, page, limit: 10, status })}
+        fetchPage={(search, page) => fetchGlassOrders(token, company.id, { search, page, limit: 12, status })}
         columns={[
           { header: 'Nº', render: (item) => <span className="font-mono text-[var(--ink-soft)]">#{item.code}</span> },
           { header: 'Cliente', render: (item) => <span className="font-medium text-[var(--ink)]">{item.people?.name ?? '—'}</span> },
@@ -170,6 +232,8 @@ export function GlassOrdersPage({ session, company, onCreate, onEdit }: GlassOrd
             {formatCurrency(item.total)}
           </span>
         )}
+        renderCard={(item, actions) => <GlassOrderCard item={item} actions={actions} onOpen={() => onEdit(item)} />}
+        viewStorageKey="c2.glassOrders.view"
         onCreate={onCreate}
         actions={(item, { reload, askDelete }) => {
           const next = NEXT_STEP[item.status]
