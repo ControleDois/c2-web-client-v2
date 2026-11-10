@@ -671,7 +671,8 @@ function buildConfigForm(payload: ConfigPayload): FormData {
       key === 'protection_cancel_tracker_task_users' ||
       key === 'billing_whatsapp_rules' ||
       key === 'central_box_payment_methods' ||
-      key === 'terminals'
+      key === 'terminals' ||
+      key === 'vehicle_inspection_checklist_items'
     ) {
       if (value !== undefined) form.append(key, JSON.stringify(value))
       continue
