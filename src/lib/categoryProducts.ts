@@ -4,6 +4,7 @@ export interface CategoryProductRecord {
   id: string
   code?: number
   name: string
+  position?: number | null
 }
 
 export interface CategoryProductPayload {
@@ -24,7 +25,7 @@ interface Paginated<T> {
 export function fetchCategoryProducts(
   token: string,
   companyId: string,
-  options: { search?: string; page?: number; limit?: number } = {}
+  options: { search?: string; page?: number; limit?: number; sortedBy?: 'name' | 'position' } = {}
 ) {
   return apiGet<Paginated<CategoryProductRecord>>(
     '/category-product',
@@ -33,6 +34,7 @@ export function fetchCategoryProducts(
       search: options.search,
       page: options.page ? String(options.page) : '1',
       limit: options.limit ? String(options.limit) : '100',
+      sortedBy: options.sortedBy,
     },
     token
   )
@@ -48,4 +50,9 @@ export function updateCategoryProduct(token: string, id: string, payload: Catego
 
 export function deleteCategoryProduct(token: string, id: string) {
   return apiDelete<void>(`/category-product/${id}`, token)
+}
+
+// Ordem das categorias no cardápio (totem e loja online): ids na ordem desejada.
+export function reorderCategoryProducts(token: string, companyId: string, ids: string[]) {
+  return apiPost<{ updated: number }>('/category-product/reorder', { company_id: companyId, ids }, token)
 }

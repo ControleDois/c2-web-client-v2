@@ -4,11 +4,12 @@ import {
   createCategoryProduct,
   updateCategoryProduct,
   deleteCategoryProduct,
+  reorderCategoryProducts,
   type CategoryProductRecord,
 } from '../../lib/categoryProducts'
 import { ApiError } from '../../lib/api'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
-import { SearchIcon, PlusIcon, PencilIcon, TrashIcon, CheckCircleIcon, CloseIcon } from '../../components/icons'
+import { SearchIcon, PlusIcon, PencilIcon, TrashIcon, CheckCircleIcon, CloseIcon, ChevronDownIcon } from '../../components/icons'
 import type { AuthSession, AuthCompany } from '../../lib/auth'
 
 interface CategoriasProdutoSectionProps {
@@ -44,7 +45,7 @@ export function CategoriasProdutoSection({ session, company }: CategoriasProduto
   function load() {
     setLoading(true)
     setError(null)
-    fetchCategoryProducts(session.token.token, company.id, { limit: 200 })
+    fetchCategoryProducts(session.token.token, company.id, { limit: 500, sortedBy: 'position' })
       .then((res) => setCategories(res.data))
       .catch((err) => {
         setError(err instanceof ApiError ? err.message : 'Não foi possível carregar as categorias de produto.')
@@ -67,7 +68,7 @@ export function CategoriasProdutoSection({ session, company }: CategoriasProduto
     setSavingNew(true)
     try {
       const created = await createCategoryProduct(session.token.token, { company_id: company.id, name })
-      setCategories((prev) => [created, ...prev])
+      setCategories((prev) => [...prev, created])
       setNewName('')
       setCreating(false)
     } catch (err) {
@@ -109,6 +110,34 @@ export function CategoriasProdutoSection({ session, company }: CategoriasProduto
     }
   }
 
+  const [reordering, setReordering] = useState(false)
+
+  // Sobe ou desce uma posição e grava a ordem inteira (é a ordem do cardápio no totem e na loja online).
+  async function move(index: number, delta: number) {
+    const target = index + delta
+    if (target < 0 || target >= categories.length || reordering) return
+    const previous = categories
+    const next = [...categories]
+    ;[next[index], next[target]] = [next[target], next[index]]
+    setCategories(next)
+    setReordering(true)
+    try {
+      await reorderCategoryProducts(
+        session.token.token,
+        company.id,
+        next.map((category) => category.id)
+      )
+    } catch (err) {
+      setCategories(previous)
+      setFeedback({
+        tone: 'error',
+        message: err instanceof ApiError ? err.message : 'Não foi possível salvar a ordem.',
+      })
+    } finally {
+      setReordering(false)
+    }
+  }
+
   async function handleConfirmDelete() {
     if (!deleteTarget) return
     setDeleting(true)
@@ -130,7 +159,8 @@ export function CategoriasProdutoSection({ session, company }: CategoriasProduto
     <div className="flex flex-col gap-4">
       <p className="text-[12.5px] text-[var(--muted)]">
         Categorias usadas para organizar os produtos (ex: na Gestão de Compras, os itens serão
-        agrupados por categoria).
+        agrupados por categoria). Use as setas para definir a ordem em que aparecem no cardápio do
+        totem e da loja online.
       </p>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -205,7 +235,10 @@ export function CategoriasProdutoSection({ session, company }: CategoriasProduto
         </p>
       ) : (
         <div className="flex flex-col gap-1.5">
-          {filtered.map((category) => (
+          {filtered.map((category, filteredIndex) => {
+            const index = categories.indexOf(category)
+            const canReorder = !search.trim()
+            return (
             <div
               key={category.id}
               className="flex items-center justify-between gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3.5 py-2.5"
@@ -240,8 +273,39 @@ export function CategoriasProdutoSection({ session, company }: CategoriasProduto
                 </>
               ) : (
                 <>
-                  <span className="text-[13.5px] font-semibold text-[var(--ink)]">{category.name}</span>
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    {canReorder && (
+                      <span className="w-6 flex-none text-right text-[12px] font-bold text-[var(--muted)]">
+                        {filteredIndex + 1}º
+                      </span>
+                    )}
+                    <span className="truncate text-[13.5px] font-semibold text-[var(--ink)]">{category.name}</span>
+                  </div>
                   <div className="flex items-center gap-1 flex-none">
+                    {canReorder && (
+                      <>
+                        <button
+                          type="button"
+                          title="Subir"
+                          aria-label={`Subir ${category.name}`}
+                          onClick={() => move(index, -1)}
+                          disabled={index === 0 || reordering}
+                          className="rounded-lg p-1.5 text-[var(--muted)] hover:bg-[var(--page)] hover:text-[var(--ink)] disabled:opacity-30"
+                        >
+                          <ChevronDownIcon className="h-4 w-4 rotate-180" />
+                        </button>
+                        <button
+                          type="button"
+                          title="Descer"
+                          aria-label={`Descer ${category.name}`}
+                          onClick={() => move(index, 1)}
+                          disabled={index === categories.length - 1 || reordering}
+                          className="rounded-lg p-1.5 text-[var(--muted)] hover:bg-[var(--page)] hover:text-[var(--ink)] disabled:opacity-30"
+                        >
+                          <ChevronDownIcon className="h-4 w-4" />
+                        </button>
+                      </>
+                    )}
                     <button
                       type="button"
                       onClick={() => startEditing(category)}
@@ -260,7 +324,8 @@ export function CategoriasProdutoSection({ session, company }: CategoriasProduto
                 </>
               )}
             </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
