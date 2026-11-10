@@ -18,6 +18,7 @@ import { CobrancasSection } from './config/CobrancasSection'
 import { ProtecaoVeicularSection } from './config/ProtecaoVeicularSection'
 import { IntegracoesSection } from './config/IntegracoesSection'
 import { IntegracoesApisSection } from './config/IntegracoesApisSection'
+import { GestorFoodSection } from './config/GestorFoodSection'
 import { ApiTokenCard } from './config/ApiTokenCard'
 import { LojaOnlineSection } from './config/LojaOnlineSection'
 import { ContabilidadeSection } from './config/ContabilidadeSection'
@@ -46,6 +47,7 @@ type ConfigTab =
   | 'assinatura-digital'
   | 'integracoes'
   | 'integracoes-apis'
+  | 'gestorfood'
   | 'cobrancas'
   | 'emprestimo'
   | 'loja-online'
@@ -271,6 +273,7 @@ export function ConfigPage({ session, company, onNavigate, onSaved }: ConfigPage
       { key: 'cobrancas', label: 'Cobranças', visible: true },
       { key: 'emprestimo', label: 'Empréstimo', visible: isEmprestimo(systemType) },
       { key: 'loja-online', label: 'Loja Online', visible: isLojaOnline(systemType) },
+      { key: 'gestorfood', label: 'Gestor Food', visible: isLojaOnline(systemType) },
       { key: 'compras', label: 'Compras', visible: true },
       { key: 'categorias-produto', label: 'Categorias de Produto', visible: true },
       { key: 'fiscal', label: 'Fiscal', visible: true },
@@ -445,6 +448,7 @@ export function ConfigPage({ session, company, onNavigate, onSaved }: ConfigPage
                 <IntegracoesApisSection value={formState} onChange={handleChange} session={session} company={company} />
               )}
               {activeTab === 'cobrancas' && <CobrancasSection value={formState} onChange={handleChange} />}
+              {activeTab === 'gestorfood' && <GestorFoodSection config={config} session={session} company={company} />}
               {activeTab === 'loja-online' && (
                 <LojaOnlineSection value={formState} onChange={handleChange} session={session} company={company} />
               )}
