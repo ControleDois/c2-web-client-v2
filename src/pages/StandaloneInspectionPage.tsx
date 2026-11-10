@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type TouchEvent as ReactTouchEvent } from 'react'
+import { InspectionChecklist, useInspectionChecklist } from '../components/InspectionChecklist'
 import { createVehicleInspection } from '../lib/vehicleInspections'
 import { fetchVehicles, type VehicleRecord } from '../lib/vehicles'
 import { fetchConfig } from '../lib/config'
@@ -80,6 +81,7 @@ export function StandaloneInspectionPage({ session, company, onBack, onSaved }: 
   const [rentalOperation, setRentalOperation] = useState<'pickup' | 'return'>('return')
 
   const [detailedRequired, setDetailedRequired] = useState<boolean | null>(null)
+  const checklist = useInspectionChecklist(session.token.token, company.id)
   const [slots, setSlots] = useState<PhotoSlot[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -393,7 +395,11 @@ export function StandaloneInspectionPage({ session, company, onBack, onSaved }: 
   const searchVehicles = (query: string) =>
     fetchVehicles(session.token.token, company.id, { search: query, limit: 8 }).then((res) => res.data)
 
-  const missingRequired = !vehicle || detailedRequired === null || slots.some((slot) => slot.required && !slot.file)
+  const missingRequired =
+    !vehicle ||
+    detailedRequired === null ||
+    slots.some((slot) => slot.required && !slot.file) ||
+    checklist.missing.length > 0
 
   async function handleSubmit() {
     if (missingRequired || submitting) return
@@ -422,6 +428,7 @@ export function StandaloneInspectionPage({ session, company, onBack, onSaved }: 
         customer_signer_name: ownerSignerName || undefined,
         driver_signature: userSignature,
         driver_signer_name: userSignerName || undefined,
+        checklist: checklist.payload,
       })
 
       // Vincula ao aluguel em andamento (se marcado) - é isso que faz a
@@ -699,6 +706,12 @@ export function StandaloneInspectionPage({ session, company, onBack, onSaved }: 
           >
             + Adicionar foto
           </button>
+
+          {checklist.enabled && (
+            <div className="mt-8 border-t border-[var(--border)] pt-6">
+              <InspectionChecklist checklist={checklist} />
+            </div>
+          )}
 
           <div className="mt-8 border-t border-[var(--border)] pt-6">
             <h3 className="text-[14px] font-bold text-[var(--ink)]">Assinaturas</h3>

@@ -69,6 +69,8 @@ export interface ConfigRecord {
 
   // Vistorias
   vehicle_inspection_detailed_required?: boolean
+  vehicle_inspection_checklist_enabled?: boolean
+  vehicle_inspection_checklist_items?: string[] | null
 
   // Gestão de Compras
   purchase_management_enabled?: boolean
@@ -410,6 +412,8 @@ export interface ConfigPayload {
   terminals?: CompanyTerminalPayload[]
 
   vehicle_inspection_detailed_required?: boolean
+  vehicle_inspection_checklist_enabled?: boolean
+  vehicle_inspection_checklist_items?: string[] | null
 
   purchase_management_enabled?: boolean
 

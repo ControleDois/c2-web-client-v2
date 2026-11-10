@@ -10,6 +10,7 @@ import {
   type VehicleRentalContractRecord,
   type VehicleRentalOperationPayload,
 } from '../lib/sales'
+import { InspectionChecklist, useInspectionChecklist } from './InspectionChecklist'
 import { createVehicleInspection, fetchVehicleInspections, type VehicleInspectionRecord } from '../lib/vehicleInspections'
 import { ApiError } from '../lib/api'
 import { formatDate, formatDateTime, formatCurrency } from '../lib/format'
@@ -83,6 +84,7 @@ export function RentalOperationModal({ session, company, sale, mode, detailedReq
   const [returnDateInput, setReturnDateInput] = useState(() => toDatetimeLocalValue(new Date()))
 
   const [slots, setSlots] = useState<PhotoSlot[]>(() => (detailedRequired ? buildInitialSlots() : []))
+  const checklist = useInspectionChecklist(session.token.token, company.id)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -387,7 +389,8 @@ export function RentalOperationModal({ session, company, sale, mode, detailedReq
   }
 
   const missingRequired =
-    inspectionMode === 'new' && detailedRequired ? slots.some((slot) => slot.required && !slot.file) : false
+    inspectionMode === 'new' &&
+    ((detailedRequired && slots.some((slot) => slot.required && !slot.file)) || checklist.missing.length > 0)
 
   const canSubmit = inspectionMode === 'existing' ? Boolean(selectedInspectionId) : !missingRequired
 
@@ -428,6 +431,7 @@ export function RentalOperationModal({ session, company, sale, mode, detailedReq
             customer_signer_name: customerSignerName || undefined,
             driver_signature: driverSignature,
             driver_signer_name: driverSignerName || undefined,
+            checklist: checklist.payload,
           })
           inspectionId = result.data.id
           createdInspectionIdRef.current = inspectionId
@@ -771,6 +775,12 @@ export function RentalOperationModal({ session, company, sale, mode, detailedReq
         >
           + Adicionar foto
         </button>
+
+        {checklist.enabled && (
+          <div className="mt-8 border-t border-[var(--border)] pt-6">
+            <InspectionChecklist checklist={checklist} />
+          </div>
+        )}
 
         <div className="mt-8 border-t border-[var(--border)] pt-6">
           <h3 className="text-[14px] font-bold text-[var(--ink)]">Assinaturas</h3>

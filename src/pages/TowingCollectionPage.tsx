@@ -10,6 +10,7 @@ import {
   COLLECTION_STATUS_DELIVERED,
   type TowingSaleRecord,
 } from '../lib/towingSale'
+import { InspectionChecklist, useInspectionChecklist } from '../components/InspectionChecklist'
 import { createVehicleInspection } from '../lib/vehicleInspections'
 import { fetchConfig } from '../lib/config'
 import { ApiError } from '../lib/api'
@@ -95,6 +96,7 @@ interface InspectionModalProps {
 function InspectionCaptureModal({ session, company, sale, detailedRequired, onClose, onCompleted }: InspectionModalProps) {
   const myCompanyPerson = useMyCompanyPerson(session, company)
   const [slots, setSlots] = useState<PhotoSlot[]>(() => (detailedRequired ? buildInitialSlots() : []))
+  const checklist = useInspectionChecklist(session.token.token, company.id)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -345,9 +347,9 @@ function InspectionCaptureModal({ session, company, sale, detailedRequired, onCl
     })
   }
 
-  const missingRequired = detailedRequired
-    ? slots.some((slot) => slot.required && !slot.file)
-    : !slots.some((slot) => slot.file)
+  const missingRequired =
+    (detailedRequired ? slots.some((slot) => slot.required && !slot.file) : !slots.some((slot) => slot.file)) ||
+    checklist.missing.length > 0
 
   async function handleSubmit() {
     if (missingRequired || submitting) return
@@ -378,6 +380,7 @@ function InspectionCaptureModal({ session, company, sale, detailedRequired, onCl
         customer_signer_name: customerSignerName || undefined,
         driver_signature: driverSignature,
         driver_signer_name: driverSignerName || undefined,
+        checklist: checklist.payload,
       })
       onCompleted(result.data.id)
     } catch (err) {
@@ -502,6 +505,12 @@ function InspectionCaptureModal({ session, company, sale, detailedRequired, onCl
         >
           {detailedRequired ? '+ Adicionar foto extra' : '+ Adicionar foto de detalhe'}
         </button>
+
+        {checklist.enabled && (
+          <div className="mt-8 border-t border-[var(--border)] pt-6">
+            <InspectionChecklist checklist={checklist} />
+          </div>
+        )}
 
         <div className="mt-8 border-t border-[var(--border)] pt-6">
           <h3 className="text-[14px] font-bold text-[var(--ink)]">Assinaturas</h3>

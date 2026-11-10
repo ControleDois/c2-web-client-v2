@@ -10,6 +10,11 @@ export interface VehicleInspectionPhoto {
   check_number?: number
 }
 
+export interface InspectionChecklistAnswer {
+  name: string
+  checked: boolean
+}
+
 export interface VehicleInspectionRecord {
   id: string
   code?: number
@@ -26,6 +31,8 @@ export interface VehicleInspectionRecord {
   driver_signed_at?: string | null
   created_at?: string
   photos?: VehicleInspectionPhoto[]
+  // Conferência de itens (sim/não), quando ligada em Configurações > Vistorias
+  checklist?: InspectionChecklistAnswer[] | null
   vehicle?: { id: string; brand?: string | null; model?: string | null; license_plate?: string | null } | null
   people?: VehicleInspectionContactPerson | null
   user?: { id: string; name: string } | null
@@ -128,6 +135,7 @@ export interface CreateInspectionPayload {
   customer_signer_name?: string
   driver_signature?: File
   driver_signer_name?: string
+  checklist?: InspectionChecklistAnswer[]
 }
 
 export function createVehicleInspection(token: string, payload: CreateInspectionPayload) {
@@ -137,6 +145,7 @@ export function createVehicleInspection(token: string, payload: CreateInspection
   if (payload.people_id) form.append('people_id', payload.people_id)
   if (payload.user_id) form.append('user_id', payload.user_id)
   if (payload.towing_sale_id) form.append('towing_sale_id', payload.towing_sale_id)
+  if (payload.checklist?.length) form.append('checklist', JSON.stringify(payload.checklist))
 
   const metadata = payload.photos.map((photo, index) => ({
     id_referencia: `photo_${index}`,

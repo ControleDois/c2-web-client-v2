@@ -720,6 +720,22 @@ export function VehicleInspectionsPage({ session, company }: VehicleInspectionsP
               </div>
             </div>
 
+            {detailItem.checklist && detailItem.checklist.length > 0 && (
+              <div className="mt-6">
+                <p className="text-[11px] font-semibold tracking-wide text-[var(--muted)] uppercase">Conferência</p>
+                <div className="mt-2 grid gap-x-6 sm:grid-cols-2">
+                  {detailItem.checklist.map((item) => (
+                    <div key={item.name} className="flex items-center justify-between border-b border-[var(--border)] py-1.5 text-[13px]">
+                      <span className="text-[var(--ink)]">{item.name}</span>
+                      <span className={`font-bold ${item.checked ? 'text-[var(--green-600)]' : 'text-[var(--red-500)]'}`}>
+                        {item.checked ? 'Sim' : 'Não'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="mt-6">
               <p className="text-[11px] font-semibold tracking-wide text-[var(--muted)] uppercase">
                 Fotos ({photos.length})
@@ -734,8 +750,13 @@ export function VehicleInspectionsPage({ session, company }: VehicleInspectionsP
                       className="group overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--page)] text-left"
                     >
                       <img src={photo.file_url} alt={photo.name || ''} className="h-32 w-full object-cover transition group-hover:opacity-90" />
-                      {photo.name && (
-                        <p className="truncate px-2 py-1.5 text-[11.5px] font-medium text-[var(--ink-soft)]">{photo.name}</p>
+                      {(photo.name || photo.description) && (
+                        <div className="px-2 py-1.5">
+                          {photo.name && <p className="truncate text-[11.5px] font-medium text-[var(--ink-soft)]">{photo.name}</p>}
+                          {photo.description && (
+                            <p className="line-clamp-2 text-[11px] text-[var(--muted)]">{photo.description}</p>
+                          )}
+                        </div>
                       )}
                     </button>
                   ))}
@@ -864,6 +885,9 @@ export function VehicleInspectionsPage({ session, company }: VehicleInspectionsP
 
           <div className="mt-4 text-center text-white">
             {photos[lightboxIndex].name && <p className="text-[14px] font-semibold">{photos[lightboxIndex].name}</p>}
+            {photos[lightboxIndex].description && (
+              <p className="mx-auto mt-1 max-w-[640px] text-[13px] whitespace-pre-wrap opacity-90">{photos[lightboxIndex].description}</p>
+            )}
             <p className="mt-0.5 text-[12px] opacity-70">
               {lightboxIndex + 1} / {photos.length}
             </p>

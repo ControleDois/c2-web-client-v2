@@ -85,6 +85,8 @@ function buildConfigPayload(companyId: string, config: ConfigRecord | null): Con
     }),
 
     vehicle_inspection_detailed_required: config?.vehicle_inspection_detailed_required ?? false,
+    vehicle_inspection_checklist_enabled: config?.vehicle_inspection_checklist_enabled ?? false,
+    vehicle_inspection_checklist_items: config?.vehicle_inspection_checklist_items ?? [],
     purchase_management_enabled: config?.purchase_management_enabled ?? false,
 
     nfe_module_enabled: config?.nfe_module_enabled ?? false,
