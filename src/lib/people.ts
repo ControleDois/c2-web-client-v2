@@ -201,6 +201,9 @@ function buildPersonForm(payload: PersonPayload): FormData {
     ['time_clock_tolerance_minutes', payload.time_clock_tolerance_minutes],
     ['time_clock_salary_type', payload.time_clock_salary_type],
     ['time_clock_salary_value', payload.time_clock_salary_value],
+    // Contribuinte de ICMS e inscrição estadual (iam faltando no envio e não eram salvos)
+    ['state_registration_indicator', payload.state_registration_indicator],
+    ['state_registration', payload.state_registration_indicator === 1 ? payload.state_registration : undefined],
   ]
   for (const [key, value] of plainFields) {
     if (value !== undefined && value !== '') form.append(key, String(value))
