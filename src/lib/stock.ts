@@ -245,3 +245,8 @@ export function saveRecipe(token: string, productId: string, items: { ingredient
 export function formatStockQuantity(value: number): string {
   return Number(value).toLocaleString('pt-BR', { maximumFractionDigits: 3 })
 }
+
+// Contagem pelo celular: liga o "controla estoque" de um produto bipado que ainda não controlava.
+export function trackProductStock(token: string, productId: string) {
+  return apiPost<{ id: string; controls_stock: boolean }>(`/stock/products/${productId}/track`, {}, token)
+}

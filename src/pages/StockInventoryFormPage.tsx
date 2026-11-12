@@ -13,6 +13,7 @@ import { ApiError } from '../lib/api'
 import { formatDateTime } from '../lib/format'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { ChevronLeftIcon, SearchIcon } from '../components/icons'
+import { StockCountMobile } from '../components/StockCountMobile'
 import type { AuthCompany, AuthSession } from '../lib/auth'
 
 interface StockInventoryFormPageProps {
@@ -29,6 +30,17 @@ const TYPE_FILTERS = [
   { value: 'product', label: 'Produtos' },
 ]
 
+// Contagem em andamento guardada no aparelho (o celular pode bloquear a tela no meio da contagem).
+const draftKey = (companyId: string) => `c2_stock_count_draft_${companyId}`
+function readDraft(companyId: string): { counted: Record<string, string>; description?: string } | null {
+  try {
+    const raw = localStorage.getItem(draftKey(companyId))
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
 const diffTone = (value: number) =>
   value === 0 ? 'text-[var(--muted)]' : value > 0 ? 'text-[var(--green-600)] font-bold' : 'text-[var(--red-500)] font-bold'
 
@@ -37,8 +49,12 @@ export function StockInventoryFormPage({ session, company, inventoryId, onBack, 
   const token = session.token.token
 
   const [rows, setRows] = useState<StockSituationRow[]>([])
-  const [counted, setCounted] = useState<Record<string, string>>({})
-  const [description, setDescription] = useState(`Contagem de ${new Date().toLocaleDateString('pt-BR')}`)
+  const [counted, setCounted] = useState<Record<string, string>>(() => (inventoryId ? {} : readDraft(company.id)?.counted ?? {}))
+  const [description, setDescription] = useState(
+    () => (inventoryId ? null : readDraft(company.id)?.description) || `Contagem de ${new Date().toLocaleDateString('pt-BR')}`
+  )
+  // "Bipar": leitor de código de barras (padrão no celular); "Lista": tabela com todos os itens.
+  const [view, setView] = useState<'scan' | 'list'>(() => (window.innerWidth < 768 ? 'scan' : 'list'))
   const [search, setSearch] = useState('')
   const [type, setType] = useState('')
   const [inventory, setInventory] = useState<StockInventoryRecord | null>(null)
@@ -70,6 +86,16 @@ export function StockInventoryFormPage({ session, company, inventoryId, onBack, 
       cancelled = true
     }
   }, [token, company.id, inventoryId])
+
+  useEffect(() => {
+    if (inventoryId) return
+    try {
+      if (Object.keys(counted).length) localStorage.setItem(draftKey(company.id), JSON.stringify({ counted, description }))
+      else localStorage.removeItem(draftKey(company.id))
+    } catch {
+      // sem armazenamento: a contagem fica só na tela
+    }
+  }, [counted, description, company.id, inventoryId])
 
   const visibleRows = useMemo(() => {
     const term = search.trim().toLowerCase()
@@ -103,6 +129,11 @@ export function StockInventoryFormPage({ session, company, inventoryId, onBack, 
         close,
         items: entries.map((entry) => ({ productId: entry.row.id, countedQuantity: entry.value })),
       })
+      try {
+        localStorage.removeItem(draftKey(company.id))
+      } catch {
+        // nada a fazer
+      }
       onSaved()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Não foi possível salvar a contagem.')
@@ -144,7 +175,9 @@ export function StockInventoryFormPage({ session, company, inventoryId, onBack, 
         <h1 className="mt-0.5 text-[22px] font-bold tracking-tight text-[var(--ink)]">{isDetail ? 'Contagem' : 'Nova contagem'}</h1>
         {!isDetail && (
           <p className="mt-1 max-w-[760px] text-[13px] text-[var(--ink-soft)]">
-            Digite quanto você contou de cada item (deixe em branco o que não contou). Ao fechar, o estoque passa a ser o que você digitou. "Salvar rascunho" guarda a contagem sem mexer no estoque.
+            {view === 'scan'
+              ? 'Bipe o código de barras com a câmera e informe quantos tem. Ao finalizar, o estoque de cada item passa a ser o que você contou.'
+              : 'Digite quanto você contou de cada item (deixe em branco o que não contou). Ao fechar, o estoque passa a ser o que você digitou. "Salvar rascunho" guarda a contagem sem mexer no estoque.'}
           </p>
         )}
       </div>
@@ -214,6 +247,37 @@ export function StockInventoryFormPage({ session, company, inventoryId, onBack, 
         </>
       ) : (
         <>
+          <div className="flex gap-1 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1 sm:w-fit">
+            {(
+              [
+                ['scan', 'Bipar com o celular'],
+                ['list', 'Lista de itens'],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setView(value)}
+                className={`flex-1 rounded-lg px-4 py-2 text-[13px] font-semibold transition sm:flex-none ${
+                  view === value ? 'bg-[var(--blue-500)] text-white' : 'text-[var(--ink-soft)] hover:text-[var(--ink)]'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {view === 'scan' ? (
+            <StockCountMobile
+              token={token}
+              companyId={company.id}
+              rows={rows}
+              counted={counted}
+              setCounted={setCounted}
+              onRowAdded={(row) => setRows((current) => (current.some((item) => item.id === row.id) ? current : [...current, row]))}
+            />
+          ) : (
+          <>
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="flex flex-col gap-1.5">
@@ -317,16 +381,27 @@ export function StockInventoryFormPage({ session, company, inventoryId, onBack, 
             )}
           </div>
 
+          </>
+          )}
+
           {error && <p className="rounded-xl bg-[var(--red-100)] px-4 py-3 text-[13.5px] font-medium text-[var(--red-500)]">{error}</p>}
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div
+            className={`flex flex-wrap items-center gap-3 ${
+              view === 'scan'
+                ? 'fixed inset-x-0 bottom-0 z-40 border-t border-[var(--border)] bg-[var(--surface)] p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-6px_20px_rgba(0,0,0,0.08)] sm:static sm:border-none sm:bg-transparent sm:p-0 sm:shadow-none'
+                : ''
+            }`}
+          >
             <button
               type="button"
               onClick={() => setConfirmClose(true)}
               disabled={saving || entries.length === 0}
-              className="rounded-xl bg-[var(--blue-500)] px-6 py-2.5 text-[14px] font-bold text-white hover:bg-[var(--blue-700)] disabled:opacity-60"
+              className={`rounded-xl bg-[var(--blue-500)] px-6 py-2.5 text-[14px] font-bold text-white hover:bg-[var(--blue-700)] disabled:opacity-60 ${
+                view === 'scan' ? 'h-12 flex-1 sm:h-auto sm:flex-none' : ''
+              }`}
             >
-              Fechar e ajustar o estoque
+              {view === 'scan' ? `Finalizar contagem (${entries.length})` : 'Fechar e ajustar o estoque'}
             </button>
             <button
               type="button"
@@ -336,9 +411,11 @@ export function StockInventoryFormPage({ session, company, inventoryId, onBack, 
             >
               Salvar rascunho
             </button>
-            <button type="button" onClick={onBack} className="rounded-xl px-5 py-2.5 text-[14px] font-semibold text-[var(--ink-soft)] hover:text-[var(--ink)]">
-              Cancelar
-            </button>
+            {view !== 'scan' && (
+              <button type="button" onClick={onBack} className="rounded-xl px-5 py-2.5 text-[14px] font-semibold text-[var(--ink-soft)] hover:text-[var(--ink)]">
+                Cancelar
+              </button>
+            )}
           </div>
         </>
       )}
@@ -346,7 +423,7 @@ export function StockInventoryFormPage({ session, company, inventoryId, onBack, 
       <ConfirmDialog
         open={confirmClose}
         title="Fechar a contagem?"
-        message="O estoque dos itens contados será ajustado para as quantidades digitadas. Os itens em branco não mudam."
+        message={`O estoque dos ${entries.length || ''} itens contados passa a ser a quantidade que você contou. Os itens não contados não mudam.`}
         confirmLabel="Fechar e ajustar"
         cancelLabel="Voltar"
         danger={false}
