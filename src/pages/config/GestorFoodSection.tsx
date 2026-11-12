@@ -1,7 +1,14 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ApiError } from '../../lib/api'
 import type { ConfigRecord } from '../../lib/config'
-import { importGestorFood, previewGestorFood, type GestorFoodImportResult, type GestorFoodPreview } from '../../lib/gestorfood'
+import {
+  fetchGestorFoodSettings,
+  importGestorFood,
+  previewGestorFood,
+  saveGestorFoodSettings,
+  type GestorFoodImportResult,
+  type GestorFoodPreview,
+} from '../../lib/gestorfood'
 import { SectionCard } from '../../components/SectionCard'
 import { TextField } from '../../components/form/TextField'
 import { LinkIcon } from '../../components/icons'
@@ -20,6 +27,31 @@ export function GestorFoodSection({ config, session, company }: GestorFoodSectio
   const [result, setResult] = useState<GestorFoodImportResult | null>(null)
   const [busy, setBusy] = useState<'preview' | 'import' | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [importedLink, setImportedLink] = useState<string | null>(saved || null)
+  const [enabled, setEnabled] = useState(false)
+  const [savingEnabled, setSavingEnabled] = useState(false)
+
+  useEffect(() => {
+    fetchGestorFoodSettings(session.token.token, company.id)
+      .then((settings) => {
+        setEnabled(settings.enabled)
+        setImportedLink(settings.link)
+      })
+      .catch(() => undefined)
+  }, [session.token.token, company.id])
+
+  async function toggleEnabled(next: boolean) {
+    setSavingEnabled(true)
+    setError(null)
+    try {
+      const settings = await saveGestorFoodSettings(session.token.token, company.id, next)
+      setEnabled(settings.enabled)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Não foi possível salvar a integração.')
+    } finally {
+      setSavingEnabled(false)
+    }
+  }
 
   async function check() {
     setBusy('preview')
@@ -42,6 +74,7 @@ export function GestorFoodSection({ config, session, company }: GestorFoodSectio
       const imported = await importGestorFood(session.token.token, company.id, link)
       setResult(imported)
       setLink(imported.link)
+      setImportedLink(imported.link)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Não foi possível importar o cardápio.')
     } finally {
@@ -56,8 +89,8 @@ export function GestorFoodSection({ config, session, company }: GestorFoodSectio
           <p className="text-[12.5px] text-[var(--ink-soft)]">
             Informe o link da loja no Gestor Food: o nome que aparece depois de <b>shop.gestorfood.com/</b> (ex.: grand-bar). A
             importação traz as categorias, os produtos com preço e foto e os complementos para o cadastro desta empresa e os
-            publica na Loja Online. Importar de novo atualiza os mesmos produtos (não duplica). Depois de importado, o totem
-            envia cada pedido pago para o Gestor Food.
+            publica na Loja Online. Importar de novo atualiza os mesmos produtos (não duplica). Com a integração marcada como
+            ativa, o totem envia cada pedido pago para o Gestor Food.
           </p>
           <div className="flex flex-wrap items-end gap-3">
             <div className="min-w-[260px] flex-1">
@@ -90,7 +123,30 @@ export function GestorFoodSection({ config, session, company }: GestorFoodSectio
             </button>
           </div>
 
-          {saved && <p className="text-[12px] text-[var(--muted)]">Integração ativa com a loja “{saved}”.</p>}
+          <label
+            className={`flex items-start gap-3 rounded-xl border border-[var(--border)] p-4 ${
+              importedLink ? 'cursor-pointer' : 'opacity-60'
+            }`}
+          >
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 flex-none accent-[var(--blue-500)]"
+              checked={enabled}
+              disabled={!importedLink || savingEnabled}
+              onChange={(event) => toggleEnabled(event.target.checked)}
+            />
+            <span className="text-[13.5px] text-[var(--ink)]">
+              <b>Integrado: enviar os pedidos do totem para o Gestor Food</b>
+              <span className="block text-[12.5px] text-[var(--ink-soft)]">
+                {importedLink
+                  ? enabled
+                    ? `Ativo: cada pedido pago no totem vai para a loja “${importedLink}” no Gestor Food.`
+                    : `Desligado: o totem vende normalmente e não envia nada ao Gestor Food (loja “${importedLink}”).`
+                  : 'Importe o cardápio do Gestor Food para poder ativar.'}
+                {savingEnabled ? ' Salvando…' : ''}
+              </span>
+            </span>
+          </label>
 
           {preview && (
             <div className="rounded-xl bg-[var(--page)] p-4 text-[13.5px] text-[var(--ink)]">
