@@ -161,7 +161,7 @@ export function StockInventoryFormPage({ session, company, inventoryId, onBack, 
   const isDetail = Boolean(inventoryId)
 
   return (
-    <div className="flex w-full flex-col gap-6 p-4 sm:p-6 lg:p-8">
+    <div className={`flex w-full flex-col p-4 sm:gap-6 sm:p-6 lg:p-8 ${!isDetail && view === 'scan' ? 'gap-3' : 'gap-6'}`}>
       <div>
         <button
           type="button"
@@ -169,12 +169,26 @@ export function StockInventoryFormPage({ session, company, inventoryId, onBack, 
           className="mb-3 flex items-center gap-1 text-[12.5px] font-semibold text-[var(--ink-soft)] hover:text-[var(--ink)]"
         >
           <ChevronLeftIcon className="h-3.5 w-3.5" />
-          Voltar para as contagens
+          <span className={!isDetail && view === 'scan' ? 'hidden sm:inline' : ''}>Voltar para as contagens</span>
+          <span className={!isDetail && view === 'scan' ? 'sm:hidden' : 'hidden'}>Contagens</span>
         </button>
-        <p className="text-[12px] font-semibold tracking-wide text-[var(--blue-700)] uppercase">Estoque</p>
-        <h1 className="mt-0.5 text-[22px] font-bold tracking-tight text-[var(--ink)]">{isDetail ? 'Contagem' : 'Nova contagem'}</h1>
+        <p className={`text-[12px] font-semibold tracking-wide text-[var(--blue-700)] uppercase ${!isDetail && view === 'scan' ? 'hidden sm:block' : ''}`}>
+          Estoque
+        </p>
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="mt-0.5 text-[22px] font-bold tracking-tight text-[var(--ink)]">{isDetail ? 'Contagem' : 'Nova contagem'}</h1>
+          {!isDetail && (
+            <button
+              type="button"
+              onClick={() => setView(view === 'scan' ? 'list' : 'scan')}
+              className="text-[13px] font-bold text-[var(--blue-700)] sm:hidden"
+            >
+              {view === 'scan' ? 'Ver lista de itens' : 'Bipar com a câmera'}
+            </button>
+          )}
+        </div>
         {!isDetail && (
-          <p className="mt-1 max-w-[760px] text-[13px] text-[var(--ink-soft)]">
+          <p className={`mt-1 max-w-[760px] text-[13px] text-[var(--ink-soft)] ${view === 'scan' ? 'hidden sm:block' : ''}`}>
             {view === 'scan'
               ? 'Bipe o código de barras com a câmera e informe quantos tem. Ao finalizar, o estoque de cada item passa a ser o que você contou.'
               : 'Digite quanto você contou de cada item (deixe em branco o que não contou). Ao fechar, o estoque passa a ser o que você digitou. "Salvar rascunho" guarda a contagem sem mexer no estoque.'}
@@ -247,7 +261,7 @@ export function StockInventoryFormPage({ session, company, inventoryId, onBack, 
         </>
       ) : (
         <>
-          <div className="flex gap-1 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1 sm:w-fit">
+          <div className="hidden gap-1 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1 sm:flex sm:w-fit">
             {(
               [
                 ['scan', 'Bipar com o celular'],

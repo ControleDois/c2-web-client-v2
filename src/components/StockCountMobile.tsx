@@ -204,46 +204,55 @@ export function StockCountMobile({ token, companyId, rows, counted, setCounted, 
 
   return (
     <div className="flex flex-col gap-3 pb-28">
-      {/* Modo de contagem */}
-      <div className="grid grid-cols-2 gap-1 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-1">
-        {(
-          [
-            ['qty', 'Bipar e digitar', 'Bipa 1 vez e digita quantos tem'],
-            ['unit', 'Bipar cada unidade', 'Cada bipe soma 1'],
-          ] as const
-        ).map(([value, label, hint]) => (
-          <button
-            key={value}
-            type="button"
-            onClick={() => setMode(value)}
-            className={`rounded-xl px-3 py-2.5 text-left transition ${
-              mode === value ? 'bg-[var(--blue-500)] text-white' : 'text-[var(--ink-soft)]'
-            }`}
-          >
-            <span className="block text-[14px] font-bold">{label}</span>
-            <span className={`block text-[11.5px] ${mode === value ? 'text-white/80' : 'text-[var(--muted)]'}`}>{hint}</span>
-          </button>
-        ))}
-      </div>
-
-      {/* Câmera */}
-      <div className="flex items-center justify-between">
-        <p className="text-[13px] font-semibold text-[var(--ink-soft)]">Aponte a câmera para o código de barras</p>
-        <button type="button" onClick={() => setCamera((value) => !value)} className="text-[13px] font-bold text-[var(--blue-700)]">
-          {camera ? 'Desligar câmera' : 'Ligar câmera'}
-        </button>
-      </div>
-      {camera && (
+      {/* Câmera em destaque, com o modo e o liga/desliga por cima */}
+      {camera ? (
         <BarcodeScanner
           onScan={(code) => void handleCode(code)}
           paused={scannerPaused}
           // Cada unidade: o mesmo código conta de novo depois que sai da câmera por 0,7 s.
           repeatAfterMs={mode === 'unit' ? 700 : 1500}
-          className="h-[34vh] max-h-[300px] min-h-[200px] w-full"
-        />
-      )}
-      {camera && mode === 'unit' && (
-        <p className="-mt-1 text-center text-[12px] text-[var(--muted)]">Passe uma unidade por vez: tire da frente da câmera antes de bipar a próxima.</p>
+          className="h-[44vh] max-h-[420px] min-h-[240px] w-full"
+        >
+          <div className="absolute inset-x-2 top-2 flex items-center gap-2">
+            <div className="flex flex-1 rounded-full bg-black/55 p-1 backdrop-blur">
+              {(
+                [
+                  ['qty', 'Digitar quantidade'],
+                  ['unit', 'Cada bipe = 1'],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setMode(value)}
+                  className={`flex-1 rounded-full px-2 py-1.5 text-[12.5px] font-bold transition ${
+                    mode === value ? 'bg-white text-[var(--ink)]' : 'text-white/85'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setCamera(false)}
+              className="flex-none rounded-full bg-black/55 px-3 py-2 text-[12px] font-bold text-white backdrop-blur"
+            >
+              Fechar
+            </button>
+          </div>
+          <p className="pointer-events-none absolute inset-x-0 bottom-2 text-center text-[12px] font-semibold text-white drop-shadow">
+            {mode === 'unit' ? 'Uma unidade por vez' : 'Aponte para o código de barras'}
+          </p>
+        </BarcodeScanner>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setCamera(true)}
+          className="flex h-14 items-center justify-center rounded-2xl bg-[var(--ink)] text-[15px] font-bold text-white"
+        >
+          Abrir a câmera para bipar
+        </button>
       )}
 
       {/* Última leitura (modo unidade) */}
