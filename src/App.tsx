@@ -26,6 +26,7 @@ import { StockPage } from './pages/StockPage'
 import { StockMovementsPage } from './pages/StockMovementsPage'
 import { StockInventoriesPage } from './pages/StockInventoriesPage'
 import { StockInventoryFormPage } from './pages/StockInventoryFormPage'
+import { ShelfLifeLabelsPage } from './pages/ShelfLifeLabelsPage'
 import { SaleFormPage } from './pages/SaleFormPage'
 import { PDV_URL } from './lib/pdv'
 import { TowingSaleFormPage } from './pages/TowingSaleFormPage'
@@ -169,6 +170,7 @@ function App() {
   const [nfseModuleEnabled, setNfseModuleEnabled] = useState(false)
   const [timeClockEnabled, setTimeClockEnabled] = useState(false)
   const [mealAllowanceEnabled, setMealAllowanceEnabled] = useState(false)
+  const [shelfLifeEnabled, setShelfLifeEnabled] = useState(false)
   const [configVersion, setConfigVersion] = useState(0)
 
   useEffect(() => {
@@ -178,6 +180,7 @@ function App() {
       setNfseModuleEnabled(false)
       setTimeClockEnabled(false)
       setMealAllowanceEnabled(false)
+      setShelfLifeEnabled(false)
       return
     }
     let cancelled = false
@@ -189,6 +192,7 @@ function App() {
           setNfseModuleEnabled(Boolean(config.nfse_module_enabled))
           setTimeClockEnabled(Boolean(config.time_clock_enabled))
           setMealAllowanceEnabled(Boolean(config.meal_allowance_enabled))
+          setShelfLifeEnabled(Boolean(config.shelf_life_enabled))
         }
       })
       .catch(() => {
@@ -496,6 +500,7 @@ function App() {
             company={activeCompany}
             productId={productsView.view.id}
             defaultIngredient={newIngredient}
+            shelfLifeEnabled={shelfLifeEnabled}
             onBack={productsView.reset}
             onSaved={productsView.reset}
           />
@@ -653,6 +658,10 @@ function App() {
           onClearProduct={() => setStockProduct(null)}
           onBack={() => handleNavigate('stock')}
         />
+      )
+    } else if (page === 'shelf-life-labels') {
+      pageContent = (
+        <ShelfLifeLabelsPage session={session} company={activeCompany} onOpenProducts={() => handleNavigate('products')} />
       )
     } else if (page === 'stock-inventories') {
       pageContent =
@@ -1360,6 +1369,7 @@ function App() {
         nfseModuleEnabled={nfseModuleEnabled}
         timeClockEnabled={timeClockEnabled}
         mealAllowanceEnabled={mealAllowanceEnabled}
+        shelfLifeEnabled={shelfLifeEnabled}
       >
         <TrialBanner company={activeCompany} onOpenPlans={() => handleNavigate('subscription')} />
         <LicenseNotice session={session} company={activeCompany} />

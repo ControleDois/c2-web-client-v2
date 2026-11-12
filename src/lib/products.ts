@@ -69,6 +69,10 @@ export interface ProductRecord {
   // Desligado: o item não baixa nem controla estoque.
   controls_stock?: boolean
   min_stock?: number | string | null
+  // Controle de validade: quanto dura depois de aberto (horas ou dias) e como guardar
+  opened_shelf_life?: number | null
+  opened_shelf_life_unit?: 'hours' | 'days'
+  storage_condition?: string | null
   categories?: ProductCategoryRef[]
   // Dados fiscais (NFe)
   ncm_id?: string | null
@@ -94,6 +98,9 @@ export interface ProductPayload {
   is_ingredient?: boolean
   controls_stock?: boolean
   min_stock?: number | null
+  opened_shelf_life?: number | null
+  opened_shelf_life_unit?: 'hours' | 'days'
+  storage_condition?: string | null
   categories?: { id?: string; name?: string }[]
   // Dados fiscais (NFe)
   ncm_id?: string

@@ -56,6 +56,7 @@ export type AppPage =
   | 'stock'
   | 'stock-movements'
   | 'stock-inventories'
+  | 'shelf-life-labels'
   | 'bank-accounts'
   | 'categories'
   | 'cost-centers'
@@ -130,6 +131,8 @@ interface AppShellProps {
   nfseModuleEnabled?: boolean
   timeClockEnabled?: boolean
   mealAllowanceEnabled?: boolean
+  // Controle de validade de produtos abertos (etiquetas)
+  shelfLifeEnabled?: boolean
   children: ReactNode
 }
 
@@ -146,7 +149,8 @@ function buildNavGroups(
   nfeModuleEnabled?: boolean,
   timeClockEnabled?: boolean,
   nfseModuleEnabled?: boolean,
-  mealAllowanceEnabled?: boolean
+  mealAllowanceEnabled?: boolean,
+  shelfLifeEnabled?: boolean
 ): NavGroup[] {
   const emprestimo = isEmprestimo(systemType)
   const padaria = isPadaria(systemType)
@@ -330,6 +334,13 @@ function buildNavGroups(
     })
   }
 
+  if (shelfLifeEnabled) {
+    groups.push({
+      title: 'Validade',
+      items: [{ page: 'shelf-life-labels', label: 'Etiquetas de validade', icon: TagIcon }],
+    })
+  }
+
   if (purchaseManagementEnabled) {
     groups.push({
       title: 'Compras',
@@ -398,6 +409,7 @@ export function AppShell({
   nfseModuleEnabled,
   timeClockEnabled,
   mealAllowanceEnabled,
+  shelfLifeEnabled,
   children,
 }: AppShellProps) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
@@ -407,7 +419,8 @@ export function AppShell({
     nfeModuleEnabled,
     timeClockEnabled,
     nfseModuleEnabled,
-    mealAllowanceEnabled
+    mealAllowanceEnabled,
+    shelfLifeEnabled
   )
 
   function handleNavigate(page: AppPage) {

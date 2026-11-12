@@ -36,7 +36,7 @@ import {
   payloadFromDrafts,
   type ComplementGroupDraft,
 } from '../components/product/ComplementsEditor'
-import { BoxIcon, DollarSignIcon, TagIcon, FileTextIcon, ChevronLeftIcon, PlusIcon, CloseIcon } from '../components/icons'
+import { BoxIcon, ClockIcon, DollarSignIcon, TagIcon, FileTextIcon, ChevronLeftIcon, PlusIcon, CloseIcon } from '../components/icons'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
 interface ProductFormPageProps {
@@ -45,11 +45,13 @@ interface ProductFormPageProps {
   productId?: string
   // Novo item vindo da aba Insumos: já abre com "é insumo" marcado.
   defaultIngredient?: boolean
+  // Controle de validade ligado nas configurações: mostra a validade depois de aberto
+  shelfLifeEnabled?: boolean
   onBack: () => void
   onSaved: () => void
 }
 
-export function ProductFormPage({ session, company, productId, defaultIngredient = false, onBack, onSaved }: ProductFormPageProps) {
+export function ProductFormPage({ session, company, productId, defaultIngredient = false, shelfLifeEnabled = false, onBack, onSaved }: ProductFormPageProps) {
   const [loading, setLoading] = useState(Boolean(productId))
   const [loadError, setLoadError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -86,6 +88,9 @@ export function ProductFormPage({ session, company, productId, defaultIngredient
   const [createdId, setCreatedId] = useState<string | null>(null)
 
   const isProduct = role === 0
+  const [shelfLife, setShelfLife] = useState('')
+  const [shelfLifeUnit, setShelfLifeUnit] = useState<'hours' | 'days'>('days')
+  const [storageCondition, setStorageCondition] = useState('')
 
   const searchNcms = useCallback(
     (query: string) => fetchNcms(session.token.token, { search: query, limit: 8 }).then((res) => res.data),
@@ -135,6 +140,9 @@ export function ProductFormPage({ session, company, productId, defaultIngredient
         setIsIngredient(Boolean(product.is_ingredient))
         setControlsStock(product.controls_stock !== false)
         setMinStock(product.min_stock !== null && product.min_stock !== undefined ? String(Number(product.min_stock)) : '')
+        setShelfLife(product.opened_shelf_life ? String(product.opened_shelf_life) : '')
+        setShelfLifeUnit(product.opened_shelf_life_unit === 'hours' ? 'hours' : 'days')
+        setStorageCondition(product.storage_condition ?? '')
         if ((product.role ?? 0) === 0) {
           fetchRecipe(session.token.token, productId)
             .then((loaded) => {
@@ -195,6 +203,13 @@ export function ProductFormPage({ session, company, productId, defaultIngredient
       is_ingredient: isProduct ? isIngredient : undefined,
       controls_stock: isProduct ? controlsStock : undefined,
       min_stock: isProduct ? (parseMoney(minStock) ?? null) : undefined,
+      ...(isProduct && shelfLifeEnabled
+        ? {
+            opened_shelf_life: shelfLife ? Math.max(1, Math.round(Number(shelfLife))) : null,
+            opened_shelf_life_unit: shelfLifeUnit,
+            storage_condition: storageCondition.trim() || null,
+          }
+        : {}),
     }
 
     setSubmitting(true)
@@ -532,6 +547,65 @@ export function ProductFormPage({ session, company, productId, defaultIngredient
                     <p className="mt-1.5 text-[12px] text-[var(--muted)]">Quando o saldo chegar nesse número, o item aparece como "baixo" no estoque e no dashboard.</p>
                   </div>
                 )}
+              </div>
+            </SectionCard>
+          )}
+
+          {isProduct && shelfLifeEnabled && (
+            <SectionCard title="Validade depois de aberto" subtitle="Para a etiqueta de validade de produtos abertos (ex.: molho de tomate)">
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-wrap items-end gap-3">
+                  <div className="w-36">
+                    <TextField
+                      label="Dura depois de aberto"
+                      icon={<ClockIcon className="h-4 w-4" />}
+                      inputMode="numeric"
+                      placeholder="Ex.: 2"
+                      value={shelfLife}
+                      onChange={(event) => setShelfLife(event.target.value.replace(/\D/g, '').slice(0, 4))}
+                    />
+                  </div>
+                  <div className="flex gap-1 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1">
+                    {(
+                      [
+                        ['days', 'Dias'],
+                        ['hours', 'Horas'],
+                      ] as const
+                    ).map(([value, label]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setShelfLifeUnit(value)}
+                        className={`rounded-lg px-4 py-2 text-[13px] font-semibold ${
+                          shelfLifeUnit === value ? 'bg-[var(--blue-500)] text-white' : 'text-[var(--ink-soft)]'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="max-w-[420px]">
+                  <TextField
+                    label="Como guardar depois de aberto (opcional)"
+                    icon={<BoxIcon className="h-4 w-4" />}
+                    placeholder="Ex.: Refrigerado de 0 °C a 5 °C"
+                    list="storage-conditions"
+                    value={storageCondition}
+                    onChange={(event) => setStorageCondition(event.target.value.slice(0, 60))}
+                  />
+                  <datalist id="storage-conditions">
+                    <option value="Refrigerado de 0 °C a 5 °C" />
+                    <option value="Congelado a -18 °C" />
+                    <option value="Temperatura ambiente" />
+                    <option value="Local seco e arejado" />
+                  </datalist>
+                </div>
+                <p className="text-[12px] text-[var(--muted)]">
+                  {shelfLife
+                    ? `Na etiqueta: aberto agora, vence em ${shelfLife} ${shelfLifeUnit === 'hours' ? (shelfLife === '1' ? 'hora' : 'horas') : shelfLife === '1' ? 'dia' : 'dias'}.`
+                    : 'Deixe em branco se este produto não precisa de etiqueta de validade.'}
+                </p>
               </div>
             </SectionCard>
           )}

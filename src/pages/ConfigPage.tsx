@@ -28,6 +28,7 @@ import { PontoSection } from './config/PontoSection'
 import { FiscalSection } from './config/FiscalSection'
 import { TerminaisSection } from './config/TerminaisSection'
 import { CategoriasProdutoSection } from './config/CategoriasProdutoSection'
+import { ValidadeSection } from './config/ValidadeSection'
 import { CheckCircleIcon } from '../components/icons'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 import type { AppPage } from '../components/layout/AppShell'
@@ -52,6 +53,7 @@ type ConfigTab =
   | 'emprestimo'
   | 'loja-online'
   | 'compras'
+  | 'validade'
   | 'categorias-produto'
   | 'contabilidade'
   | 'verba-alimentacao'
@@ -90,6 +92,9 @@ function buildConfigPayload(companyId: string, config: ConfigRecord | null): Con
     vehicle_inspection_checklist_enabled: config?.vehicle_inspection_checklist_enabled ?? false,
     vehicle_inspection_checklist_items: config?.vehicle_inspection_checklist_items ?? [],
     purchase_management_enabled: config?.purchase_management_enabled ?? false,
+    shelf_life_enabled: config?.shelf_life_enabled ?? false,
+    shelf_label_width_mm: config?.shelf_label_width_mm ?? 60,
+    shelf_label_height_mm: config?.shelf_label_height_mm ?? 40,
 
     nfe_module_enabled: config?.nfe_module_enabled ?? false,
     nfe_provider: config?.nfe_provider ?? 'focus',
@@ -275,6 +280,7 @@ export function ConfigPage({ session, company, onNavigate, onSaved }: ConfigPage
       { key: 'loja-online', label: 'Loja Online', visible: isLojaOnline(systemType) },
       { key: 'gestorfood', label: 'Gestor Food', visible: isLojaOnline(systemType) },
       { key: 'compras', label: 'Compras', visible: true },
+      { key: 'validade', label: 'Controle de validade', visible: true },
       { key: 'categorias-produto', label: 'Categorias de Produto', visible: true },
       { key: 'fiscal', label: 'Fiscal', visible: true },
       { key: 'contabilidade', label: isContabilidade(systemType) ? 'Contadores' : 'Contabilidade', visible: true },
@@ -451,6 +457,9 @@ export function ConfigPage({ session, company, onNavigate, onSaved }: ConfigPage
               {activeTab === 'gestorfood' && <GestorFoodSection config={config} session={session} company={company} />}
               {activeTab === 'loja-online' && (
                 <LojaOnlineSection value={formState} onChange={handleChange} session={session} company={company} />
+              )}
+              {activeTab === 'validade' && (
+                <ValidadeSection value={formState} onChange={handleChange} onOpenLabels={() => onNavigate('shelf-life-labels')} />
               )}
               {activeTab === 'compras' && (
                 <ComprasSection

@@ -74,6 +74,10 @@ export interface ConfigRecord {
 
   // Gestão de Compras
   purchase_management_enabled?: boolean
+  // Controle de validade de produtos abertos (etiquetas) e tamanho da etiqueta em mm
+  shelf_life_enabled?: boolean
+  shelf_label_width_mm?: number
+  shelf_label_height_mm?: number
 
   // Fiscal / NFe (Focus NFe)
   nfe_module_enabled?: boolean
@@ -416,6 +420,10 @@ export interface ConfigPayload {
   vehicle_inspection_checklist_items?: string[] | null
 
   purchase_management_enabled?: boolean
+  // Controle de validade de produtos abertos (etiquetas) e tamanho da etiqueta em mm
+  shelf_life_enabled?: boolean
+  shelf_label_width_mm?: number
+  shelf_label_height_mm?: number
 
   // Fiscal / NFe (Focus NFe) — atenção: o validator do backend espera
   // "nfeNatureOperationId" em camelCase aqui (corpo da requisição), mas o
