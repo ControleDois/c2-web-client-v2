@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { io, type Socket } from 'socket.io-client'
 import { API_BASE_URL } from '../lib/api'
 import type { TimeClockEventRecord } from '../lib/timeClock'
+import { loadSession } from '../lib/auth'
 
 // O backend emite 'time-clock:event' assim que o webhook do relógio de
 // ponto recebe uma batida - sem isso, o painel só atualizaria com F5.
@@ -15,7 +16,7 @@ export function useTimeClockUpdates(companyId: string, onEvent: (event: TimeCloc
     const socket: Socket = io(API_BASE_URL, { transports: ['websocket', 'polling'] })
 
     socket.on('connect', () => {
-      socket.emit('join:company', { companyId })
+      socket.emit('join:company', { companyId, token: loadSession()?.token?.token })
     })
 
     function handleEvent(payload: {

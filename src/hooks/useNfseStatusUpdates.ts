@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { io, type Socket } from 'socket.io-client'
 import { API_BASE_URL } from '../lib/api'
+import { loadSession } from '../lib/auth'
 
 // Mesma ideia de useNfeStatusUpdates.ts: o backend processa envio/consulta
 // de NFS-e em segundo plano (fila + cron, ou callback do servidor Delphi) e
@@ -15,7 +16,7 @@ export function useNfseStatusUpdates(companyId: string, onUpdate: (nfse: Record<
     const socket: Socket = io(API_BASE_URL, { transports: ['websocket', 'polling'] })
 
     socket.on('connect', () => {
-      socket.emit('join:company', { companyId })
+      socket.emit('join:company', { companyId, token: loadSession()?.token?.token })
     })
 
     function handleMessage(payload: { type?: string; data?: Record<string, unknown> }) {

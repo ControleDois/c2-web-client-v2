@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { io, type Socket } from 'socket.io-client'
 import { API_BASE_URL } from '../lib/api'
 import type { NfeManifestSyncJob } from '../lib/nfeManifests'
+import { loadSession } from '../lib/auth'
 
 // A consulta de novas notas ("Consultar notas") roda em segundo plano
 // (fila + callback assíncrono do provedor) — sem isso, a tela só saberia
@@ -16,7 +17,7 @@ export function useNfeManifestSyncUpdates(companyId: string, onUpdate: (job: Nfe
     const socket: Socket = io(API_BASE_URL, { transports: ['websocket', 'polling'] })
 
     socket.on('connect', () => {
-      socket.emit('join:company', { companyId })
+      socket.emit('join:company', { companyId, token: loadSession()?.token?.token })
     })
 
     function handleMessage(payload: { type?: string; data?: NfeManifestSyncJob }) {
