@@ -10,10 +10,14 @@ export interface SupportContractPerson {
 
 export interface SupportContractBill {
   id: string
+  name?: string
   installment_number?: number
+  installments?: number
   date_due: string
   amount: number
   status: number
+  bill_value?: number | null
+  date_received?: string | null
 }
 
 export interface SupportContractRecord {
@@ -37,7 +41,44 @@ export interface SupportContractRecord {
   autentique_id?: string | null
   autentique_public_id?: string | null
   autentique_short_link?: string | null
-  meta?: { signed?: boolean; sent?: boolean }
+  meta?: {
+    signed?: boolean
+    sent?: boolean
+    bills_count?: number
+    paid_count?: number
+    received_total?: number
+    open_total?: number
+    overdue_total?: number
+    overdue_count?: number
+    next_due?: string | null
+  }
+}
+
+// Etapas da listagem (filtro do topo).
+export type SupportContractStage = 'all' | 'not_sent' | 'pending_signature' | 'signed' | 'canceled'
+
+export const SUPPORT_CONTRACT_STAGES: { key: SupportContractStage; label: string; hint: string }[] = [
+  { key: 'all', label: 'Todos', hint: 'Todos os contratos' },
+  { key: 'not_sent', label: 'A enviar', hint: 'Contrato ainda não enviado ao cliente' },
+  { key: 'pending_signature', label: 'Aguardando assinatura', hint: 'Enviado, falta o cliente assinar' },
+  { key: 'signed', label: 'Assinados', hint: 'Fechados: cliente já assinou' },
+  { key: 'canceled', label: 'Cancelados', hint: 'Contrato encerrado' },
+]
+
+export interface SupportContractsSummary {
+  stages: Record<SupportContractStage, { count: number; monthly: number }>
+  finance: { received_total: number; open_total: number; overdue_total: number; overdue_count: number }
+}
+
+export function fetchSupportContractsSummary(token: string, companyId: string, search?: string) {
+  return apiGet<SupportContractsSummary>('/support-contract/summary', { companyId, search }, token)
+}
+
+export function contractStage(contract: SupportContractRecord): SupportContractStage {
+  if (contract.status === 1) return 'canceled'
+  if (contract.meta?.signed) return 'signed'
+  if (contract.meta?.sent) return 'pending_signature'
+  return 'not_sent'
 }
 
 interface Paginated<T> {
@@ -53,7 +94,7 @@ export const SUPPORT_CONTRACT_STATUS_LABELS: Record<number, string> = {
 export function fetchSupportContracts(
   token: string,
   companyId: string,
-  options: { search?: string; status?: number; peopleId?: string; page?: number; limit?: number } = {}
+  options: { search?: string; status?: number; peopleId?: string; page?: number; limit?: number; stage?: SupportContractStage } = {}
 ) {
   return apiGet<Paginated<SupportContractRecord>>(
     '/support-contract',
@@ -62,6 +103,7 @@ export function fetchSupportContracts(
       search: options.search,
       status: options.status !== undefined ? String(options.status) : undefined,
       peopleId: options.peopleId,
+      stage: options.stage && options.stage !== 'all' ? options.stage : undefined,
       page: options.page ? String(options.page) : '1',
       limit: options.limit ? String(options.limit) : '20',
     },
