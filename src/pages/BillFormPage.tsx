@@ -165,6 +165,15 @@ export function BillFormPage({ session, company, role, billId, onBack, onSaved }
   }, [settled, billValueTouched, settledTotal])
 
   const groupItems = installmentPreview?.items ?? []
+  const groupTotals = groupItems.reduce(
+    (acc, item) => {
+      acc.total += Number(item.amount || 0)
+      if (item.status === 1) acc.settled += Number(item.bill_value ?? item.amount ?? 0)
+      else if (item.status === 0) acc.open += Number(item.amount || 0)
+      return acc
+    },
+    { total: 0, settled: 0, open: 0 }
+  )
   const currentTotal = Math.max(1, ...groupItems.map((item) => item.installment_number || 1))
   const newTotalEarly = Math.floor(Number(totalParcels) || 0)
   const laterOpen = groupItems.filter(
@@ -516,6 +525,24 @@ export function BillFormPage({ session, company, role, billId, onBack, onSaved }
                         )
                       })}
                     </tbody>
+                    <tfoot className="border-t-2 border-[var(--border)] bg-[var(--page)] text-[13px]">
+                      <tr>
+                        <td colSpan={2} className="px-3 py-2.5 font-bold text-[var(--ink)]">
+                          Total ({groupItems.length} parcelas)
+                        </td>
+                        <td className="px-3 py-2.5 text-right font-bold text-[var(--ink)]">{formatCurrency(groupTotals.total)}</td>
+                        <td className="px-3 py-2.5">
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-[12.5px]">
+                            <span className="font-semibold text-[var(--green-600)]">
+                              {role === 1 ? 'Recebido' : 'Pago'} {formatCurrency(groupTotals.settled)}
+                            </span>
+                            <span className="font-semibold text-[var(--amber-500)]">
+                              {role === 1 ? 'A receber' : 'A pagar'} {formatCurrency(groupTotals.open)}
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    </tfoot>
                   </table>
                 </div>
               )}
