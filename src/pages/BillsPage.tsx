@@ -866,7 +866,7 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
   }))
 
   return (
-    <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8">
+    <div className={`flex flex-col gap-6 p-4 sm:p-6 lg:p-8 ${selected.size > 0 ? 'pb-40 sm:pb-32' : ''}`}>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="text-[12px] font-semibold tracking-wide text-[var(--blue-700)] uppercase">Financeiro</p>
@@ -1057,78 +1057,6 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
         <BillsMoreFiltersPanel session={session} company={company} role={role} filters={moreFilters} onChange={setMoreFilters} />
       )}
 
-      {selected.size > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-[var(--blue-100)] px-4 py-3">
-          <span className="text-[13px] font-bold text-[var(--blue-700)]">
-            {selected.size} selecionado{selected.size === 1 ? '' : 's'}
-          </span>
-          <div className="flex items-center gap-2">
-            {role === 1 && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setBatchReceiveOpen(true)}
-                  className="flex items-center gap-1.5 rounded-xl bg-[var(--surface)] px-3.5 py-2 text-[12.5px] font-bold text-[var(--green-600)] hover:bg-white"
-                >
-                  <CheckCircleIcon className="h-3.5 w-3.5" />
-                  Receber selecionados
-                </button>
-                <button
-                  type="button"
-                  disabled={pixLoteBusy}
-                  onClick={handleGeneratePixLote}
-                  className="flex items-center gap-1.5 rounded-xl bg-[var(--surface)] px-3.5 py-2 text-[12.5px] font-bold text-[var(--blue-700)] hover:bg-white disabled:opacity-60"
-                >
-                  <QrCodeIcon className="h-3.5 w-3.5" />
-                  {pixLoteBusy ? 'Gerando…' : 'Gerar PIX em lote'}
-                </button>
-                <button
-                  type="button"
-                  disabled={pixLoteBusy}
-                  onClick={handleCancelPixLote}
-                  className="flex items-center gap-1.5 rounded-xl bg-[var(--surface)] px-3.5 py-2 text-[12.5px] font-bold text-[var(--red-500)] hover:bg-white disabled:opacity-60"
-                >
-                  <XCircleIcon className="h-3.5 w-3.5" />
-                  Cancelar PIX em lote
-                </button>
-              </>
-            )}
-            {selectedBills.length >= 2 && selectedBills.every((bill) => bill.status === 0) && (
-              <button
-                type="button"
-                onClick={() => setGroupModalOpen(true)}
-                className="flex items-center gap-1.5 rounded-xl bg-[var(--surface)] px-3.5 py-2 text-[12.5px] font-bold text-[var(--blue-700)] hover:bg-white"
-              >
-                <LinkIcon className="h-3.5 w-3.5" />
-                Agrupar selecionados
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => setPrintOpen(true)}
-              className="flex items-center gap-1.5 rounded-xl bg-[var(--surface)] px-3.5 py-2 text-[12.5px] font-bold text-[var(--blue-700)] hover:bg-white"
-            >
-              <PrinterIcon className="h-3.5 w-3.5" />
-              Imprimir selecionados
-            </button>
-            <button
-              type="button"
-              onClick={() => setDeletingSelected(true)}
-              className="flex items-center gap-1.5 rounded-xl bg-[var(--surface)] px-3.5 py-2 text-[12.5px] font-bold text-[var(--red-500)] hover:bg-white"
-            >
-              <TrashIcon className="h-3.5 w-3.5" />
-              Excluir selecionados
-            </button>
-            <button
-              type="button"
-              onClick={clear}
-              className="rounded-xl px-3.5 py-2 text-[12.5px] font-semibold text-[var(--blue-700)] hover:underline"
-            >
-              Cancelar
-            </button>
-          </div>
-        </div>
-      )}
 
       {error && (
         <div className="rounded-2xl bg-[var(--red-100)] p-4 text-[13.5px] font-medium text-[var(--red-500)]">
@@ -1383,6 +1311,21 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
         }}
       />
 
+      {selected.size > 0 && (
+        <SelectionBar
+          role={role}
+          bills={selectedBills}
+          count={selected.size}
+          pixLoteBusy={pixLoteBusy}
+          onReceive={role === 1 ? () => setBatchReceiveOpen(true) : undefined}
+          onGeneratePix={role === 1 ? handleGeneratePixLote : undefined}
+          onCancelPix={role === 1 ? handleCancelPixLote : undefined}
+          onGroup={selectedBills.length >= 2 && selectedBills.every((bill) => bill.status === 0) ? () => setGroupModalOpen(true) : undefined}
+          onPrint={() => setPrintOpen(true)}
+          onDelete={() => setDeletingSelected(true)}
+          onClear={clear}
+        />
+      )}
       <ConfirmDialog
         open={deletingSelected}
         title="Excluir selecionadas"
@@ -1588,6 +1531,108 @@ export function BillsPage({ session, company, role, onCreate, onEdit }: BillsPag
           {successToast}
         </div>
       )}
+    </div>
+  )
+}
+
+// Barra flutuante da seleção: fica sempre visível no rodapé (mesmo rolando a lista) com a
+// quantidade, os totais e as ações das contas selecionadas.
+function SelectionBar({
+  role,
+  bills,
+  count,
+  pixLoteBusy,
+  onReceive,
+  onGeneratePix,
+  onCancelPix,
+  onGroup,
+  onPrint,
+  onDelete,
+  onClear,
+}: {
+  role: 0 | 1
+  bills: BillRecord[]
+  count: number
+  pixLoteBusy: boolean
+  onReceive?: () => void
+  onGeneratePix?: () => void
+  onCancelPix?: () => void
+  onGroup?: () => void
+  onPrint: () => void
+  onDelete: () => void
+  onClear: () => void
+}) {
+  const total = bills.reduce((sum, bill) => sum + Number(bill.amount || 0), 0)
+  const open = bills
+    .filter((bill) => bill.status === 0)
+    .reduce((sum, bill) => sum + (billDetails(bill).updatedTotal ?? Number(bill.amount || 0)), 0)
+  const settled = bills
+    .filter((bill) => bill.status === 1)
+    .reduce((sum, bill) => sum + Number(bill.bill_value ?? bill.amount ?? 0), 0)
+  const action =
+    'flex items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-2 text-[12.5px] font-bold transition hover:bg-[var(--page)] disabled:opacity-50'
+  return (
+    <div className="pointer-events-none fixed inset-x-0 bottom-4 z-40 flex justify-center px-3 lg:pl-[248px]">
+      <div className="pointer-events-auto flex w-full max-w-[1040px] flex-col gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface)]/95 p-2.5 shadow-[0_12px_40px_-12px_rgba(15,23,42,0.35)] backdrop-blur sm:flex-row sm:items-center sm:gap-3 sm:pl-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex h-8 min-w-8 items-center justify-center rounded-full bg-[var(--blue-500)] px-2 text-[13px] font-bold text-white">{count}</span>
+          <div className="min-w-0 leading-tight">
+            <p className="text-[12px] font-semibold text-[var(--ink-soft)]">
+              {count === 1 ? 'conta selecionada' : 'contas selecionadas'}
+              {bills.length < count ? ` (${bills.length} nesta página)` : ''}
+            </p>
+            <p className="truncate text-[14px] font-bold text-[var(--ink)]">
+              {formatCurrency(total)}
+              {open > 0 && settled > 0 && (
+                <span className="ml-2 text-[12px] font-semibold text-[var(--muted)]">
+                  em aberto {formatCurrency(open)} · {role === 1 ? 'recebido' : 'pago'} {formatCurrency(settled)}
+                </span>
+              )}
+              {open > 0 && settled === 0 && open !== total && (
+                <span className="ml-2 text-[12px] font-semibold text-[var(--red-500)]">atualizado {formatCurrency(open)}</span>
+              )}
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-1 flex-wrap items-center gap-0.5 sm:justify-end">
+          {onReceive && (
+            <button type="button" onClick={onReceive} className={`${action} text-[var(--green-600)]`}>
+              <CheckCircleIcon className="h-4 w-4" />
+              Receber
+            </button>
+          )}
+          {onGeneratePix && (
+            <button type="button" disabled={pixLoteBusy} onClick={onGeneratePix} className={`${action} text-[var(--blue-700)]`}>
+              <QrCodeIcon className="h-4 w-4" />
+              {pixLoteBusy ? 'Gerando…' : 'Gerar PIX'}
+            </button>
+          )}
+          {onCancelPix && (
+            <button type="button" disabled={pixLoteBusy} onClick={onCancelPix} className={`${action} text-[var(--ink-soft)]`}>
+              <XCircleIcon className="h-4 w-4" />
+              Cancelar PIX
+            </button>
+          )}
+          {onGroup && (
+            <button type="button" onClick={onGroup} className={`${action} text-[var(--blue-700)]`}>
+              <LinkIcon className="h-4 w-4" />
+              Agrupar
+            </button>
+          )}
+          <button type="button" onClick={onPrint} className={`${action} text-[var(--blue-700)]`}>
+            <PrinterIcon className="h-4 w-4" />
+            Imprimir
+          </button>
+          <button type="button" onClick={onDelete} className={`${action} text-[var(--red-500)] hover:bg-[var(--red-100)]`}>
+            <TrashIcon className="h-4 w-4" />
+            Excluir
+          </button>
+          <span className="mx-1 hidden h-6 w-px bg-[var(--border)] sm:block" />
+          <button type="button" onClick={onClear} aria-label="Limpar seleção" className="rounded-lg p-2 text-[var(--muted)] transition hover:bg-[var(--page)] hover:text-[var(--ink)]">
+            <CloseIcon className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

@@ -229,7 +229,7 @@ function buildNavGroups(
               ...(isSoftwareHouse(systemType)
                 ? [
                     { page: 'order-services' as const, label: 'Ordens de Serviço', icon: WrenchIcon },
-                    { page: 'tasks' as const, label: 'Tarefas', icon: ClipboardCheckIcon },
+                    // Tarefas e rotinas ficam no task.controledois.com.br
                   ]
                 : []),
             ]

@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { MoneyField } from '../components/form/MoneyField'
 import {
+  billStatusLabel,
   createBill,
   fetchBill,
+  fetchBillInstallments,
   updateBill,
   FORM_PAYMENT_LABELS,
   REPEAT_PERIOD_LABELS,
+  type BillInstallmentsPreview,
+  type BillPayload,
   type BillRecord,
 } from '../lib/bills'
 import { fetchCategories, type CategoryRecord } from '../lib/categories'
@@ -13,7 +17,7 @@ import { fetchBankAccounts, type BankAccountRecord } from '../lib/bankAccounts'
 import { fetchCostCenters, type CostCenterRecord } from '../lib/costCenters'
 import { fetchPeople, type PersonRecord } from '../lib/people'
 import { formatDocument } from '../lib/formatDocument'
-import { formatCurrency } from '../lib/format'
+import { formatCurrency, formatDate } from '../lib/format'
 import { ApiError } from '../lib/api'
 import { TextField } from '../components/form/TextField'
 import { SelectField } from '../components/form/SelectField'
@@ -69,6 +73,14 @@ export function BillFormPage({ session, company, role, billId, onBack, onSaved }
   const [discount, setDiscount] = useState('')
   const [fees, setFees] = useState('')
   const [billValue, setBillValue] = useState('')
+  // Valor pago acompanha o total (valor - desconto + juros) até a pessoa digitar outro.
+  const [billValueTouched, setBillValueTouched] = useState(false)
+
+  // Parcelamento (só na edição)
+  const [installmentNumber, setInstallmentNumber] = useState(1)
+  const [installmentPreview, setInstallmentPreview] = useState<BillInstallmentsPreview | null>(null)
+  const [totalParcels, setTotalParcels] = useState('')
+  const [askScope, setAskScope] = useState<BillPayload | null>(null)
 
   const isCreditCardPayment = formPayment === 1
   const selectedBankAccount = bankAccounts.find((account) => account.id === bankAccountId)
@@ -120,6 +132,8 @@ export function BillFormPage({ session, company, role, billId, onBack, onSaved }
         setDiscount(bill.discount ? String(bill.discount) : '')
         setFees(bill.fees ? String(bill.fees) : '')
         setBillValue(bill.bill_value ? String(bill.bill_value) : '')
+        setBillValueTouched(Boolean(bill.bill_value))
+        setInstallmentNumber(bill.installment_number || 1)
       })
       .catch((err) => {
         if (cancelled) return
@@ -129,10 +143,35 @@ export function BillFormPage({ session, company, role, billId, onBack, onSaved }
         if (!cancelled) setLoading(false)
       })
 
+    fetchBillInstallments(session.token.token, billId)
+      .then((preview) => {
+        if (cancelled) return
+        setInstallmentPreview(preview)
+        const last = Math.max(1, ...preview.items.map((item) => item.installment_number || 1))
+        setTotalParcels(String(last))
+      })
+      .catch(() => !cancelled && setInstallmentPreview(null))
+
     return () => {
       cancelled = true
     }
   }, [billId, session.token.token, reloadKey])
+
+  const parse = (value: string) => Number(String(value || '').replace(',', '.')) || 0
+  const settledTotal = Math.max(0, parse(amount) - parse(discount) + parse(fees))
+
+  useEffect(() => {
+    if (settled && !billValueTouched) setBillValue(settledTotal ? settledTotal.toFixed(2) : '')
+  }, [settled, billValueTouched, settledTotal])
+
+  const groupItems = installmentPreview?.items ?? []
+  const currentTotal = Math.max(1, ...groupItems.map((item) => item.installment_number || 1))
+  const newTotalEarly = Math.floor(Number(totalParcels) || 0)
+  const laterOpen = groupItems.filter(
+    (item) => item.installment_number > installmentNumber && item.status === 0 && (!newTotalEarly || item.installment_number <= newTotalEarly)
+  )
+  const newTotal = Math.floor(Number(totalParcels) || currentTotal)
+  const totalChanged = Boolean(billId) && newTotal !== currentTotal
 
   function handleFormPaymentChange(value: number) {
     setFormPayment(value)
@@ -176,11 +215,11 @@ export function BillFormPage({ session, company, role, billId, onBack, onSaved }
       date_competence: dateCompetence,
       date_due: dateDue,
       amount: Number(amount),
-      repeat,
-      repeat_period: repeat ? repeatPeriod : undefined,
-      repeat_occurrences: repeat ? Number(repeatOccurrences || 1) : undefined,
-      installments: repeat ? Number(repeatOccurrences || 1) : 1,
-      installment_number: 1,
+      repeat: billId ? false : repeat,
+      repeat_period: !billId && repeat ? repeatPeriod : undefined,
+      repeat_occurrences: !billId && repeat ? Number(repeatOccurrences || 1) : undefined,
+      installments: billId ? undefined : repeat ? Number(repeatOccurrences || 1) : 1,
+      installment_number: billId ? undefined : 1,
       form_payment: formPayment,
       status: isSettled ? 1 : 0,
       bank_account_id: bankAccountId || undefined,
@@ -194,7 +233,21 @@ export function BillFormPage({ session, company, role, billId, onBack, onSaved }
       bill_value: isCreditCardPayment ? Number(amount) : isSettled && billValue ? Number(billValue) : undefined,
     }
 
+    if (billId && newTotal < installmentNumber) {
+      setError(`A quantidade de parcelas não pode ser menor que ${installmentNumber} (esta é a parcela ${installmentNumber}).`)
+      return
+    }
+    if (billId && (laterOpen.length > 0 || totalChanged)) {
+      setAskScope(payload)
+      return
+    }
+    await save(payload)
+  }
+
+  async function save(payload: BillPayload) {
+    setAskScope(null)
     setSubmitting(true)
+    setError(null)
     try {
       if (billId) {
         await updateBill(session.token.token, billId, payload)
@@ -392,9 +445,87 @@ export function BillFormPage({ session, company, role, billId, onBack, onSaved }
             </div>
           </div>
 
+          {billId && installmentPreview && (
+            <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6">
+              <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <h2 className="text-[14px] font-bold text-[var(--ink)]">Parcelamento</h2>
+                  <p className="mt-0.5 text-[12.5px] text-[var(--ink-soft)]">
+                    {groupItems.length > 1
+                      ? `Esta é a parcela ${installmentNumber} de ${currentTotal}. As parcelas anteriores e as já pagas não são alteradas.`
+                      : 'Conta sem parcelas. Para parcelar, informe a quantidade: as próximas são criadas a partir desta.'}
+                  </p>
+                </div>
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-[12px] font-semibold text-[var(--ink-soft)]">Quantidade de parcelas</span>
+                  <input
+                    inputMode="numeric"
+                    value={totalParcels}
+                    onChange={(event) => setTotalParcels(event.target.value.replace(/\D/g, '').slice(0, 3))}
+                    className="w-32 rounded-xl bg-[var(--page)] px-3.5 py-2.5 text-[14px] text-[var(--ink)] ring-1 ring-transparent transition focus:outline-none focus:ring-[var(--blue-300)]"
+                  />
+                </label>
+              </div>
+              {totalChanged && (
+                <p className="mb-3 rounded-lg bg-[var(--amber-100)] px-3 py-2 text-[12.5px] font-semibold text-[var(--amber-500)]">
+                  {newTotal > currentTotal
+                    ? `Ao salvar, serão criadas as parcelas ${currentTotal + 1} a ${newTotal}.`
+                    : `Ao salvar, as parcelas ${newTotal + 1} a ${currentTotal} (em aberto) serão excluídas.`}
+                </p>
+              )}
+              {groupItems.length > 1 && (
+                <div className="overflow-x-auto rounded-xl border border-[var(--border)]">
+                  <table className="w-full text-[13px]">
+                    <thead className="bg-[var(--page)] text-left text-[11.5px] font-semibold tracking-wide text-[var(--muted)] uppercase">
+                      <tr>
+                        <th className="px-3 py-2">Parcela</th>
+                        <th className="px-3 py-2">Vencimento</th>
+                        <th className="px-3 py-2 text-right">Valor</th>
+                        <th className="px-3 py-2">Situação</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[var(--border)]">
+                      {groupItems.map((item) => {
+                        const current = item.id === billId
+                        const paid = item.status === 1
+                        return (
+                          <tr key={item.id} className={current ? 'bg-[var(--blue-50)]' : ''}>
+                            <td className="px-3 py-2 font-semibold text-[var(--ink)]">
+                              {item.installment_number}/{currentTotal}
+                              {current && <span className="ml-2 rounded-full bg-[var(--blue-500)] px-2 py-0.5 text-[10.5px] font-bold text-white">editando</span>}
+                            </td>
+                            <td className="px-3 py-2 text-[var(--ink-soft)]">{formatDate(item.date_due)}</td>
+                            <td className="px-3 py-2 text-right font-semibold text-[var(--ink)]">{formatCurrency(item.amount)}</td>
+                            <td className="px-3 py-2">
+                              <span
+                                className={`rounded-full px-2 py-0.5 text-[11.5px] font-bold ${
+                                  paid
+                                    ? 'bg-[var(--green-100)] text-[var(--green-600)]'
+                                    : item.status === 0
+                                      ? 'bg-[var(--amber-100)] text-[var(--amber-500)]'
+                                      : 'bg-[var(--page)] text-[var(--ink-soft)]'
+                                }`}
+                              >
+                                {billStatusLabel(item.status, role)}
+                              </span>
+                              {paid && item.date_received && (
+                                <span className="ml-2 text-[11.5px] text-[var(--muted)]">em {formatDate(item.date_received)}</span>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6">
             <h2 className="mb-4 text-[14px] font-bold text-[var(--ink)]">{role === 1 ? 'Recebimento' : 'Pagamento'}</h2>
 
+            {!billId && (
             <label className="mb-4 flex items-center gap-2.5">
               <input
                 type="checkbox"
@@ -404,8 +535,9 @@ export function BillFormPage({ session, company, role, billId, onBack, onSaved }
               />
               <span className="text-[13.5px] font-semibold text-[var(--ink)]">Repetir?</span>
             </label>
+            )}
 
-            {repeat && (
+            {!billId && repeat && (
               <div className="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <SelectField label="Período" value={repeatPeriod} onChange={(event) => setRepeatPeriod(Number(event.target.value))}>
                   {Object.entries(REPEAT_PERIOD_LABELS).map(([value, label]) => (
@@ -472,7 +604,10 @@ export function BillFormPage({ session, company, role, billId, onBack, onSaved }
                       icon={<WalletIcon className="h-4 w-4" />}
                       placeholder="0,00"
                       value={billValue}
-                      onChange={(event) => setBillValue(event.target.value.replace(/[^\d.,]/g, ''))}
+                      onChange={(event) => {
+                        setBillValueTouched(true)
+                        setBillValue(event.target.value.replace(/[^\d.,]/g, ''))
+                      }}
                     />
                   </div>
                 )}
@@ -503,6 +638,51 @@ export function BillFormPage({ session, company, role, billId, onBack, onSaved }
             </button>
           </div>
         </form>
+      )}
+      {askScope && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setAskScope(null)}>
+          <div className="w-full max-w-[460px] rounded-2xl bg-[var(--surface)] p-6 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+            <h3 className="text-[16px] font-bold text-[var(--ink)]">Alterar as outras parcelas?</h3>
+            <p className="mt-1.5 text-[13.5px] text-[var(--ink-soft)]">
+              Esta é a parcela {installmentNumber} de {currentTotal}. As parcelas anteriores e as já pagas nunca são alteradas.
+            </p>
+            {totalChanged && (
+              <p className="mt-3 rounded-lg bg-[var(--amber-100)] px-3 py-2 text-[12.5px] font-semibold text-[var(--amber-500)]">
+                {newTotal > currentTotal
+                  ? `Serão criadas as parcelas ${currentTotal + 1} a ${newTotal}.`
+                  : `As parcelas ${newTotal + 1} a ${currentTotal} (em aberto) serão excluídas.`}
+              </p>
+            )}
+            <div className="mt-5 flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => void save({ ...askScope, apply_to_next: true, installments_total: totalChanged ? newTotal : undefined })}
+                className="rounded-xl bg-[var(--blue-500)] px-4 py-3 text-left text-[13.5px] font-bold text-white transition hover:bg-[var(--blue-700)]"
+              >
+                Esta e as próximas em aberto
+                <span className="block text-[12px] font-medium text-white/80">
+                  Parcela {installmentNumber}
+                  {laterOpen.length ? ` + ${laterOpen.length} próxima${laterOpen.length === 1 ? '' : 's'}` : ''}
+                  {totalChanged ? ` · total passa a ${newTotal}` : ''}
+                </span>
+              </button>
+              <button
+                type="button"
+                disabled={totalChanged}
+                onClick={() => void save(askScope)}
+                className="rounded-xl bg-[var(--page)] px-4 py-3 text-left text-[13.5px] font-bold text-[var(--ink)] transition hover:bg-[var(--blue-50)] disabled:opacity-50"
+              >
+                Só esta parcela
+                <span className="block text-[12px] font-medium text-[var(--ink-soft)]">
+                  {totalChanged ? 'Para mudar a quantidade, use a opção acima.' : 'As outras parcelas continuam como estão.'}
+                </span>
+              </button>
+              <button type="button" onClick={() => setAskScope(null)} className="mt-1 py-2 text-[13px] font-semibold text-[var(--ink-soft)] hover:text-[var(--ink)]">
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
       {quickPerson.modal}
     </div>

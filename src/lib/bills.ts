@@ -83,6 +83,28 @@ export interface BillPayload {
   discount?: number
   fees?: number
   bill_value?: number
+  // Edição de parcela: leva a alteração para as próximas parcelas em aberto (nunca para as
+  // anteriores nem para as pagas) e, se informado, muda o total de parcelas.
+  apply_to_next?: boolean
+  installments_total?: number
+}
+
+export interface BillInstallmentItem {
+  id: string
+  code?: number
+  installment_number: number
+  installments: number
+  date_due: string
+  amount: number
+  status: number
+  date_received?: string | null
+  bill_value?: number | null
+}
+
+export interface BillInstallmentsPreview {
+  current_id: string
+  group_id: string | null
+  items: BillInstallmentItem[]
 }
 
 interface Paginated<T> {
@@ -226,7 +248,11 @@ export function createBill(token: string, payload: BillPayload) {
 }
 
 export function updateBill(token: string, id: string, payload: BillPayload) {
-  return apiPut<BillRecord>(`/bill/${id}`, payload, token)
+  return apiPut<BillRecord & { installments_summary?: { updated: number; removed: number; created: number } }>(`/bill/${id}`, payload, token)
+}
+
+export function fetchBillInstallments(token: string, id: string) {
+  return apiGet<BillInstallmentsPreview>(`/bill/${id}/installments`, {}, token)
 }
 
 export function deleteBill(token: string, id: string) {
