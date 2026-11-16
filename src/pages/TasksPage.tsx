@@ -14,6 +14,7 @@ import { formatDate } from '../lib/format'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { PlusIcon, SearchIcon, PencilIcon, TrashIcon, ClockIcon, UserIcon } from '../components/icons'
 import { TaskFormPage } from './TaskFormPage'
+import { RoutinesPage } from './RoutinesPage'
 import type { AuthSession, AuthCompany } from '../lib/auth'
 
 interface TasksPageProps {
@@ -46,6 +47,7 @@ export function TasksPage({ session, company }: TasksPageProps) {
   const [actionError, setActionError] = useState<string | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
   const [search, setSearch] = useState('')
+  const [tab, setTab] = useState<'board' | 'routines'>('board')
 
   const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null)
   const [dropBoardId, setDropBoardId] = useState<string | null>(null)
@@ -195,12 +197,46 @@ export function TasksPage({ session, company }: TasksPageProps) {
     )
   }
 
+  const tabSwitch = (
+    <div className="mt-3 inline-flex rounded-xl bg-[var(--surface)] p-1 shadow-sm">
+      {([
+        ['board', 'Quadro'],
+        ['routines', 'Rotinas com assistente'],
+      ] as const).map(([value, label]) => (
+        <button
+          key={value}
+          type="button"
+          onClick={() => setTab(value)}
+          className={`rounded-lg px-3.5 py-1.5 text-[13px] font-semibold transition ${
+            tab === value ? 'bg-[var(--blue-500)] text-white' : 'text-[var(--ink-soft)] hover:text-[var(--ink)]'
+          }`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  )
+
+  if (tab === 'routines') {
+    return (
+      <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8">
+        <div>
+          <p className="text-[12px] font-semibold tracking-wide text-[var(--blue-700)] uppercase">Operação</p>
+          <h1 className="mt-0.5 text-[22px] font-bold tracking-tight text-[var(--ink)]">Tarefas</h1>
+          {tabSwitch}
+        </div>
+        <RoutinesPage session={session} company={company} />
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-[12px] font-semibold tracking-wide text-[var(--blue-700)] uppercase">Operação</p>
           <h1 className="mt-0.5 text-[22px] font-bold tracking-tight text-[var(--ink)]">Tarefas</h1>
+          {tabSwitch}
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <span className="relative">
