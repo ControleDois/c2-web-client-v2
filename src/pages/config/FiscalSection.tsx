@@ -3,6 +3,7 @@ import type { ConfigPayload, ConfigRecord } from '../../lib/config'
 import { fetchNfeNatureOperations, type NfeNatureOperationRecord } from '../../lib/nfeNatureOperations'
 import { SectionCard } from '../../components/SectionCard'
 import { TextField } from '../../components/form/TextField'
+import { CopyValueButton } from '../../components/form/CopyValueButton'
 import { SelectField } from '../../components/form/SelectField'
 import { SearchSelectField } from '../../components/form/SearchSelectField'
 import { LinkIcon, KeyIcon, TagIcon } from '../../components/icons'
@@ -228,17 +229,19 @@ export function FiscalSection({ value, onChange, config, session, company }: Fis
               <TextField
                 label="CSC (homologação)"
                 icon={<KeyIcon className="h-4 w-4" />}
-                type="password"
-                autoComplete="new-password"
+                autoComplete="off"
+                spellCheck={false}
                 value={value.nfce_csc_homologacao ?? ''}
+                trailing={<CopyValueButton value={value.nfce_csc_homologacao} />}
                 onChange={(event) => onChange({ nfce_csc_homologacao: event.target.value })}
               />
               <TextField
                 label="CSC (produção)"
                 icon={<KeyIcon className="h-4 w-4" />}
-                type="password"
-                autoComplete="new-password"
+                autoComplete="off"
+                spellCheck={false}
                 value={value.nfce_csc_producao ?? ''}
+                trailing={<CopyValueButton value={value.nfce_csc_producao} />}
                 onChange={(event) => onChange({ nfce_csc_producao: event.target.value })}
               />
             </div>

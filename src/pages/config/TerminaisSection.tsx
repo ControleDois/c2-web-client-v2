@@ -4,6 +4,7 @@ import { fetchPrinters, type PrinterRecord } from '../../lib/printers'
 import { fetchNfeNatureOperations, type NfeNatureOperationRecord } from '../../lib/nfeNatureOperations'
 import { SectionCard } from '../../components/SectionCard'
 import { TextField } from '../../components/form/TextField'
+import { CopyValueButton } from '../../components/form/CopyValueButton'
 import { SelectField } from '../../components/form/SelectField'
 import { SearchSelectField } from '../../components/form/SearchSelectField'
 import {
@@ -336,8 +337,10 @@ export function TerminaisSection({ value, onChange, config, session, company }: 
                         <TextField
                           label="CSC"
                           icon={<KeyIcon className="h-4 w-4" />}
-                          type="password"
+                          autoComplete="off"
+                          spellCheck={false}
                           value={terminal.nfce_csc ?? ''}
+                          trailing={<CopyValueButton value={terminal.nfce_csc} />}
                           onChange={(event) => update(index, { nfce_csc: event.target.value || undefined })}
                         />
                       </div>
