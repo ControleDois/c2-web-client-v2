@@ -143,3 +143,50 @@ export const fetchPrintAgentPackage = (token: string, companyId: string) =>
 
 export const regeneratePrintAgentToken = (token: string, companyId: string) =>
   apiPost<{ ok: boolean }>('/print-agent/token', { company_id: companyId }, token)
+
+// ---- Impressão de produção (pedidos de mesa/delivery separados por setor)
+
+export const NO_PRINT = 'none'
+
+export interface ProductionPrintingCategory {
+  id: string
+  name: string
+  production_printer_id: string | null
+  products_count: number
+}
+
+export interface ProductionPrintingProduct {
+  id: string
+  code?: number | null
+  name: string
+  production_printer_id: string | null
+}
+
+export interface ProductionPrintingSettings {
+  enabled: boolean
+  default_printer_id: string | null
+  printers: { id: string; name: string; active: boolean }[]
+  categories: ProductionPrintingCategory[]
+  products: ProductionPrintingProduct[]
+}
+
+export function fetchProductionPrinting(token: string, companyId: string) {
+  return apiGet<ProductionPrintingSettings>('/production-printing', { companyId }, token)
+}
+
+export function saveProductionPrinting(
+  token: string,
+  companyId: string,
+  payload: {
+    enabled?: boolean
+    default_printer_id?: string | null
+    categories?: { id: string; printer_id: string | null }[]
+    products?: { id: string; printer_id: string | null }[]
+  }
+) {
+  return apiPut<ProductionPrintingSettings>('/production-printing', { companyId, ...payload }, token)
+}
+
+export function searchProductionProducts(token: string, companyId: string, search: string) {
+  return apiGet<ProductionPrintingProduct[]>('/production-printing/products', { companyId, search }, token)
+}

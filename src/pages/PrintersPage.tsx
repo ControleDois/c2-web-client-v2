@@ -20,6 +20,7 @@ import { formatDate, formatDateTime } from '../lib/format'
 import { GlassList } from './glass/GlassList'
 import { GuideSteps, type GuideStep } from '../components/GuideSteps'
 import { ConfirmDialog } from '../components/ConfirmDialog'
+import { ProductionPrintingSection } from './ProductionPrintingSection'
 import { SelectField } from '../components/form/SelectField'
 import { PencilIcon, PlusIcon, PrinterIcon, TrashIcon } from '../components/icons'
 import type { AuthCompany, AuthSession } from '../lib/auth'
@@ -109,7 +110,7 @@ export function PrintersPage({ session, company, onCreate, onEdit }: PrintersPag
   const [downloadError, setDownloadError] = useState<string | null>(null)
   const [tokenDialog, setTokenDialog] = useState(false)
   const [tokenBusy, setTokenBusy] = useState(false)
-  const [tab, setTab] = useState<'list' | 'queue' | 'install'>('list')
+  const [tab, setTab] = useState<'list' | 'production' | 'queue' | 'install'>('list')
   const [reprintTarget, setReprintTarget] = useState<PrintJobRecord | null>(null)
   const [reprintPrinterId, setReprintPrinterId] = useState('')
   const [activePrinters, setActivePrinters] = useState<PrinterRecord[]>([])
@@ -372,8 +373,9 @@ export function PrintersPage({ session, company, onCreate, onEdit }: PrintersPag
     },
   ]
 
-  const tabs: { key: 'list' | 'queue' | 'install'; label: string; badge?: number }[] = [
+  const tabs: { key: 'list' | 'production' | 'queue' | 'install'; label: string; badge?: number }[] = [
     { key: 'list', label: 'Impressoras' },
+    { key: 'production', label: 'Pedidos (cozinha / bar)' },
     { key: 'queue', label: 'Fila de impressão', badge: failedJobs },
     { key: 'install', label: 'Como instalar' },
   ]
@@ -548,6 +550,8 @@ export function PrintersPage({ session, company, onCreate, onEdit }: PrintersPag
           />
         </>
       )}
+
+      {tab === 'production' && <ProductionPrintingSection session={session} company={company} />}
 
       {tab === 'queue' && (
         <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
