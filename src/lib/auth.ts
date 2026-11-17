@@ -31,6 +31,8 @@ export interface AuthCompany {
   // `isMaster`, que é a role de usuário (ROLE_MASTER_ID) dentro de uma empresa.
   // É essa flag que deve gatear telas restritas à matriz, como Licenças.
   is_master?: boolean
+  // Empresa marcada como favorita por este usuário (barra de favoritas na escolha de empresa)
+  isFavorite?: boolean
   [key: string]: unknown
 }
 
@@ -74,6 +76,10 @@ export async function signin(email: string, password: string) {
 // criadas/removidas/alteradas depois do login original.
 export function fetchMyCompanies(token: string) {
   return apiGet<{ user: AuthUser; companies: AuthCompany[] }>('/auth/me', {}, token)
+}
+
+export function setFavoriteCompany(token: string, companyId: string, favorite: boolean) {
+  return apiPost<{ companyId: string; isFavorite: boolean }>(`/auth/companies/${companyId}/favorite`, { favorite }, token)
 }
 
 export function saveSession(session: AuthSession) {
