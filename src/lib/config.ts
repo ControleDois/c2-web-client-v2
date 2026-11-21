@@ -51,6 +51,8 @@ export interface ShopRecord {
 export interface ConfigRecord {
   id: string
   companyId: string
+  // Crediário do PDV ativo: mostra o limite de crédito no cadastro de pessoas
+  credit_sale_enabled?: boolean
 
   // Token de acesso à API por empresa (gerado automaticamente, somente
   // leitura) - usado por integrações externas (ex: siace-erp) pra

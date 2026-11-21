@@ -1,3 +1,4 @@
+import { fetchConfig } from '../lib/config'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { MoneyInput } from '../components/form/MoneyInput'
 import {
@@ -98,7 +99,14 @@ export function PeopleFormPage({
   const [birth, setBirth] = useState('')
   const [limitCredit, setLimitCredit] = useState('')
   const [availableLimit, setAvailableLimit] = useState<number | null>(null)
-  const showCreditLimit = isEmprestimo(company.system_type)
+  // Limite de crédito: nicho Empréstimo ou crediário do PDV ativado nos Ajustes do PDV.
+  const [creditSaleEnabled, setCreditSaleEnabled] = useState(false)
+  useEffect(() => {
+    fetchConfig(session.token.token, company.id)
+      .then((config) => setCreditSaleEnabled(Boolean(config?.credit_sale_enabled)))
+      .catch(() => setCreditSaleEnabled(false))
+  }, [session.token.token, company.id])
+  const showCreditLimit = isEmprestimo(company.system_type) || creditSaleEnabled
   const showRemoteAccess = isSoftwareHouse(company.system_type)
   const [remotes, setRemotes] = useState<RemoteAccessEntry[]>([])
   const [visiblePasswords, setVisiblePasswords] = useState<number[]>([])
