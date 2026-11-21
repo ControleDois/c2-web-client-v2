@@ -27,7 +27,9 @@ import {
   PrinterIcon,
   CoinIcon,
   TrendUpIcon,
+  DownloadIcon,
 } from '../icons'
+import { REMOTE_HELPER_DOWNLOAD_URL } from '../../lib/remoteHelper'
 
 interface HeaderProps {
   session: AuthSession
@@ -144,6 +146,14 @@ export function Header({
       </button>
 
       <div className="flex flex-1 items-center justify-end gap-1.5">
+      <a
+        href={REMOTE_HELPER_DOWNLOAD_URL}
+        title="Baixar o programa de suporte remoto (C2 Remote Helper) para o nosso suporte acessar este computador"
+        className="flex h-9 items-center gap-1.5 rounded-full px-2.5 text-[12.5px] font-semibold text-[var(--ink-soft)] transition hover:bg-[var(--page)] hover:text-[var(--ink)]"
+      >
+        <DownloadIcon className="h-[18px] w-[18px] flex-none" />
+        <span className="hidden md:inline">Suporte remoto</span>
+      </a>
       <ThemeToggle variant="inline" />
 
       <div ref={notifRef} className="relative">
@@ -316,6 +326,14 @@ export function Header({
               <PrinterIcon className="h-4 w-4 flex-none text-[var(--muted)]" />
               Impressoras
             </button>
+            <a
+              href={REMOTE_HELPER_DOWNLOAD_URL}
+              onClick={() => setUserMenuOpen(false)}
+              className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-[13px] font-semibold text-[var(--ink)] hover:bg-[var(--page)]"
+            >
+              <DownloadIcon className="h-4 w-4 flex-none text-[var(--muted)]" />
+              Baixar suporte remoto
+            </a>
             <div className="my-1.5 border-t border-[var(--border)]" />
             <p className="px-4 pb-1.5 text-[10.5px] font-bold tracking-[0.09em] text-[var(--muted)] uppercase">
               Acessos

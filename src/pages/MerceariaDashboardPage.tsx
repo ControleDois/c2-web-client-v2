@@ -1,5 +1,10 @@
 import { useEffect, useState } from 'react'
-import { fetchMerceariaDashboard, type MerceariaDashboard, type MerceariaPeriod } from '../lib/merceariaDashboard'
+import {
+  fetchMerceariaDashboard,
+  type MerceariaDashboard,
+  type MerceariaPeriod,
+  type SaleChannel,
+} from '../lib/merceariaDashboard'
 import { ApiError } from '../lib/api'
 import { formatCurrency, formatPercent } from '../lib/format'
 import { BarChart } from '../components/charts/BarChart'
@@ -19,7 +24,24 @@ const PERIOD_OPTIONS: { key: MerceariaPeriod; label: string; compare: string }[]
   { key: 'today', label: 'Hoje', compare: 'vs. ontem' },
   { key: '7d', label: '7 dias', compare: 'vs. 7 dias anteriores' },
   { key: 'month', label: 'Este mês', compare: 'vs. mês passado' },
+  { key: 'custom', label: 'Período', compare: 'vs. período anterior' },
 ]
+
+const CHANNEL_COLORS: Record<SaleChannel, string> = {
+  table: 'var(--blue-500)',
+  delivery: 'var(--green-600)',
+  ifood: 'var(--red-500)',
+  counter: 'var(--amber-500)',
+}
+
+function todayIso() {
+  const now = new Date()
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
+}
+
+const dateInputClass =
+  'rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2.5 py-1.5 text-[12.5px] font-semibold text-[var(--ink)] outline-none focus:border-[var(--blue-500)]'
 
 function Variation({ value, label }: { value: number; label: string }) {
   if (!Number.isFinite(value) || value === 0) {
@@ -50,15 +72,20 @@ export function MerceariaDashboardPage({
   onOpenStock,
 }: MerceariaDashboardPageProps) {
   const [period, setPeriod] = useState<MerceariaPeriod>('today')
+  const [dateStart, setDateStart] = useState(todayIso)
+  const [dateEnd, setDateEnd] = useState(todayIso)
   const [data, setData] = useState<MerceariaDashboard | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const customReady = Boolean(dateStart && dateEnd)
+
   useEffect(() => {
+    if (period === 'custom' && !customReady) return
     let cancelled = false
     setLoading(true)
     setError(null)
-    fetchMerceariaDashboard(session.token.token, company.id, period)
+    fetchMerceariaDashboard(session.token.token, company.id, period, { dateStart, dateEnd })
       .then((res) => {
         if (!cancelled) setData(res)
       })
@@ -71,7 +98,7 @@ export function MerceariaDashboardPage({
     return () => {
       cancelled = true
     }
-  }, [session.token.token, company.id, period])
+  }, [session.token.token, company.id, period, dateStart, dateEnd, customReady])
 
   const compare = PERIOD_OPTIONS.find((option) => option.key === period)?.compare ?? ''
   const summary = data?.summary
@@ -146,6 +173,11 @@ export function MerceariaDashboardPage({
     }
   }
 
+  // Canais só fazem sentido quando há mesa/delivery (mercearia vende só no balcão).
+  const channels = data?.channels ?? []
+  const showChannels = channels.some((channel) => channel.key !== 'counter')
+  const hourly = data?.chartGranularity ? data.chartGranularity === 'hour' : period === 'today'
+
   const maxProduct = Math.max(1, ...(data?.topProducts ?? []).map((item) => item.quantity))
   const maxCategory = Math.max(1, ...(data?.categories ?? []).map((item) => item.total))
 
@@ -156,19 +188,45 @@ export function MerceariaDashboardPage({
           <p className="text-[12px] font-semibold tracking-wide text-[var(--blue-700)] uppercase">Dashboard · {niche}</p>
           <h1 className="mt-0.5 text-[22px] font-bold tracking-tight text-[var(--ink)]">Olá, {getPersonName(session.user)}</h1>
         </div>
-        <div className="flex gap-1 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1">
-          {PERIOD_OPTIONS.map((option) => (
-            <button
-              key={option.key}
-              type="button"
-              onClick={() => setPeriod(option.key)}
-              className={`rounded-lg px-3 py-1.5 text-[12.5px] font-semibold transition ${
-                period === option.key ? 'bg-[var(--blue-500)] text-white' : 'text-[var(--ink-soft)] hover:text-[var(--ink)]'
-              }`}
-            >
-              {option.label}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <div className="flex gap-1 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1">
+            {PERIOD_OPTIONS.map((option) => (
+              <button
+                key={option.key}
+                type="button"
+                onClick={() => setPeriod(option.key)}
+                className={`rounded-lg px-3 py-1.5 text-[12.5px] font-semibold transition ${
+                  period === option.key ? 'bg-[var(--blue-500)] text-white' : 'text-[var(--ink-soft)] hover:text-[var(--ink)]'
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          {period === 'custom' && (
+            <div className="flex items-center gap-2">
+              <label className="flex items-center gap-1.5 text-[12px] font-semibold text-[var(--ink-soft)]">
+                Início
+                <input
+                  type="date"
+                  value={dateStart}
+                  max={dateEnd || undefined}
+                  onChange={(event) => setDateStart(event.target.value)}
+                  className={dateInputClass}
+                />
+              </label>
+              <label className="flex items-center gap-1.5 text-[12px] font-semibold text-[var(--ink-soft)]">
+                Fim
+                <input
+                  type="date"
+                  value={dateEnd}
+                  min={dateStart || undefined}
+                  onChange={(event) => setDateEnd(event.target.value)}
+                  className={dateInputClass}
+                />
+              </label>
+            </div>
+          )}
         </div>
       </div>
 
@@ -215,10 +273,43 @@ export function MerceariaDashboardPage({
         ))}
       </div>
 
+      {showChannels && (
+        <div className={`rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 ${loading ? 'opacity-60' : ''}`}>
+          <h2 className="text-[14px] font-bold text-[var(--ink)]">Mesa x Delivery</h2>
+          <p className="mb-3 text-[12px] text-[var(--muted)]">Quanto o período faturou em cada canal</p>
+          <div className="mb-4 flex h-3 overflow-hidden rounded-full bg-[var(--page)]">
+            {channels.map((channel) => (
+              <div
+                key={channel.key}
+                title={`${channel.label}: ${formatPercent(channel.percent)}`}
+                style={{ width: `${channel.percent}%`, background: CHANNEL_COLORS[channel.key] }}
+              />
+            ))}
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {channels.map((channel) => (
+              <div key={channel.key} className="rounded-xl bg-[var(--page)] p-4">
+                <p className="flex items-center gap-2 text-[12px] font-semibold text-[var(--ink-soft)]">
+                  <span className="h-2.5 w-2.5 flex-none rounded-full" style={{ background: CHANNEL_COLORS[channel.key] }} />
+                  {channel.label}
+                </p>
+                <p className="mt-1 text-[22px] font-bold tracking-tight text-[var(--ink)]">{formatCurrency(channel.total)}</p>
+                <p className="text-[12px] text-[var(--muted)]">
+                  {formatPercent(channel.percent)} · {channel.count} venda{channel.count === 1 ? '' : 's'} · ticket{' '}
+                  {formatCurrency(channel.averageTicket)}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className={`grid gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] ${loading ? 'opacity-60' : ''}`}>
         <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
-          <h2 className="text-[14px] font-bold text-[var(--ink)]">{period === 'today' ? 'Vendas por hora' : 'Vendas por dia'}</h2>
-          <p className="mb-2 text-[12px] text-[var(--muted)]">Faturamento {period === 'today' ? 'hoje, hora a hora' : 'em cada dia do período'}</p>
+          <h2 className="text-[14px] font-bold text-[var(--ink)]">{hourly ? 'Vendas por hora' : 'Vendas por dia'}</h2>
+          <p className="mb-2 text-[12px] text-[var(--muted)]">
+            Faturamento {hourly ? (period === 'today' ? 'hoje, hora a hora' : 'no dia, hora a hora') : 'em cada dia do período'}
+          </p>
           <BarChart data={(data?.chart ?? []).map((point) => ({ label: point.label, value: point.total }))} formatValue={formatCurrency} />
         </div>
 
