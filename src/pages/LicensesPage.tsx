@@ -270,7 +270,7 @@ export function LicensesPage({ session, company, onEdit }: LicensesPageProps) {
           <SearchIcon className="h-4 w-4 flex-none text-[var(--muted)]" />
           <input
             type="text"
-            placeholder="Buscar por nome ou CNPJ"
+            placeholder="Nome, razão social, CNPJ, e-mail, telefone ou código"
             value={search}
             onChange={(event) => {
               setPage(1)
